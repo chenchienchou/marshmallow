@@ -103,25 +103,15 @@ filter:blur(80px); pointer-events:none;
 
 /* ══════════ CARDS ══════════ */
 .card {
-background: var(–surface);
-backdrop-filter: blur(24px) saturate(1.6);
--webkit-backdrop-filter: blur(24px) saturate(1.6);
-border: 1px solid var(–edge);
+background: rgba(255,255,255,0.96);
+border: 1px solid rgba(255,255,255,0.85);
 box-shadow: var(–sh-md);
 border-radius: 22px;
-overflow: hidden;
--webkit-transform: translateZ(0);
-transform: translateZ(0);
 }
 .card-hi {
-background: var(–surface-hi);
-backdrop-filter: blur(32px) saturate(1.8);
--webkit-backdrop-filter: blur(32px) saturate(1.8);
-border: 1px solid rgba(255,255,255,.80);
+background: rgba(255,255,255,0.98);
+border: 1px solid rgba(255,255,255,0.90);
 box-shadow: var(–sh-lg);
-overflow: hidden;
--webkit-transform: translateZ(0);
-transform: translateZ(0);
 }
 
 /* ══════════ TYPOGRAPHY ══════════ */
@@ -195,9 +185,8 @@ letter-spacing:.2px;
 
 /* ══════════ NAV BAR ══════════ */
 .nav-bar {
-background:rgba(255,255,255,.92);
-backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px);
-border:1px solid rgba(255,255,255,.78);
+background:rgba(255,255,255,0.98);
+border:1px solid rgba(255,255,255,0.85);
 box-shadow:0 -1px 0 rgba(0,0,0,.04), 0 -8px 24px rgba(44,44,44,.05);
 padding-bottom:env(safe-area-inset-bottom);
 }
@@ -243,7 +232,7 @@ font-size:.65rem; font-weight:600; padding:3px 8px; border-radius:99px;
 .preview-card {
 background:rgba(232,244,234,.88);
 border:1.5px dashed rgba(90,140,102,.3);
-backdrop-filter:blur(16px);
+
 }
 
 /* ══════════ PAGE SCROLL ══════════ */
@@ -369,7 +358,7 @@ border-radius:24px; padding:24px 16px 20px;
 display:flex;flex-direction:column;align-items:center;gap:10px;
 cursor:pointer; position:relative; overflow:hidden;
 transition:transform .18s cubic-bezier(.34,1.4,.64,1), box-shadow .18s ease;
-backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+
 }
 .ls-card:active { transform:scale(.94); }
 .ls-card::before {
@@ -399,11 +388,12 @@ font-family:‘Inter’,sans-serif; letter-spacing:-.2px;
 /* Selected state */
 .ls-card.selected {
 transform:scale(1.04);
-border-color:transparent;
-box-shadow: 0 12px 36px rgba(44,44,44,.12), 0 4px 12px rgba(44,44,44,.06);
+box-shadow: 0 12px 36px rgba(44,44,44,.18), 0 4px 12px rgba(44,44,44,.10);
 }
-.dad-card.selected { background:linear-gradient(145deg,rgba(143,168,187,.22),rgba(220,233,241,.6)); }
-.mom-card.selected { background:linear-gradient(145deg,rgba(196,168,168,.22),rgba(242,236,236,.6)); }
+.dad-card.selected { border-color:rgba(109,143,163,.6); }
+.mom-card.selected { border-color:rgba(180,140,140,.6); }
+.dad-card.selected { background:linear-gradient(145deg,rgba(143,168,187,.55),rgba(180,210,230,.75)); }
+.mom-card.selected { background:linear-gradient(145deg,rgba(196,168,168,.55),rgba(235,210,210,.75)); }
 .ls-card .ls-check {
 position:absolute;top:10px;right:10px;
 width:20px;height:20px;border-radius:50%;
@@ -417,16 +407,17 @@ transition:all .2s cubic-bezier(.34,1.56,.64,1);
 /* Enter button */
 .ls-enter {
 width:100%;max-width:320px;
-background:var(–ink); color:#fff;
+background:#2C2C2C; color:#ffffff;
 border:none;border-radius:16px;padding:16px;
 font-family:-apple-system,‘Inter’,‘Nunito’,sans-serif;font-size:.95rem;font-weight:700;
 cursor:pointer;margin-top:22px;
-box-shadow:0 8px 24px rgba(44,44,44,.22);
+box-shadow:0 8px 24px rgba(44,44,44,.30);
 transition:transform .14s cubic-bezier(.34,1.4,.64,1), opacity .14s, box-shadow .14s;
 animation:ls-in .5s ease .38s both;
-opacity:.45; /* disabled by default */
+opacity:.38; /* disabled by default */
+pointer-events:none;
 }
-.ls-enter.ready { opacity:1; }
+.ls-enter.ready { opacity:1; pointer-events:auto; }
 .ls-enter:active { transform:scale(.96); }
 
 @keyframes ls-out {
@@ -452,14 +443,10 @@ Note  bg: #F5F3EF  text: #6B6560               (warm neutral)
 /* ── Record card base ── */
 .rec-card {
 border-radius: 24px;
-border: 1px solid rgba(255,255,255,.72);
+border: 1px solid rgba(255,255,255,0.72);
 box-shadow: 0 8px 28px rgba(44,44,44,.055), 0 2px 6px rgba(44,44,44,.03);
-backdrop-filter: blur(20px) saturate(1.5);
--webkit-backdrop-filter: blur(20px) saturate(1.5);
 padding: 20px 18px 18px;
 position: relative; overflow: hidden;
--webkit-transform: translateZ(0);
-transform: translateZ(0);
 }
 
 /* Tinted variants */
@@ -615,7 +602,6 @@ BOTTOM SHEET — shared by profile + switch
 .sheet-overlay {
 position:fixed; inset:0; z-index:1400;
 background:rgba(44,44,44,.28);
-backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
 display:flex; align-items:flex-end; justify-content:center;
 opacity:0; transition:opacity .28s ease;
 pointer-events:none;
@@ -623,8 +609,7 @@ pointer-events:none;
 .sheet-overlay.open { opacity:1; pointer-events:all; }
 .sheet {
 width:100%; max-width:480px;
-background:rgba(252,250,248,.97);
-backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px);
+background:rgba(252,250,248,1);
 border-radius:28px 28px 0 0;
 border-top:1px solid rgba(255,255,255,.8);
 box-shadow:0 -8px 40px rgba(44,44,44,.12);
