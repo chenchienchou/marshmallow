@@ -1,742 +1,972 @@
-import { useState, useEffect, useRef } from “react”;
+<!DOCTYPE html>
 
-// ── Supabase config ──────────────────────────────────────────
-const SUPABASE_URL = “https://vmgwyvwkhqnjmbdbliia.supabase.co”;
-const SUPABASE_KEY = “eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZ3d5dndraHFuam1iZGJsaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MzU2MDYsImV4cCI6MjA5NDAxMTYwNn0.ZKaombHKVeoLk1RgzYn912tjlUSv4KE8CS5Wl_DunFs”;
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="貓咪日記" />
+  <title>🐱 布偶貓健康日記</title>
 
-const supabase = {
-async insert(table, data) {
-const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-method: “POST”,
-headers: {
-apikey: SUPABASE_KEY,
-Authorization: `Bearer ${SUPABASE_KEY}`,
-“Content-Type”: “application/json”,
-Prefer: “return=representation”,
-},
-body: JSON.stringify(data),
-});
-const json = await res.json();
-return { data: json, error: res.ok ? null : json };
-},
-async select(table, params = “”) {
-const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
-headers: {
-apikey: SUPABASE_KEY,
-Authorization: `Bearer ${SUPABASE_KEY}`,
-},
-});
-const json = await res.json();
-return { data: res.ok ? json : [], error: res.ok ? null : json };
-},
-async upsert(table, data) {
-const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-method: “POST”,
-headers: {
-apikey: SUPABASE_KEY,
-Authorization: `Bearer ${SUPABASE_KEY}`,
-“Content-Type”: “application/json”,
-Prefer: “resolution=merge-duplicates,return=representation”,
-},
-body: JSON.stringify(data),
-});
-const json = await res.json();
-return { data: json, error: res.ok ? null : json };
-},
-};
+  <!-- Supabase -->
 
-// ── Taiwan timezone helpers ──────────────────────────────────
-function getTWDate(d = new Date()) {
-return new Date(d.toLocaleString(“en-US”, { timeZone: “Asia/Taipei” }));
-}
-function toTWDateString(d = new Date()) {
-const tw = getTWDate(d);
-return `${tw.getFullYear()}-${String(tw.getMonth() + 1).padStart(2, "0")}-${String(tw.getDate()).padStart(2, "0")}`;
-}
-function formatDisplayDate(dateStr) {
-const [y, m, dd] = dateStr.split(”-”);
-return `${y}年${m}月${dd}日`;
-}
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-// ── Pee label options ────────────────────────────────────────
-const PEE_LABELS = [
-{ id: “normal”, emoji: “💛”, label: “正常” },
-{ id: “light”, emoji: “🌙”, label: “清淡” },
-{ id: “dark”, emoji: “🟠”, label: “深黃” },
-{ id: “blood”, emoji: “🔴”, label: “血尿” },
-{ id: “frequent”, emoji: “⚡”, label: “頻尿” },
-{ id: “little”, emoji: “💧”, label: “量少” },
-];
+  <!-- Google Fonts -->
 
-const POOP_OPTIONS = [
-{ id: “normal”, emoji: “✅”, label: “正常” },
-{ id: “soft”, emoji: “🌀”, label: “軟便” },
-{ id: “liquid”, emoji: “💦”, label: “水便” },
-{ id: “hard”, emoji: “🪨”, label: “硬便” },
-{ id: “none”, emoji: “⛔”, label: “未排便” },
-{ id: “blood”, emoji: “🆘”, label: “血便” },
-];
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
 
-// ── Main App ─────────────────────────────────────────────────
-export default function App() {
-const [tab, setTab] = useState(“today”);
-const [today] = useState(toTWDateString());
-const [dbStatus, setDbStatus] = useState(“idle”); // idle | testing | ok | error
-const [dbMsg, setDbMsg] = useState(””);
-const [toast, setToast] = useState(null);
-const [records, setRecords] = useState([]);
-const [dailySummary, setDailySummary] = useState(null);
-const scrollRef = useRef(null);
+  <style>
+    :root {
+      --cream: #fdf6ee;
+      --warm-white: #fffaf4;
+      --blush: #f4c6c6;
+      --dusty-rose: #e8a4a4;
+      --mauve: #c97c7c;
+      --lavender: #d4c5e8;
+      --periwinkle: #b8aad4;
+      --sage: #b5cbb4;
+      --caramel: #d4a574;
+      --chocolate: #8b5e3c;
+      --ink: #2c1f1f;
+      --muted: #8c7b7b;
+      --card-bg: rgba(255, 250, 244, 0.85);
+      --shadow-soft: 0 4px 24px rgba(139, 94, 60, 0.10);
+      --shadow-card: 0 8px 32px rgba(139, 94, 60, 0.12);
+      --radius: 20px;
+      --radius-sm: 12px;
+    }
 
-// Today form state
-const [form, setForm] = useState({
-date: today,
-cat_name: “布偶貓”,
-meal_grams: “”,
-calories: “”,
-water_ml: “”,
-pee_tags: [],
-poop_status: “”,
-notes: “”,
-});
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-const showToast = (msg, type = “success”) => {
-setToast({ msg, type });
-setTimeout(() => setToast(null), 3000);
-};
+    html, body {
+      height: 100%;
+      font-family: 'Nunito', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      overflow-x: hidden;
+    }
 
-// Test DB connection
-const testConnection = async () => {
-setDbStatus(“testing”);
-setDbMsg(””);
-try {
-const { data, error } = await supabase.select(“cat_health_records”, “limit=1”);
-if (error && error.code !== “PGRST116”) {
-setDbStatus(“error”);
-setDbMsg(JSON.stringify(error));
-} else {
-setDbStatus(“ok”);
-setDbMsg(“資料庫連線成功 🎉”);
-loadRecords();
-}
-} catch (e) {
-setDbStatus(“error”);
-setDbMsg(e.message);
-}
-};
+    /* ─── Background texture ─── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 0%, rgba(244,198,198,0.35) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 10%, rgba(212,197,232,0.30) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 100%, rgba(181,203,180,0.25) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
 
-const loadRecords = async () => {
-const { data } = await supabase.select(
-“cat_health_records”,
-“order=recorded_date.desc&limit=30”
-);
-if (Array.isArray(data)) setRecords(data);
-};
+    /* ─── App shell ─── */
+    #app {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      max-width: 430px;
+      margin: 0 auto;
+    }
 
-const loadDailySummary = async (date) => {
-const { data } = await supabase.select(
-“cat_daily_summary”,
-`recorded_date=eq.${date}&limit=1`
-);
-if (Array.isArray(data) && data.length > 0) setDailySummary(data[0]);
-else setDailySummary(null);
-};
+    /* ─── Header ─── */
+    .app-header {
+      padding: env(safe-area-inset-top, 44px) 20px 0;
+      background: linear-gradient(180deg, rgba(253,246,238,0.98) 0%, transparent 100%);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .header-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0 8px;
+      border-bottom: 1.5px solid rgba(201,124,124,0.15);
+    }
+    .header-cat {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .cat-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--blush), var(--lavender));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 2px 10px rgba(201,124,124,0.25);
+    }
+    .cat-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px; font-weight: 700;
+      color: var(--chocolate);
+    }
+    .cat-subtitle {
+      font-size: 11px; color: var(--muted); font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .header-date {
+      text-align: right;
+    }
+    .header-date .date-main {
+      font-size: 13px; font-weight: 800; color: var(--mauve);
+    }
+    .header-date .date-time {
+      font-size: 11px; color: var(--muted);
+    }
 
-useEffect(() => {
-testConnection();
-}, []);
+    /* ─── Page container ─── */
+    .pages {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 120px;
+    }
 
-useEffect(() => {
-if (tab === “history”) loadRecords();
-if (tab === “today”) loadDailySummary(today);
-}, [tab]);
+    .page { display: none; padding: 16px 16px 0; animation: fadeUp 0.3s ease; }
+    .page.active { display: block; }
 
-const togglePeeTag = (id) => {
-setForm((f) => ({
-…f,
-pee_tags: f.pee_tags.includes(id)
-? f.pee_tags.filter((t) => t !== id)
-: […f.pee_tags, id],
-}));
-};
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
-const submitRecord = async () => {
-if (!form.meal_grams && !form.water_ml && !form.poop_status) {
-showToast(“請至少填寫一項紀錄 🐾”, “warn”);
-return;
-}
-const payload = {
-recorded_date: form.date,
-cat_name: form.cat_name,
-meal_grams: form.meal_grams ? Number(form.meal_grams) : null,
-calories: form.calories ? Number(form.calories) : null,
-water_ml: form.water_ml ? Number(form.water_ml) : null,
-pee_tags: form.pee_tags,
-poop_status: form.poop_status || null,
-notes: form.notes || null,
-created_at_tw: new Date().toLocaleString(“sv-SE”, { timeZone: “Asia/Taipei” }),
-};
-const { error } = await supabase.insert(“cat_health_records”, payload);
-if (error) {
-showToast(“儲存失敗：” + (error.message || JSON.stringify(error)), “error”);
-} else {
-showToast(“紀錄已儲存到資料庫 ✨”);
-setForm((f) => ({
-…f,
-meal_grams: “”,
-calories: “”,
-water_ml: “”,
-pee_tags: [],
-poop_status: “”,
-notes: “”,
-}));
-loadRecords();
-}
-};
+    /* ─── Section title ─── */
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px; font-weight: 700; color: var(--chocolate);
+      margin-bottom: 4px;
+    }
+    .section-sub {
+      font-size: 12px; color: var(--muted); font-weight: 600;
+      margin-bottom: 16px; letter-spacing: 0.3px;
+    }
 
-return (
-<div style={S.app}>
-{/* Background blobs */}
-<div style={S.blob1} />
-<div style={S.blob2} />
+    /* ─── Cards ─── */
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow-card);
+      border: 1.5px solid rgba(255,255,255,0.7);
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 13px; font-weight: 800; color: var(--mauve);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
 
-```
-  {/* Header */}
-  <header style={S.header}>
-    <div style={S.headerInner}>
-      <span style={S.headerCat}>🐱</span>
-      <div>
-        <div style={S.headerTitle}>布偶貓健康日誌</div>
-        <div style={S.headerSub}>Ragdoll Health Diary</div>
+    /* ─── Summary cards row ─── */
+    .summary-row {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+      margin-bottom: 14px;
+    }
+    .summary-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      box-shadow: var(--shadow-soft);
+      border: 1.5px solid rgba(255,255,255,0.7);
+      text-align: center;
+    }
+    .summary-card .s-icon { font-size: 24px; margin-bottom: 4px; }
+    .summary-card .s-value {
+      font-size: 20px; font-weight: 900; color: var(--chocolate);
+      line-height: 1;
+    }
+    .summary-card .s-unit { font-size: 10px; color: var(--muted); font-weight: 700; }
+    .summary-card .s-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ─── Input styles ─── */
+    .input-group {
+      margin-bottom: 12px;
+    }
+    .input-label {
+      font-size: 12px; font-weight: 800; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 6px; display: flex; align-items: center; gap: 5px;
+    }
+    .input-row {
+      display: flex; gap: 8px; align-items: center;
+    }
+    input[type="number"], input[type="text"], select, textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.6);
+      border: 2px solid rgba(201,124,124,0.2);
+      border-radius: var(--radius-sm);
+      padding: 11px 14px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px; font-weight: 700;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+      -webkit-appearance: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--dusty-rose);
+      background: rgba(255,255,255,0.9);
+    }
+    .input-unit {
+      font-size: 12px; font-weight: 800; color: var(--muted);
+      white-space: nowrap; min-width: 28px;
+    }
+
+    /* ─── Tag chips ─── */
+    .tag-grid {
+      display: flex; flex-wrap: wrap; gap: 7px;
+    }
+    .tag-chip {
+      padding: 7px 13px;
+      border-radius: 50px;
+      font-size: 13px; font-weight: 700;
+      border: 2px solid rgba(201,124,124,0.25);
+      background: rgba(255,255,255,0.5);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .tag-chip.selected {
+      background: linear-gradient(135deg, var(--blush), var(--lavender));
+      border-color: transparent;
+      color: var(--chocolate);
+      box-shadow: 0 2px 8px rgba(201,124,124,0.25);
+      transform: scale(1.04);
+    }
+    .tag-chip:active { transform: scale(0.96); }
+
+    /* ─── Poop state grid ─── */
+    .poop-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+    }
+    .poop-btn {
+      padding: 10px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 700;
+      border: 2px solid rgba(201,124,124,0.2);
+      background: rgba(255,255,255,0.5);
+      color: var(--muted);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .poop-btn.selected {
+      background: linear-gradient(135deg, #f0e6d3, #e8d4c0);
+      border-color: var(--caramel);
+      color: var(--chocolate);
+      box-shadow: 0 2px 8px rgba(212,165,116,0.3);
+    }
+
+    /* ─── Save button ─── */
+    .btn-save {
+      width: 100%;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, var(--dusty-rose) 0%, var(--mauve) 100%);
+      color: white;
+      font-family: 'Nunito', sans-serif;
+      font-size: 16px; font-weight: 900;
+      letter-spacing: 0.5px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(201,124,124,0.4);
+      transition: all 0.2s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-top: 4px;
+    }
+    .btn-save:active { transform: scale(0.97); }
+    .btn-save.loading { opacity: 0.7; }
+
+    /* ─── Toast ─── */
+    .toast {
+      position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--chocolate);
+      color: white;
+      padding: 12px 22px;
+      border-radius: 50px;
+      font-size: 14px; font-weight: 700;
+      box-shadow: 0 4px 20px rgba(44,31,31,0.3);
+      opacity: 0; transition: all 0.3s ease;
+      pointer-events: none; z-index: 999;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ─── Navigation ─── */
+    .nav-wrapper {
+      position: fixed;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 430px;
+      padding: 0 16px env(safe-area-inset-bottom, 16px);
+      z-index: 200;
+      pointer-events: none;
+    }
+    .nav-bar {
+      pointer-events: all;
+      background: rgba(253, 246, 238, 0.92);
+      backdrop-filter: blur(20px) saturate(1.5);
+      border-radius: 28px;
+      border: 1.5px solid rgba(255,255,255,0.8);
+      box-shadow: 0 -2px 30px rgba(139,94,60,0.12), 0 8px 30px rgba(139,94,60,0.10);
+      display: flex;
+      padding: 8px 6px;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 8px 4px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+      background: transparent;
+      font-family: 'Nunito', sans-serif;
+    }
+    .nav-item .nav-icon {
+      font-size: 22px;
+      line-height: 1;
+      transition: transform 0.2s ease;
+    }
+    .nav-item .nav-label {
+      font-size: 11px; font-weight: 800;
+      color: var(--muted);
+      letter-spacing: 0.3px;
+      transition: color 0.2s;
+    }
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(244,198,198,0.6), rgba(212,197,232,0.5));
+    }
+    .nav-item.active .nav-label { color: var(--chocolate); }
+    .nav-item.active .nav-icon { transform: scale(1.15); }
+    .nav-item:active { transform: scale(0.93); }
+
+    /* ─── History list ─── */
+    .history-item {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border: 1.5px solid rgba(255,255,255,0.7);
+      box-shadow: var(--shadow-soft);
+    }
+    .history-date {
+      font-size: 12px; font-weight: 800; color: var(--mauve);
+      margin-bottom: 8px; letter-spacing: 0.3px;
+    }
+    .history-stats {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .stat-pill {
+      background: rgba(244,198,198,0.4);
+      border-radius: 50px;
+      padding: 4px 10px;
+      font-size: 12px; font-weight: 700;
+      color: var(--chocolate);
+    }
+
+    /* ─── Connection status ─── */
+    .conn-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+      display: inline-block;
+      margin-right: 4px;
+      transition: background 0.3s;
+    }
+    .conn-dot.ok { background: #7bc87b; }
+    .conn-dot.err { background: #e87b7b; }
+
+    /* ─── Records page ─── */
+    .record-form .card { margin-bottom: 12px; }
+
+    /* ─── Mood/note ─── */
+    textarea {
+      resize: none; height: 72px; line-height: 1.5;
+    }
+
+    /* ─── Divider ─── */
+    .divider {
+      height: 1.5px;
+      background: linear-gradient(90deg, transparent, rgba(201,124,124,0.2), transparent);
+      margin: 14px 0;
+    }
+
+    /* ─── Empty state ─── */
+    .empty-state {
+      text-align: center; padding: 48px 20px;
+      color: var(--muted);
+    }
+    .empty-state .empty-icon { font-size: 52px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; font-weight: 600; }
+
+    /* ─── Today summary banner ─── */
+    .today-banner {
+      background: linear-gradient(135deg, rgba(244,198,198,0.5), rgba(212,197,232,0.4));
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 14px;
+      border: 1.5px solid rgba(255,255,255,0.7);
+    }
+    .banner-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px; color: var(--chocolate);
+      margin-bottom: 10px;
+      font-style: italic;
+    }
+    .banner-stats {
+      display: flex; gap: 12px; flex-wrap: wrap;
+    }
+    .banner-stat {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 13px; font-weight: 700; color: var(--chocolate);
+    }
+
+    /* scrollbar */
+    .pages::-webkit-scrollbar { width: 0; }
+
+    /* ─── Loader ─── */
+    .loader {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+
+</head>
+<body>
+
+<div id="app">
+
+  <!-- Header -->
+
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-cat">
+        <div class="cat-avatar">🐱</div>
+        <div>
+          <div class="cat-name">布偶貓日記</div>
+          <div class="cat-subtitle"><span class="conn-dot" id="connDot"></span><span id="connText">連線中...</span></div>
+        </div>
       </div>
-      <button
-        onClick={testConnection}
-        style={{
-          ...S.dbBadge,
-          background:
-            dbStatus === "ok"
-              ? "linear-gradient(135deg,#a8edbc,#5fe07a)"
-              : dbStatus === "error"
-              ? "linear-gradient(135deg,#ffc6c6,#ff6b6b)"
-              : dbStatus === "testing"
-              ? "linear-gradient(135deg,#ffe9a0,#ffd55a)"
-              : "linear-gradient(135deg,#e0d9f7,#c4b5fd)",
-        }}
-      >
-        {dbStatus === "testing" ? "⏳" : dbStatus === "ok" ? "🟢" : dbStatus === "error" ? "🔴" : "🔌"}
-        <span style={{ fontSize: 11, marginLeft: 4 }}>
-          {dbStatus === "ok" ? "已連線" : dbStatus === "error" ? "錯誤" : dbStatus === "testing" ? "連接中" : "測試DB"}
-        </span>
-      </button>
+      <div class="header-date">
+        <div class="date-main" id="headerDate">—</div>
+        <div class="date-time" id="headerTime">—</div>
+      </div>
     </div>
-    {dbMsg && (
-      <div style={{ ...S.dbMsg, color: dbStatus === "error" ? "#c0392b" : "#27ae60" }}>
-        {dbMsg}
-      </div>
-    )}
   </header>
 
-  {/* Scroll area */}
-  <main ref={scrollRef} style={S.main}>
-    {tab === "today" && <TodayTab form={form} setForm={setForm} today={today} togglePeeTag={togglePeeTag} submitRecord={submitRecord} dailySummary={dailySummary} />}
-    {tab === "records" && <RecordsTab records={records} today={today} />}
-    {tab === "history" && <HistoryTab records={records} />}
-  </main>
+  <!-- Pages -->
 
-  {/* Toast */}
-  {toast && (
-    <div style={{
-      ...S.toast,
-      background: toast.type === "error" ? "#ff6b6b" : toast.type === "warn" ? "#ffd55a" : "#5fe07a",
-      color: toast.type === "warn" ? "#5a3e00" : "#fff",
-    }}>
-      {toast.msg}
+  <div class="pages">
+
+```
+<!-- ══════════ TODAY PAGE ══════════ -->
+<div class="page active" id="page-today">
+  <div class="section-title">今日狀況 ☀️</div>
+  <div class="section-sub">台灣時間 · 每日 23:59 自動結算</div>
+
+  <!-- Quick Summary -->
+  <div id="todaySummary">
+    <!-- filled by JS -->
+  </div>
+
+  <!-- Last entry preview -->
+  <div id="lastEntryCard"></div>
+</div>
+
+<!-- ══════════ RECORD PAGE ══════════ -->
+<div class="page" id="page-record">
+  <div class="section-title">新增紀錄 🐾</div>
+  <div class="section-sub">記錄每一次餵食與排泄</div>
+
+  <div class="record-form">
+
+    <!-- 🥣 Feeding -->
+    <div class="card">
+      <div class="card-title">🥣 餵食</div>
+
+      <div class="input-group">
+        <div class="input-label">⏰ 餵食時間</div>
+        <input type="time" id="feedTime" />
+      </div>
+
+      <div class="input-group">
+        <div class="input-label">🍖 食物種類</div>
+        <select id="foodType">
+          <option value="乾飼料">🌾 乾飼料</option>
+          <option value="主食罐">🥫 主食罐</option>
+          <option value="副食罐">🍱 副食罐</option>
+          <option value="生食">🥩 生食</option>
+          <option value="點心">🍬 點心</option>
+        </select>
+      </div>
+
+      <div class="input-group">
+        <div class="input-label">⚖️ 克數</div>
+        <div class="input-row">
+          <input type="number" id="feedGrams" placeholder="0" min="0" max="500" />
+          <span class="input-unit">g</span>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <div class="input-label">🔥 熱量</div>
+        <div class="input-row">
+          <input type="number" id="feedCalories" placeholder="自動計算 or 手動輸入" min="0" />
+          <span class="input-unit">kcal</span>
+        </div>
+      </div>
     </div>
-  )}
 
-  {/* Floating nav */}
-  <FloatingNav tab={tab} setTab={setTab} />
+    <!-- 💧 Water -->
+    <div class="card">
+      <div class="card-title">💧 飲水</div>
+      <div class="input-group">
+        <div class="input-label">飲水量</div>
+        <div class="input-row">
+          <input type="number" id="waterMl" placeholder="0" min="0" max="1000" />
+          <span class="input-unit">ml</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🚽 Litter Box -->
+    <div class="card">
+      <div class="card-title">🚽 廁所</div>
+
+      <div class="input-group">
+        <div class="input-label">🟡 小便（可複選）</div>
+        <div class="tag-grid" id="peeTagGrid">
+          <div class="tag-chip" data-val="正常">😊 正常</div>
+          <div class="tag-chip" data-val="量多">💦 量多</div>
+          <div class="tag-chip" data-val="量少">💧 量少</div>
+          <div class="tag-chip" data-val="顏色異常">🟠 顏色異常</div>
+          <div class="tag-chip" data-val="血尿">🔴 血尿</div>
+          <div class="tag-chip" data-val="頻繁">🔁 頻繁</div>
+          <div class="tag-chip" data-val="未排尿">❌ 未排尿</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="input-group">
+        <div class="input-label">💩 大便狀態</div>
+        <div class="poop-grid" id="poopGrid">
+          <button class="poop-btn" data-val="正常">💩 正常</button>
+          <button class="poop-btn" data-val="偏軟">🤏 偏軟</button>
+          <button class="poop-btn" data-val="水便">💦 水便</button>
+          <button class="poop-btn" data-val="偏硬">🪨 偏硬</button>
+          <button class="poop-btn" data-val="未排便">❌ 未排便</button>
+          <button class="poop-btn" data-val="有血絲">🔴 有血絲</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 📝 Memo -->
+    <div class="card">
+      <div class="card-title">📝 備忘</div>
+      <div class="input-group">
+        <textarea id="memo" placeholder="今天有什麼特別的事嗎？比如活力、毛髮、眼睛狀況..."></textarea>
+      </div>
+    </div>
+
+    <button class="btn-save" id="saveBtn" onclick="saveRecord()">
+      <span id="saveBtnText">✨ 儲存紀錄</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════ HISTORY PAGE ══════════ -->
+<div class="page" id="page-history">
+  <div class="section-title">歷史紀錄 📅</div>
+  <div class="section-sub">過去 30 天的健康軌跡</div>
+  <div id="historyList">
+    <div class="empty-state">
+      <div class="empty-icon">🐱</div>
+      <p>載入中...</p>
+    </div>
+  </div>
 </div>
 ```
 
-);
+  </div><!-- /pages -->
+
+  <!-- Navigation -->
+
+  <div class="nav-wrapper">
+    <nav class="nav-bar">
+      <button class="nav-item active" id="nav-today" onclick="switchPage('today')">
+        <span class="nav-icon">☀️</span>
+        <span class="nav-label">今日</span>
+      </button>
+      <button class="nav-item" id="nav-record" onclick="switchPage('record')">
+        <span class="nav-icon">🐾</span>
+        <span class="nav-label">紀錄</span>
+      </button>
+      <button class="nav-item" id="nav-history" onclick="switchPage('history')">
+        <span class="nav-icon">📅</span>
+        <span class="nav-label">歷史</span>
+      </button>
+    </nav>
+  </div>
+
+</div><!-- /app -->
+
+<!-- Toast -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  SUPABASE SETUP
+// ══════════════════════════════════════════════
+const SUPABASE_URL = 'https://vmgwyvwkhqnjmbdbliia.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZ3d5dndraHFuam1iZGJsaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MzU2MDYsImV4cCI6MjA5NDAxMTYwNn0.ZKaombHKVeoLk1RgzYn912tjlUSv4KE8CS5Wl_DunFs';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ══════════════════════════════════════════════
+//  TAIWAN TIME HELPERS
+// ══════════════════════════════════════════════
+function getTWNow() {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+}
+function getTWDateStr(d = getTWNow()) {
+  return d.toISOString().slice(0, 10); // fallback
+}
+function formatTWDate(d = getTWNow()) {
+  const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate();
+  const wdays = ['日','一','二','三','四','五','六'];
+  return `${y}年${m}月${day}日 (${wdays[d.getDay()]})`;
+}
+function formatTWTime(d = getTWNow()) {
+  return d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Taipei' });
+}
+function getTWDateOnly(d = getTWNow()) {
+  // YYYY-MM-DD in TW timezone
+  const s = d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  return s;
 }
 
-// ── Floating Nav ─────────────────────────────────────────────
-function FloatingNav({ tab, setTab }) {
-const navRef = useRef(null);
-const [pos, setPos] = useState({ x: null, y: null });
-const dragging = useRef(false);
-const offset = useRef({ x: 0, y: 0 });
+// ══════════════════════════════════════════════
+//  CLOCK
+// ══════════════════════════════════════════════
+function updateClock() {
+  const now = getTWNow();
+  document.getElementById('headerDate').textContent = formatTWDate(now);
+  document.getElementById('headerTime').textContent = formatTWTime(now);
+}
+updateClock();
+setInterval(updateClock, 30000);
 
-const onPointerDown = (e) => {
-dragging.current = true;
-const rect = navRef.current.getBoundingClientRect();
-offset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-navRef.current.setPointerCapture(e.pointerId);
-};
-const onPointerMove = (e) => {
-if (!dragging.current) return;
-setPos({ x: e.clientX - offset.current.x, y: e.clientY - offset.current.y });
-};
-const onPointerUp = () => { dragging.current = false; };
+// Default feed time to current TW time
+(function setDefaultTime() {
+  const now = getTWNow();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('feedTime').value = `${hh}:${mm}`;
+})();
 
-const items = [
-{ id: “today”, emoji: “🌸”, label: “今日” },
-{ id: “records”, emoji: “📋”, label: “紀錄” },
-{ id: “history”, emoji: “📅”, label: “歷史” },
-];
+// ══════════════════════════════════════════════
+//  CONNECTION TEST
+// ══════════════════════════════════════════════
+async function testConnection() {
+  try {
+    const { error } = await db.from('cat_records').select('id').limit(1);
+    if (error) throw error;
+    document.getElementById('connDot').className = 'conn-dot ok';
+    document.getElementById('connText').textContent = '已連線 Supabase';
+  } catch (e) {
+    document.getElementById('connDot').className = 'conn-dot err';
+    document.getElementById('connText').textContent = '連線失敗';
+    console.warn('Supabase connection error:', e.message);
+  }
+}
+testConnection();
 
-const style = {
-…S.nav,
-…(pos.x !== null ? { left: pos.x, bottom: “auto”, top: pos.y, transform: “none” } : {}),
-};
-
-return (
-<nav
-ref={navRef}
-style={style}
-onPointerDown={onPointerDown}
-onPointerMove={onPointerMove}
-onPointerUp={onPointerUp}
->
-{items.map((it) => (
-<button
-key={it.id}
-onClick={() => setTab(it.id)}
-style={{ …S.navBtn, …(tab === it.id ? S.navBtnActive : {}) }}
->
-<span style={{ fontSize: 22 }}>{it.emoji}</span>
-<span style={{ fontSize: 11, fontWeight: tab === it.id ? 700 : 400 }}>{it.label}</span>
-</button>
-))}
-</nav>
-);
+// ══════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'today') loadToday();
+  if (name === 'history') loadHistory();
 }
 
-// ── Today Tab ─────────────────────────────────────────────────
-function TodayTab({ form, setForm, today, togglePeeTag, submitRecord, dailySummary }) {
-const f = form;
-const set = (key) => (e) => setForm((prev) => ({ …prev, [key]: e.target.value }));
+// ══════════════════════════════════════════════
+//  TAG CHIPS & POOP BUTTONS
+// ══════════════════════════════════════════════
+let selectedPeeTags = [];
+let selectedPoop = '';
 
-return (
-<div style={S.tabContent}>
-<div style={S.dateChip}>{formatDisplayDate(today)} 📌 今日記錄</div>
+document.querySelectorAll('#peeTagGrid .tag-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const val = chip.dataset.val;
+    if (selectedPeeTags.includes(val)) {
+      selectedPeeTags = selectedPeeTags.filter(v => v !== val);
+      chip.classList.remove('selected');
+    } else {
+      selectedPeeTags.push(val);
+      chip.classList.add('selected');
+    }
+  });
+});
 
-```
-  {dailySummary && (
-    <div style={S.summaryCard}>
-      <div style={S.summaryTitle}>📊 昨日結算摘要</div>
-      <div style={S.summaryRow}>
-        <span>🍽 總餵食</span><span>{dailySummary.total_meal_grams ?? "—"}g</span>
-      </div>
-      <div style={S.summaryRow}>
-        <span>💧 總飲水</span><span>{dailySummary.total_water_ml ?? "—"}ml</span>
-      </div>
-      <div style={S.summaryRow}>
-        <span>🔥 總熱量</span><span>{dailySummary.total_calories ?? "—"}kcal</span>
-      </div>
-    </div>
-  )}
+document.querySelectorAll('#poopGrid .poop-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#poopGrid .poop-btn').forEach(b => b.classList.remove('selected'));
+    selectedPoop = btn.dataset.val;
+    btn.classList.add('selected');
+  });
+});
 
-  <Card title="🍽 今日餵食">
-    <div style={S.row3}>
-      <InputField label="餵食克數 (g)" value={f.meal_grams} onChange={set("meal_grams")} type="number" placeholder="e.g. 80" />
-      <InputField label="熱量 (kcal)" value={f.calories} onChange={set("calories")} type="number" placeholder="e.g. 240" />
-      <InputField label="飲水量 (ml)" value={f.water_ml} onChange={set("water_ml")} type="number" placeholder="e.g. 150" />
-    </div>
-  </Card>
+// ══════════════════════════════════════════════
+//  SAVE RECORD
+// ══════════════════════════════════════════════
+async function saveRecord() {
+  const btn = document.getElementById('saveBtn');
+  const btnText = document.getElementById('saveBtnText');
 
-  <Card title="🚽 小便狀況">
-    <div style={S.tagGrid}>
-      {PEE_LABELS.map((p) => (
-        <button
-          key={p.id}
-          onClick={() => togglePeeTag(p.id)}
-          style={{
-            ...S.tagBtn,
-            ...(f.pee_tags.includes(p.id) ? S.tagBtnActive : {}),
-          }}
-        >
-          {p.emoji} {p.label}
-        </button>
-      ))}
-    </div>
-  </Card>
+  const now = getTWNow();
+  const dateStr = getTWDateOnly(now);
 
-  <Card title="💩 大便狀況">
-    <div style={S.tagGrid}>
-      {POOP_OPTIONS.map((p) => (
-        <button
-          key={p.id}
-          onClick={() => setForm((prev) => ({ ...prev, poop_status: p.id }))}
-          style={{
-            ...S.tagBtn,
-            ...(f.poop_status === p.id ? S.poopBtnActive : {}),
-          }}
-        >
-          {p.emoji} {p.label}
-        </button>
-      ))}
-    </div>
-  </Card>
+  const record = {
+    record_date: dateStr,
+    record_time: document.getElementById('feedTime').value || null,
+    food_type: document.getElementById('foodType').value,
+    feed_grams: parseFloat(document.getElementById('feedGrams').value) || null,
+    calories_kcal: parseFloat(document.getElementById('feedCalories').value) || null,
+    water_ml: parseFloat(document.getElementById('waterMl').value) || null,
+    pee_tags: selectedPeeTags.length > 0 ? selectedPeeTags : null,
+    poop_state: selectedPoop || null,
+    memo: document.getElementById('memo').value.trim() || null,
+    created_at_tw: now.toISOString(),
+  };
 
-  <Card title="📝 備注">
-    <textarea
-      value={f.notes}
-      onChange={set("notes")}
-      placeholder="今天的貓咪狀況、異常觀察…"
-      style={S.textarea}
-      rows={3}
-    />
-  </Card>
+  // Validate
+  if (!record.feed_grams && !record.water_ml && selectedPeeTags.length === 0 && !selectedPoop) {
+    showToast('⚠️ 請至少填寫一項資料');
+    return;
+  }
 
-  <button onClick={submitRecord} style={S.submitBtn}>
-    🐾 儲存今日紀錄
-  </button>
+  btn.classList.add('loading');
+  btnText.innerHTML = '<span class="loader"></span> 儲存中...';
 
-  <div style={{ height: 100 }} />
-</div>
-```
+  try {
+    const { data, error } = await db.from('cat_records').insert([record]).select();
+    if (error) throw error;
 
-);
+    showToast('✅ 紀錄已儲存！');
+    resetForm();
+    setTimeout(() => switchPage('today'), 800);
+  } catch (e) {
+    console.error('Save error:', e);
+    showToast('❌ 儲存失敗：' + (e.message || '請確認資料表是否存在'));
+  } finally {
+    btn.classList.remove('loading');
+    btnText.textContent = '✨ 儲存紀錄';
+  }
 }
 
-// ── Records Tab ───────────────────────────────────────────────
-function RecordsTab({ records, today }) {
-const todayRec = records.filter((r) => r.recorded_date === today);
-
-return (
-<div style={S.tabContent}>
-<div style={S.dateChip}>📋 今日所有紀錄</div>
-{todayRec.length === 0 ? (
-<EmptyState emoji="🐱" text="今天還沒有任何紀錄喔！" />
-) : (
-todayRec.map((r) => <RecordCard key={r.id} r={r} />)
-)}
-<div style={{ height: 100 }} />
-</div>
-);
+function resetForm() {
+  document.getElementById('feedGrams').value = '';
+  document.getElementById('feedCalories').value = '';
+  document.getElementById('waterMl').value = '';
+  document.getElementById('memo').value = '';
+  selectedPeeTags = [];
+  selectedPoop = '';
+  document.querySelectorAll('#peeTagGrid .tag-chip').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('#poopGrid .poop-btn').forEach(b => b.classList.remove('selected'));
+  const now = getTWNow();
+  document.getElementById('feedTime').value =
+    String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
 }
 
-// ── History Tab ───────────────────────────────────────────────
-function HistoryTab({ records }) {
-const grouped = records.reduce((acc, r) => {
-(acc[r.recorded_date] = acc[r.recorded_date] || []).push(r);
-return acc;
-}, {});
-const dates = Object.keys(grouped).sort().reverse();
+// ══════════════════════════════════════════════
+//  LOAD TODAY
+// ══════════════════════════════════════════════
+async function loadToday() {
+  const today = getTWDateOnly();
+  try {
+    const { data, error } = await db
+      .from('cat_records')
+      .select('*')
+      .eq('record_date', today)
+      .order('record_time', { ascending: true });
 
-return (
-<div style={S.tabContent}>
-<div style={S.dateChip}>📅 歷史紀錄</div>
-{dates.length === 0 ? (
-<EmptyState emoji="📭" text="還沒有任何歷史紀錄" />
-) : (
-dates.map((date) => (
-<div key={date} style={{ marginBottom: 24 }}>
-<div style={S.historyDateLabel}>{formatDisplayDate(date)}</div>
-{grouped[date].map((r) => <RecordCard key={r.id} r={r} mini />)}
-</div>
-))
-)}
-<div style={{ height: 100 }} />
-</div>
-);
+    if (error) throw error;
+
+    const summaryEl = document.getElementById('todaySummary');
+    const lastEl = document.getElementById('lastEntryCard');
+
+    if (!data || data.length === 0) {
+      summaryEl.innerHTML = `
+        <div class="today-banner">
+          <div class="banner-title">今天還沒有紀錄 🌙</div>
+          <div style="font-size:13px;color:var(--muted);font-weight:600;">快去新增第一筆吧！</div>
+        </div>`;
+      lastEl.innerHTML = '';
+      return;
+    }
+
+    // Aggregate
+    const totalGrams = data.reduce((s, r) => s + (r.feed_grams || 0), 0);
+    const totalCal   = data.reduce((s, r) => s + (r.calories_kcal || 0), 0);
+    const totalWater = data.reduce((s, r) => s + (r.water_ml || 0), 0);
+    const feedings   = data.filter(r => r.feed_grams).length;
+
+    summaryEl.innerHTML = `
+      <div class="summary-row">
+        <div class="summary-card">
+          <div class="s-icon">🥣</div>
+          <div class="s-value">${totalGrams.toFixed(0)}</div>
+          <div class="s-unit">克</div>
+          <div class="s-label">今日總餵食</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-icon">🔥</div>
+          <div class="s-value">${totalCal.toFixed(0)}</div>
+          <div class="s-unit">kcal</div>
+          <div class="s-label">總熱量</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-icon">💧</div>
+          <div class="s-value">${totalWater.toFixed(0)}</div>
+          <div class="s-unit">ml</div>
+          <div class="s-label">飲水量</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-icon">📋</div>
+          <div class="s-value">${data.length}</div>
+          <div class="s-unit">筆</div>
+          <div class="s-label">紀錄筆數</div>
+        </div>
+      </div>`;
+
+    // Last 3 entries
+    const recent = [...data].reverse().slice(0, 3);
+    lastEl.innerHTML = `
+      <div class="card">
+        <div class="card-title">📋 今日紀錄</div>
+        ${recent.map(r => `
+          <div style="padding:8px 0; border-bottom:1px solid rgba(201,124,124,0.1);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:13px;font-weight:800;color:var(--chocolate);">${r.record_time || '--'} · ${r.food_type || ''}</span>
+              ${r.feed_grams ? `<span style="font-size:12px;color:var(--muted);font-weight:700;">${r.feed_grams}g</span>` : ''}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+              ${r.water_ml ? `<span class="stat-pill">💧 ${r.water_ml}ml</span>` : ''}
+              ${r.poop_state ? `<span class="stat-pill">💩 ${r.poop_state}</span>` : ''}
+              ${(r.pee_tags && r.pee_tags.length) ? r.pee_tags.map(t => `<span class="stat-pill">🟡 ${t}</span>`).join('') : ''}
+              ${r.memo ? `<span class="stat-pill">📝 備忘</span>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>`;
+
+  } catch (e) {
+    document.getElementById('todaySummary').innerHTML = `
+      <div class="today-banner">
+        <div class="banner-title">⚠️ 無法載入今日資料</div>
+        <div style="font-size:12px;color:var(--muted);">${e.message}</div>
+      </div>`;
+  }
 }
 
-// ── Record Card ───────────────────────────────────────────────
-function RecordCard({ r, mini }) {
-const peeTags = Array.isArray(r.pee_tags) ? r.pee_tags : [];
-const poopInfo = POOP_OPTIONS.find((p) => p.id === r.poop_status);
+// ══════════════════════════════════════════════
+//  LOAD HISTORY
+// ══════════════════════════════════════════════
+async function loadHistory() {
+  const el = document.getElementById('historyList');
+  el.innerHTML = '<div class="empty-state"><div class="empty-icon">🐱</div><p>載入中...</p></div>';
 
-return (
-<div style={{ …S.recordCard, …(mini ? { padding: “12px 16px” } : {}) }}>
-<div style={S.recordRow}>
-{r.meal_grams && <Chip emoji=“🍽” val={`${r.meal_grams}g`} />}
-{r.calories && <Chip emoji=“🔥” val={`${r.calories}kcal`} />}
-{r.water_ml && <Chip emoji=“💧” val={`${r.water_ml}ml`} />}
-</div>
-{peeTags.length > 0 && (
-<div style={S.recordRow}>
-<span style={{ fontSize: 12, color: “#a084ca”, marginRight: 4 }}>小便:</span>
-{peeTags.map((t) => {
-const info = PEE_LABELS.find((p) => p.id === t);
-return info ? <Chip key={t} emoji={info.emoji} val={info.label} small /> : null;
-})}
-</div>
-)}
-{poopInfo && (
-<div style={S.recordRow}>
-<Chip emoji={poopInfo.emoji} val={`大便：${poopInfo.label}`} />
-</div>
-)}
-{r.notes && <div style={S.recordNote}>💬 {r.notes}</div>}
-<div style={S.recordTime}>{r.created_at_tw ? r.created_at_tw.slice(0, 16) : r.recorded_date}</div>
-</div>
-);
+  try {
+    const { data, error } = await db
+      .from('cat_records')
+      .select('*')
+      .order('record_date', { ascending: false })
+      .order('record_time', { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>還沒有任何紀錄</p></div>';
+      return;
+    }
+
+    // Group by date
+    const grouped = {};
+    data.forEach(r => {
+      if (!grouped[r.record_date]) grouped[r.record_date] = [];
+      grouped[r.record_date].push(r);
+    });
+
+    el.innerHTML = Object.keys(grouped).map(date => {
+      const records = grouped[date];
+      const totalG = records.reduce((s, r) => s + (r.feed_grams || 0), 0);
+      const totalW = records.reduce((s, r) => s + (r.water_ml || 0), 0);
+      const totalC = records.reduce((s, r) => s + (r.calories_kcal || 0), 0);
+      const poops = [...new Set(records.map(r => r.poop_state).filter(Boolean))];
+      const pees = [...new Set(records.flatMap(r => r.pee_tags || []))];
+
+      return `
+        <div class="history-item">
+          <div class="history-date">📅 ${formatHistoryDate(date)} · ${records.length} 筆</div>
+          <div class="history-stats">
+            ${totalG ? `<span class="stat-pill">🥣 ${totalG.toFixed(0)}g</span>` : ''}
+            ${totalC ? `<span class="stat-pill">🔥 ${totalC.toFixed(0)}kcal</span>` : ''}
+            ${totalW ? `<span class="stat-pill">💧 ${totalW.toFixed(0)}ml</span>` : ''}
+            ${poops.map(p => `<span class="stat-pill">💩 ${p}</span>`).join('')}
+            ${pees.slice(0,3).map(p => `<span class="stat-pill">🟡 ${p}</span>`).join('')}
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`;
+  }
 }
 
-function Chip({ emoji, val, small }) {
-return (
-<span style={{ …S.chip, …(small ? { fontSize: 11, padding: “2px 8px” } : {}) }}>
-{emoji} {val}
-</span>
-);
+function formatHistoryDate(str) {
+  const [y, m, d] = str.split('-');
+  const wdays = ['日','一','二','三','四','五','六'];
+  const dt = new Date(+y, +m - 1, +d);
+  return `${+m}月${+d}日 (${wdays[dt.getDay()]})`;
 }
 
-function Card({ title, children }) {
-return (
-<div style={S.card}>
-<div style={S.cardTitle}>{title}</div>
-{children}
-</div>
-);
+// ══════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
 }
 
-function InputField({ label, value, onChange, type, placeholder }) {
-return (
-<div style={{ flex: 1 }}>
-<div style={S.inputLabel}>{label}</div>
-<input
-type={type || “text”}
-value={value}
-onChange={onChange}
-placeholder={placeholder}
-style={S.input}
-/>
-</div>
-);
-}
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+loadToday();
+</script>
 
-function EmptyState({ emoji, text }) {
-return (
-<div style={S.empty}>
-<div style={{ fontSize: 48, marginBottom: 8 }}>{emoji}</div>
-<div style={{ color: “#b8a9d4”, fontSize: 14 }}>{text}</div>
-</div>
-);
-}
-
-// ── Styles ────────────────────────────────────────────────────
-const S = {
-app: {
-minHeight: “100vh”,
-background: “linear-gradient(160deg,#fdf6ff 0%,#f0eaff 50%,#fce8f6 100%)”,
-fontFamily: “‘Noto Sans TC’, ‘PingFang TC’, sans-serif”,
-position: “relative”,
-overflow: “hidden”,
-},
-blob1: {
-position: “fixed”, top: -120, right: -80,
-width: 320, height: 320,
-borderRadius: “50%”,
-background: “radial-gradient(circle,#e8d5ff88,#f5d0ff44)”,
-filter: “blur(40px)”,
-pointerEvents: “none”,
-zIndex: 0,
-},
-blob2: {
-position: “fixed”, bottom: -100, left: -60,
-width: 280, height: 280,
-borderRadius: “50%”,
-background: “radial-gradient(circle,#ffc8ea66,#d4b8ff44)”,
-filter: “blur(40px)”,
-pointerEvents: “none”,
-zIndex: 0,
-},
-header: {
-position: “sticky”, top: 0, zIndex: 100,
-background: “rgba(255,255,255,0.75)”,
-backdropFilter: “blur(16px)”,
-borderBottom: “1px solid rgba(200,170,240,0.2)”,
-padding: “12px 20px 8px”,
-},
-headerInner: {
-display: “flex”, alignItems: “center”, gap: 10,
-},
-headerCat: { fontSize: 32, filter: “drop-shadow(0 2px 4px rgba(160,100,220,0.3))” },
-headerTitle: {
-fontSize: 18, fontWeight: 800,
-background: “linear-gradient(135deg,#a855f7,#ec4899)”,
-WebkitBackgroundClip: “text”, WebkitTextFillColor: “transparent”,
-letterSpacing: 1,
-},
-headerSub: { fontSize: 11, color: “#b8a0d0”, letterSpacing: 2 },
-dbBadge: {
-marginLeft: “auto”, display: “flex”, alignItems: “center”,
-padding: “5px 10px”, borderRadius: 20,
-border: “none”, cursor: “pointer”,
-fontSize: 13, fontWeight: 600,
-boxShadow: “0 2px 8px rgba(160,100,220,0.15)”,
-transition: “all .2s”,
-},
-dbMsg: { fontSize: 12, marginTop: 4, paddingLeft: 42 },
-main: {
-position: “relative”, zIndex: 1,
-paddingTop: 8,
-overflowY: “auto”,
-},
-tabContent: { padding: “0 16px” },
-dateChip: {
-display: “inline-block”,
-background: “linear-gradient(135deg,#e9d5ff,#fce7f3)”,
-color: “#7c3aed”,
-borderRadius: 20, padding: “6px 16px”,
-fontSize: 13, fontWeight: 700,
-margin: “16px 0 12px”,
-boxShadow: “0 2px 8px rgba(160,100,220,0.12)”,
-},
-summaryCard: {
-background: “linear-gradient(135deg,#ffffff,#f9f0ff)”,
-borderRadius: 18, padding: “14px 18px”,
-marginBottom: 16,
-boxShadow: “0 4px 20px rgba(160,100,220,0.1)”,
-border: “1px solid rgba(200,160,240,0.2)”,
-},
-summaryTitle: { fontSize: 14, fontWeight: 700, color: “#9333ea”, marginBottom: 8 },
-summaryRow: {
-display: “flex”, justifyContent: “space-between”,
-fontSize: 13, color: “#6b46c1”, padding: “3px 0”,
-borderBottom: “1px dashed rgba(200,160,240,0.3)”,
-},
-card: {
-background: “rgba(255,255,255,0.85)”,
-backdropFilter: “blur(10px)”,
-borderRadius: 20, padding: “16px 18px”,
-marginBottom: 14,
-boxShadow: “0 4px 24px rgba(160,100,220,0.08)”,
-border: “1px solid rgba(210,180,250,0.3)”,
-},
-cardTitle: {
-fontSize: 15, fontWeight: 800, color: “#7c3aed”,
-marginBottom: 12, letterSpacing: 0.5,
-},
-row3: { display: “flex”, gap: 10 },
-inputLabel: { fontSize: 11, color: “#a084ca”, marginBottom: 4, fontWeight: 600 },
-input: {
-width: “100%”, boxSizing: “border-box”,
-background: “rgba(240,230,255,0.5)”,
-border: “1.5px solid rgba(200,160,255,0.4)”,
-borderRadius: 12, padding: “8px 10px”,
-fontSize: 15, color: “#4a2080”,
-outline: “none”,
-fontFamily: “inherit”,
-},
-tagGrid: {
-display: “grid”,
-gridTemplateColumns: “repeat(3, 1fr)”,
-gap: 8,
-},
-tagBtn: {
-background: “rgba(240,230,255,0.6)”,
-border: “1.5px solid rgba(200,160,255,0.3)”,
-borderRadius: 14, padding: “8px 4px”,
-fontSize: 13, color: “#6b46c1”,
-cursor: “pointer”,
-transition: “all .15s”,
-fontFamily: “inherit”,
-},
-tagBtnActive: {
-background: “linear-gradient(135deg,#e9d5ff,#fce7f3)”,
-border: “1.5px solid #a855f7”,
-color: “#7c3aed”,
-fontWeight: 700,
-boxShadow: “0 2px 10px rgba(168,85,247,0.2)”,
-transform: “scale(1.03)”,
-},
-poopBtnActive: {
-background: “linear-gradient(135deg,#d1fae5,#a7f3d0)”,
-border: “1.5px solid #10b981”,
-color: “#065f46”,
-fontWeight: 700,
-boxShadow: “0 2px 10px rgba(16,185,129,0.2)”,
-transform: “scale(1.03)”,
-},
-textarea: {
-width: “100%”, boxSizing: “border-box”,
-background: “rgba(240,230,255,0.5)”,
-border: “1.5px solid rgba(200,160,255,0.4)”,
-borderRadius: 12, padding: “10px 12px”,
-fontSize: 14, color: “#4a2080”,
-outline: “none”, resize: “none”,
-fontFamily: “inherit”,
-},
-submitBtn: {
-width: “100%”,
-background: “linear-gradient(135deg,#a855f7,#ec4899)”,
-color: “#fff”, border: “none”,
-borderRadius: 20, padding: “14px”,
-fontSize: 16, fontWeight: 800,
-cursor: “pointer”,
-boxShadow: “0 6px 24px rgba(168,85,247,0.35)”,
-letterSpacing: 1,
-marginTop: 4,
-fontFamily: “inherit”,
-transition: “all .2s”,
-},
-recordCard: {
-background: “rgba(255,255,255,0.88)”,
-borderRadius: 16, padding: “14px 18px”,
-marginBottom: 10,
-boxShadow: “0 2px 16px rgba(160,100,220,0.08)”,
-border: “1px solid rgba(210,180,250,0.25)”,
-},
-recordRow: { display: “flex”, flexWrap: “wrap”, gap: 6, marginBottom: 6, alignItems: “center” },
-chip: {
-background: “linear-gradient(135deg,#ede9fe,#fce7f3)”,
-color: “#7c3aed”,
-borderRadius: 12, padding: “3px 10px”,
-fontSize: 13, fontWeight: 600,
-},
-recordNote: { fontSize: 13, color: “#9370bd”, marginTop: 4, fontStyle: “italic” },
-recordTime: { fontSize: 11, color: “#c4b5d4”, marginTop: 6, textAlign: “right” },
-historyDateLabel: {
-fontSize: 13, fontWeight: 800, color: “#9333ea”,
-marginBottom: 8, paddingLeft: 4,
-borderLeft: “3px solid #a855f7”,
-paddingLeft: 10,
-},
-empty: {
-textAlign: “center”, paddingTop: 60, paddingBottom: 20,
-},
-nav: {
-position: “fixed”,
-bottom: 24,
-left: “50%”,
-transform: “translateX(-50%)”,
-zIndex: 200,
-display: “flex”, gap: 4,
-background: “rgba(255,255,255,0.9)”,
-backdropFilter: “blur(20px)”,
-borderRadius: 30,
-padding: “8px 12px”,
-boxShadow: “0 8px 32px rgba(160,100,220,0.25), 0 2px 8px rgba(0,0,0,0.08)”,
-border: “1px solid rgba(210,180,255,0.4)”,
-cursor: “grab”,
-userSelect: “none”,
-touchAction: “none”,
-},
-navBtn: {
-display: “flex”, flexDirection: “column”, alignItems: “center”,
-padding: “6px 18px”, borderRadius: 22,
-border: “none”, background: “transparent”,
-cursor: “pointer”, fontSize: 12, color: “#a084ca”,
-transition: “all .15s”,
-fontFamily: “inherit”,
-},
-navBtnActive: {
-background: “linear-gradient(135deg,#ede9fe,#fce7f3)”,
-color: “#7c3aed”,
-boxShadow: “0 2px 10px rgba(168,85,247,0.15)”,
-},
-toast: {
-position: “fixed”, bottom: 90, left: “50%”,
-transform: “translateX(-50%)”,
-borderRadius: 16, padding: “10px 22px”,
-fontSize: 14, fontWeight: 700,
-boxShadow: “0 4px 20px rgba(0,0,0,0.12)”,
-zIndex: 300,
-whiteSpace: “nowrap”,
-},
-};
+</body>
+</html>
