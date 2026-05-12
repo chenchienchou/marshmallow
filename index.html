@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
@@ -10,7 +9,6 @@
   <title>🐱 布偶貓健康日記</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
@@ -40,20 +38,16 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-    html {
+    html, body {
       height: 100%;
-      /* Lock zoom */
       touch-action: manipulation;
+      overflow: hidden; /* prevent body scroll */
     }
 
     body {
-      min-height: 100%;
-      min-height: 100dvh;
       font-family: 'Nunito', sans-serif;
       background: var(--cream);
       color: var(--ink);
-      overflow-x: hidden;
-      /* Background atmosphere — no pseudo-element to avoid z-index issues */
       background-image:
         radial-gradient(ellipse at 20% 0%, rgba(244,198,198,0.38) 0%, transparent 52%),
         radial-gradient(ellipse at 85% 8%, rgba(212,197,232,0.30) 0%, transparent 48%),
@@ -61,22 +55,26 @@
       background-attachment: fixed;
     }
 
-    /* ─── App shell ─── */
+    /* ─── App shell: full screen, flex column ─── */
     #app {
       width: 100%;
       max-width: 430px;
+      height: 100dvh; /* dynamic viewport height — survives Safari toolbar */
       margin: 0 auto;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
 
-    /* ─── Header — scrolls with page ─── */
+    /* ─── Header: fixed at top, does NOT scroll ─── */
     .app-header {
+      flex-shrink: 0;
       padding-top: var(--safe-top);
       padding-left: 20px;
       padding-right: 20px;
       background: rgba(253,246,238,0.96);
       backdrop-filter: blur(16px);
+      z-index: 10;
     }
     .header-inner {
       display: flex; align-items: center; justify-content: space-between;
@@ -108,8 +106,19 @@
     .header-date .date-main { font-size: 13px; font-weight: 800; color: var(--mauve); }
     .header-date .date-time { font-size: 11px; color: var(--muted); }
 
-    /* ─── Pages — no overflow, stack naturally ─── */
-    .page { display: none; padding: 16px 16px 0; animation: fadeUp 0.28s ease; }
+    /* ─── Content area: grows to fill remaining space, scrollable ─── */
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      /* hide scrollbar visually but keep function */
+      scrollbar-width: none;
+    }
+    .content-area::-webkit-scrollbar { display: none; }
+
+    /* ─── Pages ─── */
+    .page { display: none; padding: 16px 16px 20px; animation: fadeUp 0.28s ease; }
     .page.active { display: block; }
 
     @keyframes fadeUp {
@@ -241,7 +250,7 @@
     }
     .poop-btn:active { transform: scale(0.95); }
 
-    /* ─── Save button — redesigned ─── */
+    /* ─── Save button ─── */
     .btn-save {
       width: 100%;
       padding: 0;
@@ -272,26 +281,16 @@
       padding: 17px 24px;
       position: relative; z-index: 1;
     }
-    .btn-save-icon {
-      font-size: 20px;
-      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15));
-    }
-    .btn-save-text {
-      font-size: 17px; font-weight: 900;
-      letter-spacing: 0.6px;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.12);
-    }
-    .btn-save-sub {
-      font-size: 11px; font-weight: 700;
-      opacity: 0.8; letter-spacing: 0.4px;
-    }
+    .btn-save-icon { font-size: 20px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15)); }
+    .btn-save-text { font-size: 17px; font-weight: 900; letter-spacing: 0.6px; text-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+    .btn-save-sub { font-size: 11px; font-weight: 700; opacity: 0.8; letter-spacing: 0.4px; }
     .btn-save:active { transform: scale(0.97); box-shadow: 0 3px 14px rgba(201,124,124,0.35); }
     .btn-save.loading { opacity: 0.75; }
 
     /* ─── Toast ─── */
     .toast {
       position: fixed;
-      bottom: calc(24px + var(--safe-bottom));
+      bottom: calc(80px + var(--safe-bottom));
       left: 50%; transform: translateX(-50%) translateY(20px);
       background: var(--chocolate);
       color: white;
@@ -305,16 +304,19 @@
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* ─── Navigation — scrolls with page ─── */
+    /* ─── Navigation: fixed at bottom, does NOT scroll ─── */
     .nav-bar {
+      flex-shrink: 0;
       background: rgba(253,246,238,0.94);
       backdrop-filter: blur(20px) saturate(1.5);
       border-top: 1.5px solid rgba(255,255,255,0.75);
       box-shadow: 0 -2px 20px rgba(139,94,60,0.08);
       display: flex;
       padding: 8px 12px;
-      padding-bottom: calc(8px + var(--safe-bottom));
+      /* ✅ Safe area: avoids iPhone home indicator */
+      padding-bottom: calc(8px + env(safe-area-inset-bottom));
       gap: 4px;
+      z-index: 10;
     }
     .nav-item {
       flex: 1;
@@ -386,9 +388,6 @@
       font-size: 16px; color: var(--chocolate); margin-bottom: 10px; font-style: italic;
     }
 
-    /* bottom padding for last page content so nav doesn't overlap */
-    .page-bottom-pad { height: 20px; }
-
     .loader {
       display: inline-block; width: 16px; height: 16px;
       border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
@@ -396,14 +395,12 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
-
 </head>
 <body>
 
 <div id="app">
 
-  <!-- Header — part of normal flow -->
-
+  <!-- ① Header — fixed top, flex-shrink: 0 -->
   <header class="app-header">
     <div class="header-inner">
       <div class="header-cat">
@@ -423,139 +420,131 @@
     </div>
   </header>
 
-  <!-- Pages -->
+  <!-- ② Content area — flex: 1, only this scrolls -->
+  <div class="content-area" id="contentArea">
 
-  <!-- ══ TODAY ══ -->
-
-  <div class="page active" id="page-today">
-    <div class="section-title">今日狀況 ☀️</div>
-    <div class="section-sub">台灣時間 · 每日 23:59 自動結算</div>
-    <div id="todaySummary"></div>
-    <div id="lastEntryCard"></div>
-    <div class="page-bottom-pad"></div>
-  </div>
-
-  <!-- ══ RECORD ══ -->
-
-  <div class="page" id="page-record">
-    <div class="section-title">新增紀錄 🐾</div>
-    <div class="section-sub">記錄每一次餵食與排泄</div>
-
-```
-<!-- 🥣 Feeding -->
-<div class="card">
-  <div class="card-title">🥣 餵食</div>
-  <div class="input-group">
-    <div class="input-label">⏰ 餵食時間</div>
-    <input type="time" id="feedTime" />
-  </div>
-  <div class="input-group">
-    <div class="input-label">🍖 食物種類</div>
-    <select id="foodType">
-      <option value="乾飼料">🌾 乾飼料</option>
-      <option value="主食罐">🥫 主食罐</option>
-      <option value="副食罐">🍱 副食罐</option>
-      <option value="生食">🥩 生食</option>
-      <option value="點心">🍬 點心</option>
-    </select>
-  </div>
-  <div class="input-group">
-    <div class="input-label">⚖️ 克數</div>
-    <div class="input-row">
-      <input type="number" id="feedGrams" placeholder="0" min="0" max="500" />
-      <span class="input-unit">g</span>
+    <!-- ══ TODAY ══ -->
+    <div class="page active" id="page-today">
+      <div class="section-title">今日狀況 ☀️</div>
+      <div class="section-sub">台灣時間 · 每日 23:59 自動結算</div>
+      <div id="todaySummary"></div>
+      <div id="lastEntryCard"></div>
     </div>
-  </div>
-  <div class="input-group">
-    <div class="input-label">🔥 熱量</div>
-    <div class="input-row">
-      <input type="number" id="feedCalories" placeholder="自動計算 or 手動輸入" min="0" />
-      <span class="input-unit">kcal</span>
+
+    <!-- ══ RECORD ══ -->
+    <div class="page" id="page-record">
+      <div class="section-title">新增紀錄 🐾</div>
+      <div class="section-sub">記錄每一次餵食與排泄</div>
+
+      <!-- 🥣 Feeding -->
+      <div class="card">
+        <div class="card-title">🥣 餵食</div>
+        <div class="input-group">
+          <div class="input-label">⏰ 餵食時間</div>
+          <input type="time" id="feedTime" />
+        </div>
+        <div class="input-group">
+          <div class="input-label">🍖 食物種類</div>
+          <select id="foodType">
+            <option value="乾飼料">🌾 乾飼料</option>
+            <option value="主食罐">🥫 主食罐</option>
+            <option value="副食罐">🍱 副食罐</option>
+            <option value="生食">🥩 生食</option>
+            <option value="點心">🍬 點心</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <div class="input-label">⚖️ 克數</div>
+          <div class="input-row">
+            <input type="number" id="feedGrams" placeholder="0" min="0" max="500" />
+            <span class="input-unit">g</span>
+          </div>
+        </div>
+        <div class="input-group">
+          <div class="input-label">🔥 熱量</div>
+          <div class="input-row">
+            <input type="number" id="feedCalories" placeholder="自動計算 or 手動輸入" min="0" />
+            <span class="input-unit">kcal</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 💧 Water -->
+      <div class="card">
+        <div class="card-title">💧 飲水</div>
+        <div class="input-group">
+          <div class="input-label">飲水量</div>
+          <div class="input-row">
+            <input type="number" id="waterMl" placeholder="0" min="0" max="1000" />
+            <span class="input-unit">ml</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🚽 Litter -->
+      <div class="card">
+        <div class="card-title">🚽 廁所</div>
+        <div class="input-group">
+          <div class="input-label">🟡 小便（可複選）</div>
+          <div class="tag-grid" id="peeTagGrid">
+            <div class="tag-chip" data-val="正常">😊 正常</div>
+            <div class="tag-chip" data-val="量多">💦 量多</div>
+            <div class="tag-chip" data-val="量少">💧 量少</div>
+            <div class="tag-chip" data-val="顏色異常">🟠 顏色異常</div>
+            <div class="tag-chip" data-val="血尿">🔴 血尿</div>
+            <div class="tag-chip" data-val="頻繁">🔁 頻繁</div>
+            <div class="tag-chip" data-val="未排尿">❌ 未排尿</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="input-group">
+          <div class="input-label">💩 大便狀態</div>
+          <div class="poop-grid" id="poopGrid">
+            <button class="poop-btn" data-val="正常">💩 正常</button>
+            <button class="poop-btn" data-val="偏軟">🤏 偏軟</button>
+            <button class="poop-btn" data-val="水便">💦 水便</button>
+            <button class="poop-btn" data-val="偏硬">🪨 偏硬</button>
+            <button class="poop-btn" data-val="未排便">❌ 未排便</button>
+            <button class="poop-btn" data-val="有血絲">🔴 有血絲</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 📝 Memo -->
+      <div class="card">
+        <div class="card-title">📝 備忘</div>
+        <div class="input-group">
+          <textarea id="memo" placeholder="今天有什麼特別的事嗎？比如活力、毛髮、眼睛狀況..."></textarea>
+        </div>
+      </div>
+
+      <!-- ✨ Save button — no stray dividers below -->
+      <button class="btn-save" id="saveBtn" onclick="saveRecord()">
+        <div class="btn-save-inner">
+          <span class="btn-save-icon" id="saveBtnIcon">✨</span>
+          <div>
+            <div class="btn-save-text" id="saveBtnText">儲存紀錄</div>
+            <div class="btn-save-sub">記錄毛孩的每一天</div>
+          </div>
+        </div>
+      </button>
     </div>
-  </div>
-</div>
 
-<!-- 💧 Water -->
-<div class="card">
-  <div class="card-title">💧 飲水</div>
-  <div class="input-group">
-    <div class="input-label">飲水量</div>
-    <div class="input-row">
-      <input type="number" id="waterMl" placeholder="0" min="0" max="1000" />
-      <span class="input-unit">ml</span>
-    </div>
-  </div>
-</div>
-
-<!-- 🚽 Litter -->
-<div class="card">
-  <div class="card-title">🚽 廁所</div>
-  <div class="input-group">
-    <div class="input-label">🟡 小便（可複選）</div>
-    <div class="tag-grid" id="peeTagGrid">
-      <div class="tag-chip" data-val="正常">😊 正常</div>
-      <div class="tag-chip" data-val="量多">💦 量多</div>
-      <div class="tag-chip" data-val="量少">💧 量少</div>
-      <div class="tag-chip" data-val="顏色異常">🟠 顏色異常</div>
-      <div class="tag-chip" data-val="血尿">🔴 血尿</div>
-      <div class="tag-chip" data-val="頻繁">🔁 頻繁</div>
-      <div class="tag-chip" data-val="未排尿">❌ 未排尿</div>
-    </div>
-  </div>
-  <div class="divider"></div>
-  <div class="input-group">
-    <div class="input-label">💩 大便狀態</div>
-    <div class="poop-grid" id="poopGrid">
-      <button class="poop-btn" data-val="正常">💩 正常</button>
-      <button class="poop-btn" data-val="偏軟">🤏 偏軟</button>
-      <button class="poop-btn" data-val="水便">💦 水便</button>
-      <button class="poop-btn" data-val="偏硬">🪨 偏硬</button>
-      <button class="poop-btn" data-val="未排便">❌ 未排便</button>
-      <button class="poop-btn" data-val="有血絲">🔴 有血絲</button>
-    </div>
-  </div>
-</div>
-
-<!-- 📝 Memo -->
-<div class="card">
-  <div class="card-title">📝 備忘</div>
-  <div class="input-group">
-    <textarea id="memo" placeholder="今天有什麼特別的事嗎？比如活力、毛髮、眼睛狀況..."></textarea>
-  </div>
-</div>
-
-<!-- ✨ Save button — upgraded -->
-<button class="btn-save" id="saveBtn" onclick="saveRecord()">
-  <div class="btn-save-inner">
-    <span class="btn-save-icon" id="saveBtnIcon">✨</span>
-    <div>
-      <div class="btn-save-text" id="saveBtnText">儲存紀錄</div>
-      <div class="btn-save-sub">記錄毛孩的每一天</div>
-    </div>
-  </div>
-</button>
-
-<div class="page-bottom-pad"></div>
-```
-
-  </div>
-
-  <!-- ══ HISTORY ══ -->
-
-  <div class="page" id="page-history">
-    <div class="section-title">歷史紀錄 📅</div>
-    <div class="section-sub">過去 30 天的健康軌跡</div>
-    <div id="historyList">
-      <div class="empty-state">
-        <div class="empty-icon">🐱</div>
-        <p>載入中...</p>
+    <!-- ══ HISTORY ══ -->
+    <div class="page" id="page-history">
+      <div class="section-title">歷史紀錄 📅</div>
+      <div class="section-sub">過去 30 天的健康軌跡</div>
+      <div id="historyList">
+        <div class="empty-state">
+          <div class="empty-icon">🐱</div>
+          <p>載入中...</p>
+        </div>
       </div>
     </div>
-    <div class="page-bottom-pad"></div>
-  </div>
 
-  <!-- Navigation — part of normal flow, at bottom -->
+  </div><!-- end .content-area -->
 
+  <!-- ③ Nav bar — fixed bottom, flex-shrink: 0, with safe-area padding -->
   <nav class="nav-bar">
     <button class="nav-item active" id="nav-today" onclick="switchPage('today')">
       <span class="nav-icon">☀️</span>
@@ -571,7 +560,7 @@
     </button>
   </nav>
 
-</div>
+</div><!-- end #app -->
 
 <div class="toast" id="toast"></div>
 
@@ -603,7 +592,7 @@ function getTWDateOnly(d = getTWNow()) {
 }
 
 // ══════════════════════════════════════════
-//  CLOCK — updates every second
+//  CLOCK
 // ══════════════════════════════════════════
 function updateClock() {
   const now = getTWNow();
@@ -611,7 +600,7 @@ function updateClock() {
   document.getElementById('headerTime').textContent = formatTWTime(now);
 }
 updateClock();
-setInterval(updateClock, 1000); // every second, not 30s
+setInterval(updateClock, 1000);
 
 // Default feed time
 (function() {
@@ -637,14 +626,14 @@ async function testConnection() {
 testConnection();
 
 // ══════════════════════════════════════════
-//  NAVIGATION
+//  NAVIGATION — scroll content area to top on switch
 // ══════════════════════════════════════════
 function switchPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.getElementById('contentArea').scrollTo({ top: 0, behavior: 'smooth' });
   if (name === 'today') loadToday();
   if (name === 'history') loadHistory();
 }
