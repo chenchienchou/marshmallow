@@ -6,278 +6,283 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>貓咪健康紀錄</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <!--
+    ✅ 使用 <script src> 載入，不使用 type="module"
+       來源：jsDelivr CDN（穩定、全球 CDN、支援 UMD 格式）
+       載入後全域可用 window.supabase.createClient()
+  -->
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-```
-:root {
-  --cream: #fdf6ec;
-  --warm-white: #fffdf9;
-  --ink: #1a1410;
-  --ink-light: #5c4a38;
-  --accent: #c0622b;
-  --accent-soft: #e8916a;
-  --accent-pale: #f5ddd0;
-  --border: #d9c9b8;
-  --shadow: rgba(60, 30, 10, 0.10);
-  --success: #3a7d44;
-  --error: #b93a2b;
-}
+    :root {
+      --cream: #fdf6ec;
+      --warm-white: #fffdf9;
+      --ink: #1a1410;
+      --ink-light: #5c4a38;
+      --accent: #c0622b;
+      --accent-soft: #e8916a;
+      --accent-pale: #f5ddd0;
+      --border: #d9c9b8;
+      --shadow: rgba(60, 30, 10, 0.10);
+      --success: #3a7d44;
+      --error: #b93a2b;
+    }
 
-body {
-  background-color: var(--cream);
-  background-image:
-    radial-gradient(ellipse at 20% 10%, #f5e6d3 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 90%, #f0e2d4 0%, transparent 50%);
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Noto Serif TC', serif;
-  color: var(--ink);
-  padding: 2rem 1rem;
-}
+    body {
+      background-color: var(--cream);
+      background-image:
+        radial-gradient(ellipse at 20% 10%, #f5e6d3 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 90%, #f0e2d4 0%, transparent 50%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Noto Serif TC', serif;
+      color: var(--ink);
+      padding: 2rem 1rem;
+    }
 
-.card {
-  background: var(--warm-white);
-  border: 1.5px solid var(--border);
-  border-radius: 2px;
-  box-shadow: 0 4px 32px var(--shadow), 0 1px 4px var(--shadow);
-  width: 100%;
-  max-width: 560px;
-  padding: 0;
-  overflow: hidden;
-  animation: slideIn 0.5s cubic-bezier(.22,.68,0,1.2) both;
-}
+    .card {
+      background: var(--warm-white);
+      border: 1.5px solid var(--border);
+      border-radius: 2px;
+      box-shadow: 0 4px 32px var(--shadow), 0 1px 4px var(--shadow);
+      width: 100%;
+      max-width: 580px;
+      overflow: hidden;
+      animation: slideIn 0.5s cubic-bezier(.22,.68,0,1.2) both;
+    }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(24px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(24px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
 
-.card-header {
-  background: var(--ink);
-  padding: 2rem 2.5rem 1.8rem;
-  position: relative;
-  overflow: hidden;
-}
+    .card-header {
+      background: var(--ink);
+      padding: 2rem 2.5rem 1.8rem;
+      position: relative;
+      overflow: hidden;
+    }
 
-.card-header::before {
-  content: '🐾';
-  position: absolute;
-  right: 2rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 4rem;
-  opacity: 0.12;
-  pointer-events: none;
-}
+    .card-header::before {
+      content: '🐾';
+      position: absolute;
+      right: 2rem; top: 50%;
+      transform: translateY(-50%);
+      font-size: 4rem;
+      opacity: 0.12;
+      pointer-events: none;
+    }
 
-.card-header h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--cream);
-  letter-spacing: 0.04em;
-  line-height: 1.3;
-}
+    .card-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--cream);
+      letter-spacing: 0.04em;
+    }
 
-.card-header p {
-  margin-top: 0.4rem;
-  font-size: 0.78rem;
-  color: #a08870;
-  font-family: 'JetBrains Mono', monospace;
-  letter-spacing: 0.06em;
-}
+    .card-header p {
+      margin-top: 0.4rem;
+      font-size: 0.78rem;
+      color: #a08870;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.06em;
+    }
 
-.accent-bar {
-  height: 3px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-soft), transparent);
-}
+    .accent-bar {
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-soft), transparent);
+    }
 
-.card-body {
-  padding: 2rem 2.5rem 2.5rem;
-}
+    /* ── DEBUG PANEL ── */
+    .debug-panel {
+      background: #0d0d0d;
+      border-bottom: 1px solid #2a2a2a;
+      padding: 0.9rem 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      line-height: 1.9;
+    }
 
-.field-group {
-  margin-bottom: 1.4rem;
-}
+    .debug-title {
+      color: #ffcc44;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.2rem;
+    }
 
-label {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-light);
-  margin-bottom: 0.5rem;
-  font-family: 'JetBrains Mono', monospace;
-}
+    .ok   { color: #7dff7d; }
+    .warn { color: #ff6b6b; }
+    .dim  { color: #555; }
 
-label span.required {
-  color: var(--accent);
-  margin-left: 2px;
-}
+    /* ── FORM ── */
+    .card-body { padding: 2rem 2.5rem 2.5rem; }
+    .field-group { margin-bottom: 1.4rem; }
 
-input, select, textarea {
-  width: 100%;
-  background: var(--cream);
-  border: 1.5px solid var(--border);
-  border-radius: 2px;
-  padding: 0.65rem 0.9rem;
-  font-family: 'Noto Serif TC', serif;
-  font-size: 0.95rem;
-  color: var(--ink);
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  appearance: none;
-  -webkit-appearance: none;
-}
+    label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-bottom: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
 
-input:focus, select:focus, textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-pale);
-  background: var(--warm-white);
-}
+    label .required { color: var(--accent); margin-left: 2px; }
 
-input::placeholder, textarea::placeholder {
-  color: #c4b09a;
-  font-size: 0.88rem;
-}
+    input, textarea {
+      width: 100%;
+      background: var(--cream);
+      border: 1.5px solid var(--border);
+      border-radius: 2px;
+      padding: 0.65rem 0.9rem;
+      font-family: 'Noto Serif TC', serif;
+      font-size: 0.95rem;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
 
-textarea {
-  resize: vertical;
-  min-height: 80px;
-}
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-pale);
+      background: var(--warm-white);
+    }
 
-.row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
+    input::placeholder, textarea::placeholder {
+      color: #c4b09a;
+      font-size: 0.88rem;
+    }
 
-.divider {
-  border: none;
-  border-top: 1px dashed var(--border);
-  margin: 1.8rem 0;
-}
+    textarea { resize: vertical; min-height: 80px; }
 
-.btn-submit {
-  width: 100%;
-  padding: 0.85rem 1.5rem;
-  background: var(--ink);
-  color: var(--cream);
-  border: none;
-  border-radius: 2px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.88rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: background 0.2s, transform 0.12s;
-}
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 
-.btn-submit:hover {
-  background: #2e1f0f;
-}
+    .divider {
+      border: none;
+      border-top: 1px dashed var(--border);
+      margin: 1.8rem 0;
+    }
 
-.btn-submit:active {
-  transform: scale(0.985);
-}
+    .btn-submit {
+      width: 100%;
+      padding: 0.85rem 1.5rem;
+      background: var(--ink);
+      color: var(--cream);
+      border: none;
+      border-radius: 2px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.2s, transform 0.12s;
+    }
 
-.btn-submit:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+    .btn-submit:hover   { background: #2e1f0f; }
+    .btn-submit:active  { transform: scale(0.985); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-submit .btn-text { transition: opacity 0.2s; }
+    .btn-submit.loading .btn-text { opacity: 0; }
 
-.btn-submit .btn-text { transition: opacity 0.2s; }
-.btn-submit.loading .btn-text { opacity: 0; }
+    .spinner {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 18px; height: 18px;
+      border: 2px solid rgba(253,246,236,0.3);
+      border-top-color: var(--cream);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
 
-.spinner {
-  display: none;
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 18px; height: 18px;
-  border: 2px solid rgba(253,246,236,0.3);
-  border-top-color: var(--cream);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
+    .btn-submit.loading .spinner { display: block; }
+    @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
 
-.btn-submit.loading .spinner { display: block; }
+    .status-bar {
+      margin-top: 1rem;
+      padding: 0.8rem 1rem;
+      border-radius: 2px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      display: none;
+      white-space: pre-wrap;
+      word-break: break-all;
+      animation: fadeIn 0.3s ease;
+    }
 
-@keyframes spin {
-  to { transform: translate(-50%, -50%) rotate(360deg); }
-}
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
-.status-bar {
-  margin-top: 1rem;
-  padding: 0.7rem 1rem;
-  border-radius: 2px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  display: none;
-  animation: fadeIn 0.3s ease;
-}
+    .status-bar.success {
+      display: block;
+      background: #eaf4eb;
+      border: 1.5px solid #86c98e;
+      color: var(--success);
+    }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+    .status-bar.error {
+      display: block;
+      background: #fdf0ee;
+      border: 1.5px solid #e8a59e;
+      color: var(--error);
+    }
 
-.status-bar.success {
-  display: block;
-  background: #eaf4eb;
-  border: 1.5px solid #86c98e;
-  color: var(--success);
-}
+    .card-footer {
+      padding: 1rem 2.5rem;
+      border-top: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: #b09a88;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
 
-.status-bar.error {
-  display: block;
-  background: #fdf0ee;
-  border: 1.5px solid #e8a59e;
-  color: var(--error);
-}
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      display: inline-block;
+    }
 
-.card-footer {
-  padding: 1rem 2.5rem;
-  border-top: 1px solid var(--border);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.68rem;
-  color: #b09a88;
-  letter-spacing: 0.04em;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  display: inline-block;
-}
-
-@media (max-width: 480px) {
-  .card-header, .card-body { padding-left: 1.5rem; padding-right: 1.5rem; }
-  .row-2 { grid-template-columns: 1fr; }
-  .card-footer { padding-left: 1.5rem; padding-right: 1.5rem; }
-}
-```
-
+    @media (max-width: 480px) {
+      .card-header, .card-body { padding-left: 1.5rem; padding-right: 1.5rem; }
+      .row-2 { grid-template-columns: 1fr; }
+      .card-footer { padding-left: 1.5rem; padding-right: 1.5rem; }
+    }
   </style>
+
 </head>
 <body>
 
 <div class="card">
   <div class="card-header">
     <h1>貓咪健康紀錄</h1>
-    <p>health_records · supabase</p>
+    <p>health_records · supabase · debug mode</p>
   </div>
   <div class="accent-bar"></div>
+
+  <div class="debug-panel">
+    <div class="debug-title">🔍 Connection Debug</div>
+    <div id="dbg-url"><span class="dim">initializing…</span></div>
+    <div id="dbg-key"><span class="dim">initializing…</span></div>
+    <div id="dbg-sdk"><span class="dim">initializing…</span></div>
+  </div>
 
   <div class="card-body">
     <div class="field-group">
@@ -321,88 +326,142 @@ textarea {
 
   <div class="card-footer">
     <span class="dot"></span>
-    vmgwyvwkhqnjmbdbliia.supabase.co
+    vmgwyvwkhqnjmbdbliia.supabase.co · debug build
   </div>
 </div>
 
-<!-- Supabase JS SDK (CDN) -->
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script>
-  // ── 連線設定 ────────────────────────────────────────────────
-  const SUPABASE_URL = 'https://vmgwyvwkhqnjmbdbliia.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_G_iir9jUBnqBkIfhaGCyMg_fd449ELVng';
+  // ─────────────────────────────────────────────────────────────
+  //  連線設定（.trim() 防止複製時夾帶空白）
+  //  ⚠️  前端只能放 Publishable (anon) Key
+  //      Service Role Key 絕對不能放在這裡
+  // ─────────────────────────────────────────────────────────────
+  var SUPABASE_URL      = 'https://vmgwyvwkhqnjmbdbliia.supabase.co'.trim();
+  var SUPABASE_ANON_KEY = 'sb_publishable_G_iir9jUBnqBkIfhaGCyMg_fd449ELVng'.trim();
 
-  const { createClient } = supabase;
-  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // ── Debug：console 輸出 ──────────────────────────────────────
+  console.log('=== Supabase Debug Info ===');
+  console.log('URL       :', SUPABASE_URL);
+  console.log('URL length:', SUPABASE_URL.length);
+  console.log('KEY (前16):', SUPABASE_ANON_KEY.slice(0, 16) + '…');
+  console.log('KEY length:', SUPABASE_ANON_KEY.length);
+  console.log('===========================');
 
-  // ── 送出函式 ────────────────────────────────────────────────
-  async function submitRecord() {
-    const btn    = document.getElementById('submitBtn');
-    const status = document.getElementById('statusBar');
+  // ── Debug：頁面顯示 ──────────────────────────────────────────
+  var urlOk = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.endsWith('/');
+  var keyOk = SUPABASE_ANON_KEY.length > 20;
 
-    const cat_name = document.getElementById('cat_name').value.trim();
-    const type     = document.getElementById('type').value.trim();
-    const value    = document.getElementById('value').value.trim();
-    const kcal     = document.getElementById('kcal').value;
-    const note     = document.getElementById('note').value.trim();
+  document.getElementById('dbg-url').innerHTML =
+    '<span class="' + (urlOk ? 'ok' : 'warn') + '">' +
+    'URL  (' + SUPABASE_URL.length + ' chars) : ' + SUPABASE_URL +
+    (urlOk ? ' ✓' : ' ⚠ 格式異常') + '</span>';
 
-    // 基本驗證
+  document.getElementById('dbg-key').innerHTML =
+    '<span class="' + (keyOk ? 'ok' : 'warn') + '">' +
+    'KEY  (' + SUPABASE_ANON_KEY.length + ' chars) : ' +
+    SUPABASE_ANON_KEY.slice(0, 16) + '…' + SUPABASE_ANON_KEY.slice(-6) +
+    (keyOk ? ' ✓' : ' ⚠ 長度異常') + '</span>';
+
+  // ── 初始化 Supabase client（使用 UMD 全域 window.supabase） ──
+  var db = null;
+  try {
+    if (typeof window.supabase === 'undefined') {
+      throw new Error('window.supabase 未定義，請確認 CDN <script> 是否載入成功');
+    }
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    document.getElementById('dbg-sdk').innerHTML =
+      '<span class="ok">SDK  : ✓ @supabase/supabase-js@2 (jsDelivr UMD) · client ready</span>';
+    console.log('[SDK] loaded OK, client ready');
+  } catch (e) {
+    document.getElementById('dbg-sdk').innerHTML =
+      '<span class="warn">SDK  : ✗ 初始化失敗 → ' + e.message + '</span>';
+    console.error('[SDK] init failed:', e);
+  }
+
+  // ── 送出函式 ─────────────────────────────────────────────────
+  function submitRecord() {
+    var btn    = document.getElementById('submitBtn');
+    var status = document.getElementById('statusBar');
+
+    if (!db) {
+      alert('Supabase SDK 初始化失敗，請檢查 Console。');
+      return;
+    }
+
+    var cat_name = document.getElementById('cat_name').value.trim();
+    var type     = document.getElementById('type').value.trim();
+    var value    = document.getElementById('value').value.trim();
+    var kcal     = document.getElementById('kcal').value;
+    var note     = document.getElementById('note').value.trim();
+
     if (!cat_name || !type) {
       showStatus('error', '⚠ 請至少填寫「貓咪名稱」和「類型」');
       return;
     }
 
-    // 組裝資料（只送有值的欄位）
-    const record = { cat_name, type };
-    if (value)             record.value = value;
-    if (kcal !== '')       record.kcal  = parseFloat(kcal);
-    if (note)              record.note  = note;
+    var record = { cat_name: cat_name, type: type };
+    if (value)       record.value = value;
+    if (kcal !== '') record.kcal  = parseFloat(kcal);
+    if (note)        record.note  = note;
 
-    // 載入中狀態
+    // 送出前再次 log
+    console.log('[Before insert] URL length:', SUPABASE_URL.length);
+    console.log('[Before insert] KEY length:', SUPABASE_ANON_KEY.length);
+    console.log('[Before insert] payload:', JSON.stringify(record));
+
     btn.disabled = true;
     btn.classList.add('loading');
     status.className = 'status-bar';
     status.style.display = 'none';
 
-    try {
-      const { data, error } = await db
-        .from('health_records')
-        .insert([record])
-        .select();
+    db.from('health_records')
+      .insert([record])
+      .select()
+      .then(function(result) {
+        var data  = result.data;
+        var error = result.error;
 
-      if (error) throw error;
-
-      showStatus('success', '✓ 存檔成功！資料已寫入 health_records。');
-      alert('存檔成功！');
-      clearForm();
-
-    } catch (err) {
-      const msg = err?.message || '未知錯誤';
-      showStatus('error', '✕ 失敗：' + msg);
-      alert('失敗：' + msg);
-    } finally {
-      btn.disabled = false;
-      btn.classList.remove('loading');
-    }
+        if (error) {
+          // 完整錯誤物件
+          console.error('[Insert error] full object:', error);
+          var errStr = JSON.stringify(error, null, 2);
+          console.error('[Insert error] JSON:\n', errStr);
+          showStatus('error', '✕ 失敗\n\n' + errStr);
+          alert('失敗：' + error.message + '\n\n完整錯誤物件：\n' + errStr);
+        } else {
+          console.log('[Insert success] data:', data);
+          showStatus('success', '✓ 存檔成功！\n\n' + JSON.stringify(data, null, 2));
+          alert('存檔成功！');
+          clearForm();
+        }
+      })
+      .catch(function(err) {
+        console.error('[Unexpected error]', err);
+        var errStr = JSON.stringify(err, Object.getOwnPropertyNames(err), 2);
+        showStatus('error', '✕ 非預期錯誤\n\n' + errStr);
+        alert('失敗（非預期）：' + err.message + '\n\n完整錯誤物件：\n' + errStr);
+      })
+      .finally(function() {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+      });
   }
 
   function showStatus(type, msg) {
-    const el = document.getElementById('statusBar');
+    var el = document.getElementById('statusBar');
     el.textContent = msg;
     el.className = 'status-bar ' + type;
   }
 
   function clearForm() {
-    ['cat_name','type','value','kcal','note'].forEach(id => {
+    ['cat_name', 'type', 'value', 'kcal', 'note'].forEach(function(id) {
       document.getElementById(id).value = '';
     });
   }
 
-  // Enter 鍵送出（textarea 除外）
-  document.querySelectorAll('input').forEach(el => {
-    el.addEventListener('keydown', e => {
+  // Enter 鍵送出
+  document.querySelectorAll('input').forEach(function(el) {
+    el.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') submitRecord();
     });
   });
