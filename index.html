@@ -6,189 +6,277 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="theme-color" content="#FAF8F6"/>
 <title>棉花糖 🐱</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 ::-webkit-scrollbar{display:none}
-html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans-serif;background:#FAF8F6;overscroll-behavior:none}
-:root{
-  --bg:#FAF8F6;--white:#fff;
-  --blue:#A5C0D3;--blue-lt:#D6E8F2;--blue-dk:#6E9DB8;
-  --sand:#D9C5B2;--sand-lt:#EFE4D8;--sand-dk:#B8997E;
-  --blush:#EDBBBB;--blush-lt:#FAE3E3;--blush-dk:#C47878;
-  --green-dk:#72A98E;
-  --text:#3C3C3C;--text2:#7A746E;--text3:#B0A89F;
-  --sh:0 8px 28px rgba(180,160,140,.10),0 1px 4px rgba(180,160,140,.06);
-  --sh-lg:0 16px 48px rgba(180,160,140,.14),0 4px 12px rgba(180,160,140,.08);
-  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
-}
-#app{
-  position:fixed;
-  top:0;left:0;right:0;bottom:0;
-  display:flex;flex-direction:column;
-  overflow:hidden;
-  background:var(--bg);
-  padding-top:env(safe-area-inset-top,0px);
-}
-/* blobs */
-.blob{position:fixed;pointer-events:none;z-index:0;border-radius:50%;filter:blur(72px);top:env(safe-area-inset-top,0px)}
-.b1{width:320px;height:320px;top:-80px;right:-60px;background:radial-gradient(circle,rgba(217,197,178,.42) 0%,transparent 70%)}
-.b2{width:260px;height:260px;bottom:80px;left:-60px;background:radial-gradient(circle,rgba(165,192,211,.36) 0%,transparent 70%)}
-.b3{width:190px;height:190px;top:44%;right:-30px;background:radial-gradient(circle,rgba(237,187,187,.26) 0%,transparent 70%)}
-.statusbar{display:none}
-.scroll{flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;padding:0 .9rem 1rem;position:relative;z-index:1}
-/* nav */
-.nav{
-  flex-shrink:0;
-  background:#FAF8F6;
-  border-top:1px solid rgba(217,197,178,.25);
-  padding:.6rem 0 calc(.6rem + env(safe-area-inset-bottom,0px));
-  display:flex;
-  justify-content:space-around;
-  align-items:center;
-  position:relative;
-  z-index:100;
-}
-/* Nav background extends into safe area */
 
+/* ═══ SAFE AREA — iOS PWA 正確做法 ═══
+整個畫面用 min-height:100dvh，
+頂部 padding = safe-area-inset-top，
+底部讓 nav 自己處理                    */
+html{
+background:#FAF8F6;
+/* 關鍵：讓 html 本身填滿包含 Dynamic Island 的區域 */
+background-color:#FAF8F6;
+}
+body{
+font-family:‘Noto Sans TC’,sans-serif;
+background:#FAF8F6;
+overflow:hidden;
+height:100dvh;
+width:100vw;
+position:fixed;
+top:0;left:0;
+}
+
+#app{
+width:100%;
+height:100dvh;
+display:flex;
+flex-direction:column;
+background:#FAF8F6;
+overflow:hidden;
+/* 頂部留給 Dynamic Island / status bar */
+padding-top:env(safe-area-inset-top, 44px);
+}
+
+:root{
+–bg:#FAF8F6;
+–white:#fff;
+–blue:#A5C0D3;–blue-lt:#D6E8F2;–blue-dk:#6E9DB8;
+–sand:#D9C5B2;–sand-lt:#EFE4D8;–sand-dk:#B8997E;
+–blush:#EDBBBB;–blush-lt:#FAE3E3;–blush-dk:#C47878;
+–green-dk:#72A98E;
+–text:#3C3C3C;–text2:#7A746E;–text3:#B0A89F;
+–sh:0 8px 28px rgba(180,160,140,.10),0 1px 4px rgba(180,160,140,.06);
+–sh-lg:0 16px 48px rgba(180,160,140,.14),0 4px 12px rgba(180,160,140,.08);
+}
+
+/* ── blobs ── */
+.blob{position:fixed;pointer-events:none;z-index:0;border-radius:50%;filter:blur(72px)}
+.b1{width:320px;height:320px;top:0;right:-60px;background:radial-gradient(circle,rgba(217,197,178,.4) 0%,transparent 70%)}
+.b2{width:260px;height:260px;bottom:80px;left:-60px;background:radial-gradient(circle,rgba(165,192,211,.34) 0%,transparent 70%)}
+.b3{width:190px;height:190px;top:44%;right:-30px;background:radial-gradient(circle,rgba(237,187,187,.24) 0%,transparent 70%)}
+
+/* ── scroll ── */
+.scroll{
+flex:1;
+overflow-y:auto;
+overflow-x:hidden;
+overscroll-behavior-y:contain;
+-webkit-overflow-scrolling:touch;
+padding:0 .9rem .5rem;
+position:relative;z-index:1;
+}
+
+/* ── nav ──
+padding-bottom = safe-area-inset-bottom 讓背景填滿到底  */
+.nav{
+flex-shrink:0;
+background:#FAF8F6;
+border-top:1px solid rgba(217,197,178,.25);
+display:flex;
+justify-content:space-around;
+align-items:center;
+/* 上方內縮 + 下方填滿 Home Indicator */
+padding:0.55rem 0 max(env(safe-area-inset-bottom, 0px), 0.55rem);
+position:relative;z-index:100;
+}
 .ni{display:flex;flex-direction:column;align-items:center;gap:.18rem;padding:.25rem 1rem;border:none;background:none;cursor:pointer;transition:transform .18s cubic-bezier(.34,1.56,.64,1)}
 .ni:active{transform:scale(.86)}
 .ni .ic{font-size:1.45rem;line-height:1}
 .ni .lb{font-size:.58rem;font-weight:600;color:var(–text3);letter-spacing:.04em;transition:color .2s}
 .ni.on .lb{color:var(–blue-dk)}
 .ni.on .ic{filter:drop-shadow(0 2px 5px rgba(110,157,184,.55))}
-/* card */
-.card{background:rgba(255,255,255,.9);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:2rem;box-shadow:var(–sh);border:1px solid rgba(255,255,255,.72);padding:1.35rem;margin-bottom:.85rem;position:relative;overflow:hidden;animation:rise .5s cubic-bezier(.34,1.15,.64,1) both}
+
+/* ── card ── */
+.card{
+background:rgba(255,255,255,.92);
+backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+border-radius:2rem;box-shadow:var(–sh);border:1px solid rgba(255,255,255,.75);
+padding:1.35rem;margin-bottom:.85rem;
+position:relative;overflow:hidden;
+animation:rise .5s cubic-bezier(.34,1.15,.64,1) both;
+}
 .card::before{content:’’;position:absolute;inset:0;background:linear-gradient(148deg,rgba(255,255,255,.5) 0%,transparent 52%);border-radius:inherit;pointer-events:none}
 .card:nth-child(1){animation-delay:.03s}.card:nth-child(2){animation-delay:.09s}.card:nth-child(3){animation-delay:.15s}.card:nth-child(4){animation-delay:.21s}.card:nth-child(5){animation-delay:.27s}
-@keyframes rise{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes rise{from{opacity:0;transform:translateY(22px) scale(.98)}to{opacity:1;transform:none}}
 .ct{font-size:.68rem;font-weight:700;color:var(–text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem}
-/* hero */
+
+/* ── hero ── */
 .hero{text-align:center;padding:1rem 0 .5rem;animation:rise .55s cubic-bezier(.34,1.15,.64,1) both;position:relative;z-index:1}
 .aw{position:relative;display:inline-block;margin-bottom:.65rem;cursor:pointer}
-.av{width:82px;height:82px;border-radius:50%;background:linear-gradient(145deg,var(–sand-lt),var(–sand) 55%,var(–blue-lt));display:flex;align-items:center;justify-content:center;font-size:2.3rem;box-shadow:var(–sh-lg),0 0 0 3px #fff,0 0 0 5.5px var(–sand-lt);transition:transform .22s cubic-bezier(.34,1.56,.64,1);overflow:hidden;position:relative}
+.av{
+width:82px;height:82px;border-radius:50%;
+background:linear-gradient(145deg,var(–sand-lt),var(–sand) 55%,var(–blue-lt));
+display:flex;align-items:center;justify-content:center;font-size:2.3rem;
+box-shadow:var(–sh-lg),0 0 0 3px #fff,0 0 0 5.5px var(–sand-lt);
+transition:transform .22s cubic-bezier(.34,1.56,.64,1);
+overflow:hidden;position:relative;
+}
 .av:active{transform:scale(.9)}
 .av img{width:100%;height:100%;object-fit:cover;border-radius:50%;position:absolute;inset:0}
 .av-hint{position:absolute;inset:0;border-radius:50%;background:rgba(50,40,35,.42);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .22s;pointer-events:none}
-.av-hint .hi{font-size:1.3rem}.av-hint .ht{font-size:.5rem;color:#fff;font-weight:700;letter-spacing:.04em;margin-top:.1rem}
+.av-hint .hi{font-size:1.3rem}.av-hint .ht{font-size:.5rem;color:#fff;font-weight:700;margin-top:.1rem}
 .aw:active .av-hint{opacity:1}
-.av-ring{position:absolute;inset:-6px;border-radius:50%;border:1.5px dashed rgba(169,143,115,.32);animation:spin 20s linear infinite}
+/* 旋轉圓環用 border-style:solid 確保不顯示虛線 */
+.av-ring{
+position:absolute;inset:-6px;border-radius:50%;
+border:1.5px solid rgba(169,143,115,.32);
+border-style:solid;
+animation:spinslow 20s linear infinite;
+}
 .av-badge{position:absolute;bottom:2px;right:2px;background:var(–sand);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.62rem;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.1)}
-@keyframes spin{to{transform:rotate(360deg)}}
-.hero-name{font-family:‘DM Serif Display’,serif;font-size:1.85rem;color:var(–text);letter-spacing:-.01em}
+@keyframes spinslow{to{transform:rotate(360deg)}}
+.hero-name{font-family:‘DM Serif Display’,serif;font-size:1.85rem;color:var(–text)}
 .hero-breed{font-size:.7rem;color:var(–text3);margin-top:.14rem;letter-spacing:.04em}
-.hero-age{display:inline-block;background:linear-gradient(135deg,var(–blue-lt),var(–sand-lt));color:var(–blue-dk);font-size:.63rem;font-weight:700;padding:.22rem .85rem;border-radius:2rem;margin-top:.45rem;letter-spacing:.05em;border:1px solid rgba(165,192,211,.28)}
-/* stat row */
+.hero-age{display:inline-block;background:linear-gradient(135deg,var(–blue-lt),var(–sand-lt));color:var(–blue-dk);font-size:.63rem;font-weight:700;padding:.22rem .85rem;border-radius:2rem;margin-top:.45rem;border:1px solid rgba(165,192,211,.28)}
+
+/* ── stat row ── */
 .sr{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.85rem;animation:rise .5s cubic-bezier(.34,1.15,.64,1) .06s both;position:relative;z-index:1}
-.sm{background:rgba(255,255,255,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:1.1rem;box-shadow:var(–sh);border:1px solid rgba(255,255,255,.65);padding:1rem 1.05rem;position:relative;overflow:hidden}
+.sm{background:rgba(255,255,255,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:1.1rem;box-shadow:var(–sh);border:1px solid rgba(255,255,255,.68);padding:1rem 1.05rem;position:relative;overflow:hidden}
 .sm::after{content:’’;position:absolute;top:-25%;right:-15%;width:70px;height:70px;border-radius:50%;opacity:.2;pointer-events:none;filter:blur(15px)}
 .sm:first-child::after{background:var(–blue)}.sm:last-child::after{background:var(–sand)}
 .sml{font-size:.62rem;font-weight:700;color:var(–text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.28rem}
 .smv{font-size:1.5rem;font-weight:700;color:var(–text);letter-spacing:-.025em;line-height:1.1}
 .sms{font-size:.62rem;color:var(–text3);margin-top:.12rem}
-/* buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;border:none;cursor:pointer;font-family:inherit;font-weight:600;letter-spacing:.02em;transition:transform .16s cubic-bezier(.34,1.56,.64,1),box-shadow .16s ease;border-radius:.75rem}
+
+/* ── buttons ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;border:none;cursor:pointer;font-family:inherit;font-weight:600;letter-spacing:.02em;transition:transform .16s cubic-bezier(.34,1.56,.64,1);border-radius:.75rem}
 .btn:active{transform:scale(.91)}
 .btn-blue{background:var(–blue);color:#fff;padding:.75rem 1.4rem;font-size:.83rem;border-radius:.95rem;box-shadow:0 5px 16px rgba(165,192,211,.48)}
 .btn-sand{background:var(–sand);color:#fff;padding:.75rem 1.4rem;font-size:.83rem;border-radius:.95rem;box-shadow:0 5px 16px rgba(217,197,178,.52)}
 .btn-blush{background:var(–blush);color:#fff;padding:.75rem 1.4rem;font-size:.83rem;border-radius:.95rem;box-shadow:0 5px 16px rgba(237,187,187,.45)}
 .btn-ghost{background:rgba(180,160,140,.1);color:var(–text2);padding:.65rem 1rem;font-size:.78rem;border-radius:.9rem;border:1px solid rgba(180,160,140,.18)}
 .bfw{width:100%}
-/* input */
+
+/* ── input ── */
 .ig{margin-bottom:.85rem}
 .il{font-size:.7rem;font-weight:700;color:var(–text2);margin-bottom:.32rem;display:block;letter-spacing:.04em}
-.inp{width:100%;background:rgba(250,248,246,.92);border:1.5px solid rgba(217,197,178,.28);border-radius:.85rem;padding:.75rem 1rem;font-family:inherit;font-size:.88rem;color:var(–text);outline:none;transition:border-color .2s,box-shadow .2s}
+.inp{width:100%;background:rgba(250,248,246,.95);border:1.5px solid rgba(217,197,178,.28);border-radius:.85rem;padding:.75rem 1rem;font-family:inherit;font-size:.88rem;color:var(–text);outline:none;transition:border-color .2s,box-shadow .2s}
 .inp:focus{border-color:var(–blue);box-shadow:0 0 0 3.5px rgba(165,192,211,.18)}
-/* pages */
+
+/* ── pages ── */
 .pg{display:none}.pg.on{display:block}
-/* tabs */
+
+/* ── tabs ── */
 .tabs{display:flex;background:rgba(230,220,210,.32);border-radius:.95rem;padding:.22rem;margin-bottom:.9rem;border:1px solid rgba(217,197,178,.2)}
 .tab{flex:1;text-align:center;padding:.52rem 0;font-size:.72rem;font-weight:600;color:var(–text3);border-radius:.7rem;cursor:pointer;transition:all .22s cubic-bezier(.34,1.2,.64,1);border:none;background:none;font-family:inherit}
-.tab.on{background:#fff;color:var(–blue-dk);box-shadow:0 3px 10px rgba(165,192,211,.2),0 1px 3px rgba(0,0,0,.04)}
-/* water ring */
-.rw{display:flex;align-items:center;gap:1.1rem}
-.rring{position:relative;flex-shrink:0}
-.rv{font-size:1.85rem;font-weight:700;color:var(–text);letter-spacing:-.03em;line-height:1}
-.ru{font-size:.72rem;color:var(–text3);font-weight:400}
-/* inventory bar */
-.inv-bg{background:rgba(217,197,178,.2);border-radius:2rem;height:9px;overflow:hidden;margin:.65rem 0 .25rem}
-.inv-fill{height:100%;border-radius:2rem;background:linear-gradient(90deg,var(–blue),var(–sand));transition:width .75s cubic-bezier(.34,1.1,.64,1)}
-/* alert */
+.tab.on{background:#fff;color:var(–blue-dk);box-shadow:0 3px 10px rgba(165,192,211,.2)}
+
+/* ── alert ── */
 .adot{position:absolute;top:1rem;right:1rem;width:10px;height:10px;border-radius:50%;background:var(–blush-dk)}
 .adot::after{content:’’;position:absolute;inset:-4px;border-radius:50%;background:var(–blush-dk);animation:blink 1.4s ease-in-out infinite;opacity:.5}
 @keyframes blink{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.9);opacity:0}}
 .card.alrt{border-color:rgba(237,187,187,.5);background:rgba(253,237,237,.82)}
-/* records */
+
+/* ── records ── */
 .ri{display:flex;align-items:center;gap:.8rem;padding:.75rem 0;border-bottom:1px solid rgba(217,197,178,.14)}
 .ri:last-child{border-bottom:none}
 .ric{width:36px;height:36px;border-radius:.85rem;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
 .rf{background:linear-gradient(135deg,#FFF3E8,#FFE0C2)}.rw2{background:linear-gradient(135deg,#E3F3FF,#C8E6FA)}.rp{background:linear-gradient(135deg,#F5EEF8,#E8D5F0)}.rpee{background:linear-gradient(135deg,#FFFBDE,#FFF3A3)}.rwt{background:linear-gradient(135deg,#EAFAF2,#C6EDDA)}
 .rn{font-size:.8rem;font-weight:600;color:var(–text)}.rtm{font-size:.65rem;color:var(–text3);margin-top:.06rem}
-/* pee btns */
+
+/* ── pee btns ── */
 .pbr{display:flex;gap:.65rem;margin:.5rem 0}
 .pb{flex:1;padding:.8rem;border-radius:1rem;border:none;cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:600;transition:transform .16s cubic-bezier(.34,1.56,.64,1)}
 .pb:active{transform:scale(.9)}
 .pbn{background:linear-gradient(135deg,#FFFDE7,#FFF3C4);color:#9E8A00;box-shadow:0 4px 12px rgba(200,180,0,.14)}
 .pba{background:linear-gradient(135deg,var(–blush-lt),#FACCCC);color:var(–blush-dk);box-shadow:0 4px 12px rgba(237,187,187,.28)}
-/* bristol */
+
+/* ── bristol ── */
 .bg{display:grid;grid-template-columns:repeat(5,1fr);gap:.45rem;margin:.6rem 0}
-.bi{background:rgba(250,248,246,.82);border-radius:.75rem;padding:.5rem .25rem;text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s cubic-bezier(.34,1.56,.64,1)}
+.bi{background:rgba(250,248,246,.85);border-radius:.75rem;padding:.5rem .25rem;text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s cubic-bezier(.34,1.56,.64,1)}
 .bi:active{transform:scale(.88)}.bi.sel{background:var(–blue-lt);border-color:var(–blue)}
 .be{font-size:1.25rem}.bn{font-size:.56rem;font-weight:700;color:var(–text3);margin-top:.18rem}.bd{font-size:.5rem;color:var(–text3);line-height:1.2}
-/* weight */
+
+/* ── weight ── */
 .wn{font-size:3rem;font-weight:700;color:var(–text);letter-spacing:-.04em;line-height:1}
 .wu{font-size:1rem;color:var(–text3);font-weight:400}
-/* drawer */
+
+/* ── drawer ── */
 .dov{position:fixed;inset:0;background:rgba(60,50,40,.28);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:200;opacity:0;pointer-events:none;transition:opacity .3s}
 .dov.on{opacity:1;pointer-events:all}
-.dr{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(170deg,rgba(255,255,255,.97),rgba(250,248,246,.98));border-radius:2rem 2rem 0 0;z-index:201;padding:1.4rem 1.35rem 1.4rem;transform:translateY(100%);transition:transform .4s cubic-bezier(.34,1.1,.64,1);max-height:88dvh;overflow-y:auto;border-top:1px solid rgba(217,197,178,.28);box-shadow:0 -8px 40px rgba(180,160,140,.15)}
+.dr{
+position:fixed;bottom:0;left:0;right:0;
+background:#FDFCFA;
+border-radius:2rem 2rem 0 0;z-index:201;
+padding:1.4rem 1.35rem;
+/* bottom padding 填滿 Home Indicator */
+padding-bottom:max(env(safe-area-inset-bottom,0px), 1.4rem);
+transform:translateY(100%);
+transition:transform .4s cubic-bezier(.34,1.1,.64,1);
+max-height:88dvh;overflow-y:auto;
+border-top:1px solid rgba(217,197,178,.28);
+box-shadow:0 -8px 40px rgba(180,160,140,.15);
+}
 .dr.on{transform:translateY(0)}
 .dh{width:2.2rem;height:3px;background:var(–text3);border-radius:2px;margin:0 auto 1.2rem;opacity:.3}
 .dt{font-family:‘DM Serif Display’,serif;font-size:1.4rem;margin-bottom:1.2rem;color:var(–text)}
-/* pill */
+
+/* ── misc ── */
 .kp{display:inline-flex;align-items:center;gap:.3rem;background:linear-gradient(135deg,var(–sand-lt),var(–blue-lt));color:var(–sand-dk);border-radius:2rem;padding:.22rem .7rem;font-size:.68rem;font-weight:700;border:1px solid rgba(217,197,178,.3)}
-/* dashboard */
-.dcard{background:rgba(255,255,255,.9);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:1.6rem;box-shadow:var(–sh);border:1px solid rgba(255,255,255,.72);padding:1.2rem 1.25rem;margin-bottom:.75rem;position:relative;overflow:hidden;animation:rise .5s cubic-bezier(.34,1.15,.64,1) both}
+.inv-bg{background:rgba(217,197,178,.2);border-radius:2rem;height:9px;overflow:hidden;margin:.65rem 0 .25rem}
+.inv-fill{height:100%;border-radius:2rem;background:linear-gradient(90deg,var(–blue),var(–sand));transition:width .75s cubic-bezier(.34,1.1,.64,1)}
+.sh2{font-size:.65rem;font-weight:700;color:var(–text3);letter-spacing:.09em;text-transform:uppercase;margin:1.05rem 0 .45rem .2rem}
+.loading{text-align:center;padding:2rem;color:var(–text3);font-size:.78rem}
+.spin{display:inline-block;width:18px;height:18px;border:2px solid var(–sand-lt);border-top-color:var(–sand);border-radius:50%;animation:spinslow .7s linear infinite;vertical-align:middle;margin-right:.4rem}
+
+/* ── toast ── */
+.toast{
+position:fixed;
+top:calc(env(safe-area-inset-top, 44px) + .8rem);
+left:50%;transform:translateX(-50%) translateY(-70px);
+background:rgba(60,55,50,.92);
+backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+color:#fff;padding:.6rem 1.35rem;border-radius:2rem;
+font-size:.78rem;font-weight:500;z-index:9999;
+transition:transform .38s cubic-bezier(.34,1.4,.64,1);
+white-space:nowrap;box-shadow:var(–sh-lg);
+}
+.toast.on{transform:translateX(-50%) translateY(0)}
+
+/* ── dashboard cards ── */
+.dcard{background:rgba(255,255,255,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:1.6rem;box-shadow:var(–sh);border:1px solid rgba(255,255,255,.75);padding:1.2rem 1.25rem;margin-bottom:.75rem;position:relative;overflow:hidden;animation:rise .5s cubic-bezier(.34,1.15,.64,1) both}
 .dcard::before{content:’’;position:absolute;inset:0;background:linear-gradient(148deg,rgba(255,255,255,.5) 0%,transparent 50%);border-radius:inherit;pointer-events:none}
 .dcard:nth-child(1){animation-delay:.04s}.dcard:nth-child(2){animation-delay:.1s}.dcard:nth-child(3){animation-delay:.16s}.dcard:nth-child(4){animation-delay:.22s}.dcard:nth-child(5){animation-delay:.28s}
 .drow2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem}
 .drow2 .dcard{margin-bottom:0}
-.dc-hero{background:linear-gradient(145deg,#B8D4E8 0%,#C8B8D4 45%,#D4C0B0 100%);border:none;color:#fff;display:flex;align-items:flex-start}
+.dc-hero{background:linear-gradient(145deg,#B8D4E8,#C8B8D4 45%,#D4C0B0);border:none;color:#fff;display:flex;align-items:flex-start}
 .dc-hero::before{background:linear-gradient(148deg,rgba(255,255,255,.28) 0%,transparent 55%)}
 .dc-left{flex:1}.dc-right{display:flex;flex-direction:column;align-items:center;flex-shrink:0;margin-left:1rem}
 .dc-eye{font-size:.6rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;opacity:.75;margin-bottom:.35rem}
 .dc-mtitle{font-family:‘DM Serif Display’,serif;font-size:1.15rem;line-height:1.25;color:#fff}
 .dc-msub{font-size:.7rem;opacity:.8;margin-top:.25rem;line-height:1.4}
 .dc-pills{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.7rem}
-.dc-pill{font-size:.58rem;font-weight:700;padding:.2rem .55rem;border-radius:2rem;background:rgba(255,255,255,.25);color:#fff;letter-spacing:.03em}
+.dc-pill{font-size:.58rem;font-weight:700;padding:.2rem .55rem;border-radius:2rem;background:rgba(255,255,255,.25);color:#fff}
 .dc-pill.bad{background:rgba(200,100,100,.35)}
 .dc-score{position:relative;width:72px;height:72px;display:flex;align-items:center;justify-content:center}
 .dc-score-in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .dc-snum{font-size:1.3rem;font-weight:700;color:#fff;line-height:1}
-.dc-sunit{font-size:.5rem;color:rgba(255,255,255,.7);font-weight:600;letter-spacing:.04em}
+.dc-sunit{font-size:.5rem;color:rgba(255,255,255,.7);font-weight:600}
 .dring-wrap{position:relative;width:76px;height:76px;margin:0 auto .3rem;display:flex;align-items:center;justify-content:center}
 .dring-in{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
 .dring-big{font-size:1.05rem;font-weight:700;color:var(–text);line-height:1}
 .dc-ago{font-size:1.35rem;font-weight:700;color:var(–text);line-height:1.2;margin:.3rem 0 .15rem}
 .dc-label{font-size:.62rem;font-weight:700;color:var(–text3);letter-spacing:.07em;text-transform:uppercase}
 .dc-sub{font-size:.63rem;color:var(–text3)}
-.dc-badge{display:inline-block;font-size:.6rem;font-weight:700;padding:.2rem .65rem;border-radius:2rem;letter-spacing:.04em}
+.dc-badge{display:inline-block;font-size:.6rem;font-weight:700;padding:.2rem .65rem;border-radius:2rem}
 .dc-inv-track{height:4px;background:rgba(217,197,178,.22);border-radius:2px;overflow:hidden;margin-top:.55rem}
 .dc-inv-fill{height:100%;border-radius:2rem;background:linear-gradient(90deg,var(–blue),var(–sand));transition:width .7s cubic-bezier(.34,1.1,.64,1);width:0%}
-.dc-warn{margin-top:.45rem;font-size:.62rem;font-weight:700;color:var(–blush-dk);background:var(–blush-lt);padding:.25rem .6rem;border-radius:.6rem;display:inline-block;letter-spacing:.03em}
+.dc-warn{margin-top:.45rem;font-size:.62rem;font-weight:700;color:var(–blush-dk);background:var(–blush-lt);padding:.25rem .6rem;border-radius:.6rem;display:inline-block}
 .dc-wbig{font-size:2.1rem;font-weight:700;color:var(–text);letter-spacing:-.03em;line-height:1}
 .dc-wunit{font-size:.95rem;font-weight:400;color:var(–text3)}
-.spark-wrap{margin:.2rem -.1rem 0;position:relative}
-.spark-labels{display:flex;justify-content:space-between;margin-top:.2rem;padding:0 .1rem}
+.spark-wrap{margin:.2rem 0 0;position:relative}
+.spark-labels{display:flex;justify-content:space-between;margin-top:.2rem}
 .spark-lbl{font-size:.55rem;color:var(–text3)}
-/* toilet timeline */
 .tl-list{display:flex;flex-direction:column;gap:.5rem}
 .tl-empty{text-align:center;padding:.8rem 0;font-size:.75rem;color:var(–text3)}
 .tl-item{display:flex;align-items:center;gap:.75rem}
-.tl-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0;box-shadow:0 2px 8px rgba(180,160,140,.12)}
+.tl-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
 .tl-pee{background:linear-gradient(135deg,#FFFDE7,#FFF59D)}
 .tl-poop{background:linear-gradient(135deg,#F3E5F5,#E1BEE7)}
 .tl-name{font-size:.78rem;font-weight:600;color:var(–text)}.tl-time{font-size:.62rem;color:var(–text3);margin-top:.06rem}
@@ -197,15 +285,17 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
 .tl-chip{display:flex;align-items:center;gap:.25rem;font-size:.65rem;font-weight:700;padding:.22rem .65rem;border-radius:2rem}
 .tc-pee{background:rgba(255,253,222,.9);color:#9E8A00;border:1px solid rgba(255,237,100,.3)}
 .tc-poop{background:rgba(243,229,245,.9);color:#9B72B0;border:1px solid rgba(190,155,210,.25)}
-/* toast */
-.toast{position:fixed;top:calc(var(–st) + 1rem);left:50%;transform:translateX(-50%) translateY(-70px);background:rgba(60,55,50,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;padding:.6rem 1.35rem;border-radius:2rem;font-size:.78rem;font-weight:500;z-index:999;transition:transform .38s cubic-bezier(.34,1.4,.64,1);white-space:nowrap;box-shadow:var(–sh-lg);border:1px solid rgba(255,255,255,.1)}
-.toast.on{transform:translateX(-50%) translateY(0)}
-.loading{text-align:center;padding:2rem;color:var(–text3);font-size:.78rem}
-.spin{display:inline-block;width:18px;height:18px;border:2px solid var(–sand-lt);border-top-color:var(–sand);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:.4rem}
-/* section head */
-.sh{font-size:.65rem;font-weight:700;color:var(–text3);letter-spacing:.09em;text-transform:uppercase;margin:1.05rem 0 .45rem .2rem}
-/* splash */
-#splash{position:fixed;inset:0;z-index:9999;background:var(–bg);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transition:opacity .55s ease,transform .55s cubic-bezier(.4,0,.2,1);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+/* ── SPLASH — 關鍵：用 position:fixed + inset:0 確保全覆蓋 ── */
+#splash{
+position:fixed;
+inset:0;
+z-index:9999;
+background:#FAF8F6;   /* 純色，不透明 */
+display:flex;flex-direction:column;align-items:center;justify-content:center;
+overflow:hidden;
+transition:opacity .55s ease, transform .55s cubic-bezier(.4,0,.2,1);
+}
 #splash.hide{opacity:0;transform:scale(1.04);pointer-events:none}
 .sp-b{position:absolute;border-radius:50%;filter:blur(65px);pointer-events:none}
 .sp-b1{width:300px;height:300px;top:-80px;right:-60px;background:radial-gradient(circle,rgba(217,197,178,.55),transparent 70%);animation:spf 4s ease-in-out infinite}
@@ -213,29 +303,26 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
 .sp-b3{width:180px;height:180px;top:40%;right:-30px;background:radial-gradient(circle,rgba(237,187,187,.32),transparent 70%);animation:spf 3.5s ease-in-out infinite 1s}
 @keyframes spf{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
 .paw-wrap{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.paw{position:absolute;font-size:1.1rem;opacity:0;animation:pawF linear infinite}
-@keyframes pawF{0%{opacity:0;transform:translateY(100vh) rotate(-15deg) scale(.6)}10%{opacity:.18}90%{opacity:.12}100%{opacity:0;transform:translateY(-80px) rotate(15deg) scale(1.1)}}
+.paw{position:absolute;opacity:0;animation:pawF linear infinite}
+@keyframes pawF{0%{opacity:0;transform:translateY(100vh) rotate(-15deg)}10%{opacity:.18}90%{opacity:.12}100%{opacity:0;transform:translateY(-80px) rotate(15deg)}}
+.sp-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center}
 .sp-av-wrap{position:relative;margin-bottom:1.6rem}
-.sp-ring-out{position:absolute;inset:-14px;border-radius:50%;border:1.5px solid rgba(217,197,178,.35);animation:spin 14s linear infinite}
-.sp-ring-in{position:absolute;inset:-7px;border-radius:50%;border:1.5px dashed rgba(165,192,211,.4);animation:spin 9s linear infinite reverse}
-.sp-av{width:96px;height:96px;border-radius:50%;background:linear-gradient(145deg,var(–sand-lt),var(–sand) 50%,var(–blue-lt));display:flex;align-items:center;justify-content:center;font-size:2.8rem;box-shadow:0 0 0 3px #fff,0 0 0 6px var(–sand-lt),0 16px 48px rgba(180,160,140,.22);animation:spPulse 2.4s ease-in-out infinite;overflow:hidden;position:relative}
-@keyframes spPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-.sp-name{font-family:‘DM Serif Display’,serif;font-size:2.2rem;color:var(–text);letter-spacing:-.015em;animation:rise .7s cubic-bezier(.34,1.2,.64,1) .2s both}
+.sp-ro{position:absolute;inset:-14px;border-radius:50%;border:1.5px solid rgba(217,197,178,.35);animation:spinslow 14s linear infinite}
+.sp-ri{position:absolute;inset:-7px;border-radius:50%;border:1.5px dashed rgba(165,192,211,.4);animation:spinslow 9s linear infinite reverse}
+.sp-av{width:96px;height:96px;border-radius:50%;background:linear-gradient(145deg,var(–sand-lt),var(–sand) 50%,var(–blue-lt));display:flex;align-items:center;justify-content:center;font-size:2.8rem;box-shadow:0 0 0 3px #fff,0 0 0 6px var(–sand-lt),0 16px 48px rgba(180,160,140,.22);animation:pulse 2.4s ease-in-out infinite;overflow:hidden;position:relative}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.sp-name{font-family:‘DM Serif Display’,serif;font-size:2.2rem;color:var(–text);animation:rise .7s cubic-bezier(.34,1.2,.64,1) .2s both}
 .sp-sub{font-size:.72rem;color:var(–text3);letter-spacing:.06em;margin-top:.18rem;animation:rise .7s cubic-bezier(.34,1.2,.64,1) .35s both}
 .sp-bar-wrap{margin-top:2.4rem;width:140px;animation:rise .7s cubic-bezier(.34,1.2,.64,1) .5s both}
 .sp-bar-bg{height:4px;background:rgba(217,197,178,.3);border-radius:2px;overflow:hidden}
 .sp-bar-fill{height:100%;width:0%;border-radius:2px;background:linear-gradient(90deg,var(–blue),var(–sand));transition:width .1s linear}
-.sp-bar-lbl{font-size:.6rem;color:var(–text3);text-align:center;margin-top:.45rem;letter-spacing:.04em}
+.sp-bar-lbl{font-size:.6rem;color:var(–text3);text-align:center;margin-top:.45rem}
 .sp-dots{display:flex;gap:.45rem;margin-top:1rem;animation:rise .7s cubic-bezier(.34,1.2,.64,1) .55s both}
-.sp-dot{width:6px;height:6px;border-radius:50%;background:var(–sand);opacity:.4;animation:dotB 1.2s ease-in-out infinite}
-.sp-dot:nth-child(1){animation-delay:0s}.sp-dot:nth-child(2){animation-delay:.18s;background:var(–blue)}.sp-dot:nth-child(3){animation-delay:.36s;background:var(–blush)}
+.sp-dot{width:6px;height:6px;border-radius:50%;opacity:.4;animation:dotB 1.2s ease-in-out infinite}
+.sp-dot:nth-child(1){background:var(–sand);animation-delay:0s}
+.sp-dot:nth-child(2){background:var(–blue);animation-delay:.18s}
+.sp-dot:nth-child(3){background:var(–blush);animation-delay:.36s}
 @keyframes dotB{0%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-7px);opacity:1}}
-/* inv drawer quick add */
-.qa-btn{flex:1;padding:.5rem .9rem;font-size:.75rem;border-radius:.8rem;border:none;cursor:pointer;font-family:inherit;font-weight:600;background:var(–blue-lt);color:var(–blue-dk);transition:transform .16s cubic-bezier(.34,1.56,.64,1)}
-.qa-btn:active{transform:scale(.9)}
-/* inv preview box */
-.inv-prev{background:linear-gradient(135deg,var(–sand-lt),var(–blue-lt));border-radius:1rem;padding:.9rem 1rem;margin-bottom:1rem;display:none}
-/* emoji grid */
 .eg-item{width:100%;aspect-ratio:1;border-radius:.75rem;background:rgba(250,248,246,.85);border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;transition:all .18s cubic-bezier(.34,1.56,.64,1)}
 .eg-item:active{transform:scale(.88)}.eg-item.sel{background:var(–blue-lt);border-color:var(–blue)}
 </style>
@@ -243,14 +330,17 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
 </head>
 <body>
 
-<!-- Splash -->
+<!-- ══ SPLASH ══ -->
 
 <div id="splash">
-  <div class="sp-b sp-b1"></div><div class="sp-b sp-b2"></div><div class="sp-b sp-b3"></div>
+  <div class="sp-b sp-b1"></div>
+  <div class="sp-b sp-b2"></div>
+  <div class="sp-b sp-b3"></div>
   <div class="paw-wrap" id="paw-wrap"></div>
-  <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center">
+  <div class="sp-inner">
     <div class="sp-av-wrap">
-      <div class="sp-ring-out"></div><div class="sp-ring-in"></div>
+      <div class="sp-ro"></div>
+      <div class="sp-ri"></div>
       <div class="sp-av" id="sp-av"><span id="sp-emoji">🐱</span></div>
     </div>
     <div class="sp-name">棉花糖</div>
@@ -259,14 +349,22 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
       <div class="sp-bar-bg"><div class="sp-bar-fill" id="sp-bar"></div></div>
       <div class="sp-bar-lbl" id="sp-lbl">正在為棉花糖準備…</div>
     </div>
-    <div class="sp-dots"><div class="sp-dot"></div><div class="sp-dot"></div><div class="sp-dot"></div></div>
+    <div class="sp-dots">
+      <div class="sp-dot"></div>
+      <div class="sp-dot"></div>
+      <div class="sp-dot"></div>
+    </div>
   </div>
 </div>
 
+<!-- ══ APP ══ -->
+
 <div id="app">
-  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
-  <div class="statusbar"></div>
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
   <div class="toast" id="toast"></div>
+
   <div class="scroll" id="scroll">
 
 ```
@@ -275,7 +373,8 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
   <div class="hero">
     <div class="aw" onclick="openAvSheet()">
       <div class="av-ring"></div>
-      <div class="av" id="av-circle"><span id="av-emoji">🐱</span>
+      <div class="av" id="av-circle">
+        <span id="av-emoji">🐱</span>
         <div class="av-hint"><span class="hi">📷</span><span class="ht">更換照片</span></div>
       </div>
       <div class="av-badge">✏️</div>
@@ -287,21 +386,29 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
   </div>
 
   <div class="sr">
-    <div class="sm"><div class="sml">💧 今日飲水</div><div class="smv" id="sw">0<span style="font-size:.8rem;font-weight:400"> ml</span></div><div class="sms">目標 <span id="wgl">200</span> ml</div></div>
-    <div class="sm"><div class="sml">🔥 今日熱量</div><div class="smv" id="sk">0<span style="font-size:.8rem;font-weight:400"> kcal</span></div><div class="sms">今日餵食</div></div>
+    <div class="sm">
+      <div class="sml">💧 今日飲水</div>
+      <div class="smv" id="sw">0<span style="font-size:.8rem;font-weight:400"> ml</span></div>
+      <div class="sms">目標 <span id="wgl">200</span> ml</div>
+    </div>
+    <div class="sm">
+      <div class="sml">🔥 今日熱量</div>
+      <div class="smv" id="sk">0<span style="font-size:.8rem;font-weight:400"> kcal</span></div>
+      <div class="sms">今日餵食</div>
+    </div>
   </div>
 
   <div class="card">
     <div class="ct">💧 飲水能量環</div>
-    <div class="rw">
-      <div class="rring">
-        <svg width="82" height="82" viewBox="0 0 82 82">
-          <circle cx="41" cy="41" r="33" fill="none" stroke="rgba(165,192,211,.22)" stroke-width="8"/>
-          <circle id="wring" cx="41" cy="41" r="33" fill="none" stroke="var(--blue)" stroke-width="8" stroke-linecap="round" stroke-dasharray="207" stroke-dashoffset="207" style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .85s cubic-bezier(.34,1.1,.64,1)"/>
-        </svg>
-      </div>
+    <div style="display:flex;align-items:center;gap:1.1rem">
+      <svg width="82" height="82" viewBox="0 0 82 82" style="flex-shrink:0">
+        <circle cx="41" cy="41" r="33" fill="none" stroke="rgba(165,192,211,.22)" stroke-width="8"/>
+        <circle id="wring" cx="41" cy="41" r="33" fill="none" stroke="var(--blue)" stroke-width="8"
+          stroke-linecap="round" stroke-dasharray="207" stroke-dashoffset="207"
+          style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .85s cubic-bezier(.34,1.1,.64,1)"/>
+      </svg>
       <div style="flex:1">
-        <div class="rv"><span id="wpct">0</span><span class="ru"> %</span></div>
+        <div style="font-size:1.85rem;font-weight:700;color:var(--text);letter-spacing:-.03em;line-height:1"><span id="wpct">0</span><span style="font-size:.72rem;color:var(--text3);font-weight:400"> %</span></div>
         <div style="font-size:.7rem;color:var(--text3);margin-top:.14rem" id="wdet">0 / 200 ml</div>
         <div style="margin-top:.55rem;display:flex;gap:.45rem">
           <button class="btn btn-blue" style="padding:.5rem .85rem;font-size:.72rem" onclick="addW(50)">+50ml</button>
@@ -312,17 +419,19 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
   </div>
 
   <div class="card">
-    <div class="ct" style="display:flex;justify-content:space-between;align-items:center">
+    <div class="ct" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
       <span>📦 飼料庫存</span>
       <button class="btn btn-ghost" style="padding:.25rem .75rem;font-size:.68rem;border-radius:.6rem" onclick="openInv()">✏️ 編輯</button>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:flex-end">
-      <div><div style="font-size:1.7rem;font-weight:700;letter-spacing:-.025em;color:var(--text)"><span id="ikg">—</span><span style="font-size:.9rem;font-weight:400;color:var(--text3)"> kg</span></div>
-      <div style="font-size:.7rem;color:var(--text3);margin-top:.08rem">預計可吃 <span id="idys" style="font-weight:700;color:var(--sand-dk)">—</span> 天</div></div>
+      <div>
+        <div style="font-size:1.7rem;font-weight:700;letter-spacing:-.025em;color:var(--text)"><span id="ikg">—</span><span style="font-size:.9rem;font-weight:400;color:var(--text3)"> kg</span></div>
+        <div style="font-size:.7rem;color:var(--text3);margin-top:.08rem">預計可吃 <span id="idys" style="font-weight:700;color:var(--sand-dk)">—</span> 天</div>
+      </div>
       <div class="kp">🔥 <span id="dpln">—</span> kcal/天</div>
     </div>
     <div class="inv-bg"><div class="inv-fill" id="ibar" style="width:0%"></div></div>
-    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text3)"><span>0</span><span id="imax">— kg</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text3)"><span>0</span><span id="imax">—</span></div>
   </div>
 
   <div class="card alrt" id="altcard" style="display:none">
@@ -331,8 +440,10 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
     <div id="altmsg" style="font-size:.8rem;color:var(--blush-dk);line-height:1.65"></div>
   </div>
 
-  <div class="sh">最近記錄</div>
-  <div class="card" style="padding:.7rem 1.35rem"><div id="reclist"><div class="loading"><span class="spin"></span>載入中…</div></div></div>
+  <div class="sh2">最近記錄</div>
+  <div class="card" style="padding:.7rem 1.35rem">
+    <div id="reclist"><div class="loading"><span class="spin"></span>載入中…</div></div>
+  </div>
 </div>
 
 <!-- FEED -->
@@ -349,7 +460,7 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
       <div class="ct">⚖️ 體重記錄</div>
       <div style="text-align:center;padding:.4rem 0">
         <div class="wn"><span id="cw">—</span><span class="wu"> kg</span></div>
-        <div id="wtrd" style="display:flex;align-items:center;justify-content:center;gap:.3rem;margin-top:.35rem;font-size:.72rem;color:var(--text3)">尚無比較數據</div>
+        <div id="wtrd" style="font-size:.72rem;color:var(--text3);margin-top:.35rem;text-align:center">尚無比較數據</div>
       </div>
       <div class="ig" style="margin-top:.9rem"><label class="il">今日體重（kg）</label><input type="number" class="inp" id="wi" placeholder="例：5.2" inputmode="decimal" step="0.01"/></div>
       <button class="btn btn-sand bfw" onclick="sWgt()">記錄體重 ✓</button>
@@ -393,9 +504,7 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
       <button class="tab"    id="t-toilet" onclick="hTab('toilet')">排泄</button>
       <button class="tab"    id="t-weight" onclick="hTab('weight')">體重</button>
     </div>
-
     <div id="dash-panel">
-      <!-- Hero -->
       <div class="dcard dc-hero" id="dc-hero">
         <div class="dc-left">
           <div class="dc-eye" id="dc-date">今日健康報告</div>
@@ -414,37 +523,23 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
           <div id="dc-emoji" style="font-size:2rem;margin-top:.5rem;text-align:center">😺</div>
         </div>
       </div>
-
-      <!-- Water + Kcal -->
       <div class="drow2">
         <div class="dcard" style="padding:1.1rem 1rem">
           <div class="dc-label">💧 飲水達成率</div>
-          <div class="dring-wrap">
-            <svg width="76" height="76" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="rgba(165,192,211,.18)" stroke-width="7"/><circle id="dc-wring" cx="38" cy="38" r="30" fill="none" stroke="var(--blue)" stroke-width="7" stroke-linecap="round" stroke-dasharray="188" stroke-dashoffset="188" style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .9s cubic-bezier(.34,1.1,.64,1)"/></svg>
-            <div class="dring-in"><div id="dc-wpct" class="dring-big">0%</div></div>
-          </div>
+          <div class="dring-wrap"><svg width="76" height="76" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="rgba(165,192,211,.18)" stroke-width="7"/><circle id="dc-wring" cx="38" cy="38" r="30" fill="none" stroke="var(--blue)" stroke-width="7" stroke-linecap="round" stroke-dasharray="188" stroke-dashoffset="188" style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .9s cubic-bezier(.34,1.1,.64,1)"/></svg><div class="dring-in"><div id="dc-wpct" class="dring-big">0%</div></div></div>
           <div id="dc-wml" class="dc-sub" style="text-align:center">0/200ml</div>
           <div id="dc-wbadge" class="dc-badge" style="background:rgba(165,192,211,.15);color:var(--blue-dk);margin-top:.5rem">未達標</div>
         </div>
         <div class="dcard" style="padding:1.1rem 1rem">
           <div class="dc-label">🔥 今日熱量</div>
-          <div class="dring-wrap">
-            <svg width="76" height="76" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="rgba(217,197,178,.2)" stroke-width="7"/><circle id="dc-kring" cx="38" cy="38" r="30" fill="none" stroke="var(--sand)" stroke-width="7" stroke-linecap="round" stroke-dasharray="188" stroke-dashoffset="188" style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .9s cubic-bezier(.34,1.1,.64,1)"/></svg>
-            <div class="dring-in"><div id="dc-kval" class="dring-big">0</div></div>
-          </div>
+          <div class="dring-wrap"><svg width="76" height="76" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="rgba(217,197,178,.2)" stroke-width="7"/><circle id="dc-kring" cx="38" cy="38" r="30" fill="none" stroke="var(--sand)" stroke-width="7" stroke-linecap="round" stroke-dasharray="188" stroke-dashoffset="188" style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .9s cubic-bezier(.34,1.1,.64,1)"/></svg><div class="dring-in"><div id="dc-kval" class="dring-big">0</div></div></div>
           <div id="dc-ksub" class="dc-sub" style="text-align:center">kcal</div>
           <div id="dc-kbadge" class="dc-badge" style="background:rgba(217,197,178,.18);color:var(--sand-dk);margin-top:.5rem">未餵食</div>
         </div>
       </div>
-
-      <!-- Weight -->
       <div class="dcard">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.65rem">
-          <div>
-            <div class="dc-label" style="margin-bottom:.25rem">⚖️ 體重趨勢</div>
-            <div id="dc-wval" class="dc-wbig">—<span class="dc-wunit"> kg</span></div>
-            <div id="dc-wchg" class="dc-sub" style="margin-top:.18rem">尚無記錄</div>
-          </div>
+          <div><div class="dc-label" style="margin-bottom:.25rem">⚖️ 體重趨勢</div><div id="dc-wval" class="dc-wbig">—<span class="dc-wunit"> kg</span></div><div id="dc-wchg" class="dc-sub" style="margin-top:.18rem">尚無記錄</div></div>
           <div id="dc-wbadge2" class="dc-badge" style="background:var(--sand-lt);color:var(--text3)">—</div>
         </div>
         <div class="spark-wrap">
@@ -457,8 +552,6 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
           <div id="dc-slabels" class="spark-labels"></div>
         </div>
       </div>
-
-      <!-- Feed + Inv -->
       <div class="drow2">
         <div class="dcard" style="padding:1.1rem 1rem" id="dc-fcard">
           <div class="dc-label">🍽️ 上次餵食</div>
@@ -474,8 +567,6 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
           <div id="dc-iwarn" class="dc-warn" style="display:none">⚠️ 快用完了</div>
         </div>
       </div>
-
-      <!-- Toilet timeline -->
       <div class="dcard">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
           <div class="dc-label" style="margin-bottom:0">🚽 今日排泄時間軸</div>
@@ -487,7 +578,6 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
         <div id="dc-tl" class="tl-list"><div class="tl-empty">今日尚無排泄記錄</div></div>
       </div>
     </div>
-
     <div id="list-panel" style="display:none">
       <div class="card" style="padding:.7rem 1.35rem"><div id="hlist"><div class="loading"><span class="spin"></span>載入中…</div></div></div>
     </div>
@@ -495,7 +585,7 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
 </div>
 ```
 
-  </div>
+  </div><!-- /scroll -->
 
   <nav class="nav">
     <button class="ni on" id="ni-home"    onclick="go('home')">   <span class="ic">🏠</span><span class="lb">首頁</span></button>
@@ -527,17 +617,17 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
   <div style="margin-bottom:1rem">
     <div class="il" style="margin-bottom:.5rem">快速補貨</div>
     <div style="display:flex;gap:.5rem">
-      <button class="qa-btn" onclick="qadd(1)">+1 kg</button>
-      <button class="qa-btn" onclick="qadd(2)">+2 kg</button>
-      <button class="qa-btn" onclick="qadd(5)">+5 kg</button>
-      <button class="qa-btn" onclick="qadd(10)">+10 kg</button>
+      <button onclick="qadd(1)" style="flex:1;padding:.5rem;border-radius:.8rem;border:none;cursor:pointer;font-family:inherit;font-weight:600;background:var(--blue-lt);color:var(--blue-dk);font-size:.75rem">+1 kg</button>
+      <button onclick="qadd(2)" style="flex:1;padding:.5rem;border-radius:.8rem;border:none;cursor:pointer;font-family:inherit;font-weight:600;background:var(--blue-lt);color:var(--blue-dk);font-size:.75rem">+2 kg</button>
+      <button onclick="qadd(5)" style="flex:1;padding:.5rem;border-radius:.8rem;border:none;cursor:pointer;font-family:inherit;font-weight:600;background:var(--blue-lt);color:var(--blue-dk);font-size:.75rem">+5 kg</button>
+      <button onclick="qadd(10)" style="flex:1;padding:.5rem;border-radius:.8rem;border:none;cursor:pointer;font-family:inherit;font-weight:600;background:var(--sand-lt);color:var(--sand-dk);font-size:.75rem">+10kg</button>
     </div>
   </div>
   <div style="height:1px;background:rgba(217,197,178,.25);margin-bottom:1rem"></div>
   <div class="ig"><label class="il">飼料袋總容量（kg）</label><input type="number" class="inp" id="i-tot" placeholder="例：5" inputmode="decimal" step=".1"/></div>
   <div class="ig"><label class="il">目前剩餘重量（kg）</label><input type="number" class="inp" id="i-cur" placeholder="例：3.8" inputmode="decimal" step=".1"/></div>
   <div class="ig"><label class="il">每日計劃熱量（kcal）</label><input type="number" class="inp" id="i-plan" placeholder="例：200" inputmode="decimal"/></div>
-  <div class="inv-prev" id="inv-prev">
+  <div id="inv-prev" style="background:linear-gradient(135deg,var(--sand-lt),var(--blue-lt));border-radius:1rem;padding:.9rem 1rem;margin-bottom:1rem;display:none">
     <div style="font-size:.65rem;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.4rem">預覽</div>
     <div style="font-size:1.1rem;font-weight:700;color:var(--text)"><span id="ipv-kg">—</span> kg · 剩 <span id="ipv-days">—</span> 天</div>
     <div style="font-size:.7rem;color:var(--text2);margin-top:.2rem">以每日 <span id="ipv-plan">—</span> kcal 計算</div>
@@ -549,12 +639,10 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
 <!-- Avatar drawer -->
 
 <div class="dov" id="av-dov" onclick="closeAvSheet()"></div>
-<div class="dr" id="av-dr" style="padding:1.2rem 1.35rem 1.4rem">
+<div class="dr" id="av-dr">
   <div class="dh"></div>
   <div style="text-align:center;margin-bottom:1.1rem">
-    <div id="av-prev" style="width:90px;height:90px;border-radius:50%;background:linear-gradient(145deg,var(--sand-lt),var(--sand) 55%,var(--blue-lt));display:inline-flex;align-items:center;justify-content:center;font-size:2.5rem;box-shadow:var(--sh-lg),0 0 0 3px #fff,0 0 0 5.5px var(--sand-lt);overflow:hidden;position:relative">
-      <span id="av-prev-emoji">🐱</span>
-    </div>
+    <div id="av-prev" style="width:90px;height:90px;border-radius:50%;background:linear-gradient(145deg,var(--sand-lt),var(--sand) 55%,var(--blue-lt));display:inline-flex;align-items:center;justify-content:center;font-size:2.5rem;box-shadow:var(--sh-lg),0 0 0 3px #fff,0 0 0 5.5px var(--sand-lt);overflow:hidden;position:relative"><span id="av-prev-emoji">🐱</span></div>
     <div style="font-size:.68rem;color:var(--text3);margin-top:.5rem">點選下方更換頭像</div>
   </div>
   <button class="btn btn-blue bfw" style="margin-bottom:.6rem" onclick="document.getElementById('av-file').click()">📷 從相簿上傳照片</button>
@@ -567,267 +655,102 @@ html,body{overflow:hidden;width:100%;height:100%;font-family:'Noto Sans TC',sans
 </div>
 
 <script>
+const $=id=>document.getElementById(id);
 const SU='https://vmgwyvwkhqnjmbdbliia.supabase.co',SK='sb_publishable_G_iir9jUBnqBkIfhaGCyMg_fd449ELVngbvxv';
 let sb;try{sb=supabase.createClient(SU,SK)}catch(e){}
-const $=id=>document.getElementById(id);
 let P=JSON.parse(localStorage.getItem('mw')||'null')||{name:'棉花糖',breed:'海豹雙色布偶貓',birthday:'2025-12-13',waterGoal:200,dailyPlan:200,invTotal:5,invCurrent:5};
 let R=[],selBr=null,htab='all';
 const sP=()=>localStorage.setItem('mw',JSON.stringify(P));
 
-async function ins(d){
-  if(!sb){R.unshift({...d,id:Date.now(),created_at:new Date().toISOString()});return}
-  const{error}=await sb.from('health_records').insert([d]);
-  if(error){R.unshift({...d,id:Date.now(),created_at:new Date().toISOString()})}
-}
-async function fetch2(n=200){
-  if(!sb)return R;
-  const{data,error}=await sb.from('health_records').select('*').order('created_at',{ascending:false}).limit(n);
-  if(error)return R;
-  return R=data||[];
-}
+async function ins(d){if(!sb){R.unshift({...d,id:Date.now(),created_at:new Date().toISOString()});return}const{error}=await sb.from('health_records').insert([d]);if(error)R.unshift({...d,id:Date.now(),created_at:new Date().toISOString()})}
+async function fetch2(n=200){if(!sb)return R;const{data,error}=await sb.from('health_records').select('*').order('created_at',{ascending:false}).limit(n);if(error)return R;return R=data||[]}
 const today=()=>new Date().toISOString().slice(0,10);
 const isToday=s=>s&&s.slice(0,10)===today();
-function age(b){
-  const bd=new Date(b),now=new Date();
-  let m=(now.getFullYear()-bd.getFullYear())*12+now.getMonth()-bd.getMonth();
-  if(now.getDate()<bd.getDate())m--;
-  if(m<0)return'即將出生';if(m<12)return`${m} 個月大`;
-  const y=Math.floor(m/12),rm=m%12;return rm?`${y} 歲 ${rm} 個月`:`${y} 歲`;
-}
+function age(b){const bd=new Date(b),now=new Date();let m=(now.getFullYear()-bd.getFullYear())*12+now.getMonth()-bd.getMonth();if(now.getDate()<bd.getDate())m--;if(m<0)return'即將出生';if(m<12)return`${m} 個月大`;const y=Math.floor(m/12),rm=m%12;return rm?`${y} 歲 ${rm} 個月`:`${y} 歲`}
 function toast(msg,ms=2300){const t=$('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),ms)}
 
-function go(n){
-  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('.ni').forEach(i=>i.classList.remove('on'));
-  $('pg-'+n).classList.add('on');$('ni-'+n).classList.add('on');
-  $('scroll').scrollTop=0;
-  if(n==='history')loadH();
-  if(n==='home')refresh();
-}
-
-function openD(){
-  $('en').value=P.name;$('eb').value=P.breed;$('ed').value=P.birthday;
-  $('ew').value=P.waterGoal;$('ep').value=P.dailyPlan;
-  $('dov').classList.add('on');$('dr').classList.add('on');
-}
+function go(n){document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ni').forEach(i=>i.classList.remove('on'));$('pg-'+n).classList.add('on');$('ni-'+n).classList.add('on');$('scroll').scrollTop=0;if(n==='history')loadH();if(n==='home')refresh()}
+function openD(){$('en').value=P.name;$('eb').value=P.breed;$('ed').value=P.birthday;$('ew').value=P.waterGoal;$('ep').value=P.dailyPlan;$('dov').classList.add('on');$('dr').classList.add('on')}
 function closeD(){$('dov').classList.remove('on');$('dr').classList.remove('on')}
-function saveP(){
-  P.name=$('en').value||'棉花糖';P.breed=$('eb').value;
-  P.birthday=$('ed').value||'2025-12-13';
-  P.waterGoal=parseFloat($('ew').value)||200;
-  P.dailyPlan=parseFloat($('ep').value)||200;
-  sP();closeD();refresh();toast('✅ 設定已儲存');
-}
-
-function openInv(){
-  $('i-tot').value=P.invTotal||'';$('i-cur').value=P.invCurrent||'';$('i-plan').value=P.dailyPlan||200;
-  updInvPrev();$('inv-dov').classList.add('on');$('inv-dr').classList.add('on');
-}
+function saveP(){P.name=$('en').value||'棉花糖';P.breed=$('eb').value;P.birthday=$('ed').value||'2025-12-13';P.waterGoal=parseFloat($('ew').value)||200;P.dailyPlan=parseFloat($('ep').value)||200;sP();closeD();refresh();toast('✅ 設定已儲存')}
+function openInv(){$('i-tot').value=P.invTotal||'';$('i-cur').value=P.invCurrent||'';$('i-plan').value=P.dailyPlan||200;updInvPrev();$('inv-dov').classList.add('on');$('inv-dr').classList.add('on')}
 function closeInv(){$('inv-dov').classList.remove('on');$('inv-dr').classList.remove('on')}
-function updInvPrev(){
-  const ic=parseFloat($('i-cur').value),pl=parseFloat($('i-plan').value)||200;
-  const prev=$('inv-prev');
-  if(!isNaN(ic)&&ic>=0){
-    const dg=pl/4,days=dg>0?Math.floor(ic*1000/dg):0;
-    $('ipv-kg').textContent=ic.toFixed(2);$('ipv-days').textContent=days;$('ipv-plan').textContent=pl;
-    prev.style.display='block';
-  }else prev.style.display='none';
-}
-function qadd(kg){const el=$('i-cur');el.value=(parseFloat(el.value)||P.invCurrent||0+kg).toFixed(2);updInvPrev()}
-function saveInv(){
-  const it=parseFloat($('i-tot').value),ic=parseFloat($('i-cur').value),pl=parseFloat($('i-plan').value);
-  if(isNaN(ic)||ic<0){toast('⚠️ 請輸入正確的剩餘重量');return}
-  if(!isNaN(it))P.invTotal=it;if(!isNaN(ic))P.invCurrent=ic;if(!isNaN(pl)&&pl>0)P.dailyPlan=pl;
-  sP();closeInv();refresh();toast(`✅ 庫存已更新：${ic} kg`);
-}
+function updInvPrev(){const ic=parseFloat($('i-cur').value),pl=parseFloat($('i-plan').value)||200,prev=$('inv-prev');if(!isNaN(ic)&&ic>=0){const days=(pl/4)>0?Math.floor(ic*1000/(pl/4)):0;$('ipv-kg').textContent=ic.toFixed(2);$('ipv-days').textContent=days;$('ipv-plan').textContent=pl;prev.style.display='block'}else prev.style.display='none'}
+function qadd(kg){const el=$('i-cur');el.value=(parseFloat(el.value)||P.invCurrent||0)+kg;updInvPrev()}
+function saveInv(){const it=parseFloat($('i-tot').value),ic=parseFloat($('i-cur').value),pl=parseFloat($('i-plan').value);if(isNaN(ic)||ic<0){toast('⚠️ 請輸入正確的剩餘重量');return}if(!isNaN(it))P.invTotal=it;if(!isNaN(ic))P.invCurrent=ic;if(!isNaN(pl)&&pl>0)P.dailyPlan=pl;sP();closeInv();refresh();toast(`✅ 庫存已更新：${ic} kg`)}
 $('i-cur').addEventListener('input',updInvPrev);$('i-plan').addEventListener('input',updInvPrev);
-
-const CAT=['🐱','🐈','🐈‍⬛','😺','😸','😻','🙀','😾','🐾','🦁','🐯','🐻','🐼','🐨','🦊','🐶','🐰','🐹','🌸','✨'];
-function openAvSheet(){
-  const grid=$('eg-grid'),cur=P.avatarEmoji||'🐱';
-  grid.innerHTML=CAT.map(e=>`<div class="eg-item${e===cur?' sel':''}" onclick="pickEmoji('${e}')">${e}</div>`).join('');
-  syncAvPrev();$('av-rm-wrap').style.display=P.avatarImg?'block':'none';
-  $('av-dov').classList.add('on');$('av-dr').classList.add('on');
-}
+const CATS=['🐱','🐈','🐈‍⬛','😺','😸','😻','🙀','😾','🐾','🦁','🐯','🐻','🐼','🐨','🦊','🐶','🐰','🐹','🌸','✨'];
+function openAvSheet(){const grid=$('eg-grid'),cur=P.avatarEmoji||'🐱';grid.innerHTML=CATS.map(e=>`<div class="eg-item${e===cur?' sel':''}" onclick="pickEmoji('${e}')">${e}</div>`).join('');syncAvPrev();$('av-rm-wrap').style.display=P.avatarImg?'block':'none';$('av-dov').classList.add('on');$('av-dr').classList.add('on')}
 function closeAvSheet(){$('av-dov').classList.remove('on');$('av-dr').classList.remove('on')}
-function syncAvPrev(){
-  const c=$('av-prev'),e=$('av-prev-emoji');
-  c.querySelector('img')?.remove();
-  if(P.avatarImg){e.style.display='none';const img=new Image();img.src=P.avatarImg;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%;position:absolute;inset:0';c.appendChild(img);}
-  else{e.style.display='';e.textContent=P.avatarEmoji||'🐱';}
-}
-function applyAvatar(){
-  const c=$('av-circle'),e=$('av-emoji');c.querySelector('img')?.remove();
-  if(P.avatarImg){e.style.display='none';const img=new Image();img.src=P.avatarImg;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%;position:absolute;inset:0';c.appendChild(img);}
-  else{e.style.display='';e.textContent=P.avatarEmoji||'🐱';}
-}
-function pickEmoji(em){
-  P.avatarEmoji=em;P.avatarImg=null;sP();
-  document.querySelectorAll('.eg-item').forEach(el=>{el.classList.remove('sel')});
-  document.querySelector(`.eg-item[onclick*="${em}"]`)?.classList.add('sel');
-  syncAvPrev();$('av-rm-wrap').style.display='none';applyAvatar();toast('✅ 頭像已更新');
-}
-function handleAvFile(evt){
-  const file=evt.target.files[0];if(!file)return;
-  if(file.size>4*1024*1024){toast('⚠️ 圖片請在 4MB 以內');return}
-  const r=new FileReader();r.onload=e=>{P.avatarImg=e.target.result;sP();syncAvPrev();applyAvatar();$('av-rm-wrap').style.display='block';toast('✅ 頭像已更新 🐱');$('av-file').value='';};r.readAsDataURL(file);
-}
+function syncAvPrev(){const c=$('av-prev'),e=$('av-prev-emoji');c.querySelector('img')?.remove();if(P.avatarImg){e.style.display='none';const img=new Image();img.src=P.avatarImg;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%;position:absolute;inset:0';c.appendChild(img)}else{e.style.display='';e.textContent=P.avatarEmoji||'🐱'}}
+function applyAvatar(){const c=$('av-circle'),e=$('av-emoji');c.querySelector('img')?.remove();if(P.avatarImg){e.style.display='none';const img=new Image();img.src=P.avatarImg;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%;position:absolute;inset:0';c.appendChild(img)}else{e.style.display='';e.textContent=P.avatarEmoji||'🐱'}}
+function pickEmoji(em){P.avatarEmoji=em;P.avatarImg=null;sP();document.querySelectorAll('.eg-item').forEach(el=>el.classList.remove('sel'));event.target.closest('.eg-item')?.classList.add('sel');syncAvPrev();$('av-rm-wrap').style.display='none';applyAvatar();toast('✅ 頭像已更新')}
+function handleAvFile(evt){const file=evt.target.files[0];if(!file)return;if(file.size>4*1024*1024){toast('⚠️ 圖片請在 4MB 以內');return}const r=new FileReader();r.onload=e=>{P.avatarImg=e.target.result;sP();syncAvPrev();applyAvatar();$('av-rm-wrap').style.display='block';toast('✅ 頭像已更新 🐱');$('av-file').value=''};r.readAsDataURL(file)}
 function rmAvatar(){P.avatarImg=null;sP();syncAvPrev();applyAvatar();$('av-rm-wrap').style.display='none';toast('✅ 已恢復預設頭像')}
-
-function selB(lv){selBr=lv;document.querySelectorAll('.bi').forEach(e=>e.classList.remove('sel'));document.querySelector(`.bi[data-lv="${lv}"]`).classList.add('sel');$('bsel').style.display='block';$('blbl').textContent=lv+' 級';}
+function selB(lv){selBr=lv;document.querySelectorAll('.bi').forEach(e=>e.classList.remove('sel'));document.querySelector(`.bi[data-lv="${lv}"]`).classList.add('sel');$('bsel').style.display='block';$('blbl').textContent=lv+' 級'}
 $('fg').addEventListener('input',function(){const g=parseFloat(this.value)||0,p=$('fkp');if(g>0){p.style.display='block';$('fkv').textContent=g*4}else p.style.display='none'});
-
-async function sFeed(){
-  const g=parseFloat($('fg').value);if(!g||g<=0){toast('⚠️ 請輸入餵食克數');return}
-  const note=$('fn').value;P.invCurrent=Math.max(0,(P.invCurrent||0)-g/1000);sP();
-  await ins({cat_name:P.name,type:'feed',value:g,kcal:g*4,note});
-  $('fg').value='';$('fn').value='';$('fkp').style.display='none';toast(`✅ 記錄 ${g}g（${g*4} kcal）`);await refresh();
-}
-async function sWgt(){
-  const w=parseFloat($('wi').value);if(!w||w<=0){toast('⚠️ 請輸入體重');return}
-  await ins({cat_name:P.name,type:'weight',value:w,note:''});$('wi').value='';toast(`✅ 體重 ${w} kg 已記錄`);await refresh();
-}
+async function sFeed(){const g=parseFloat($('fg').value);if(!g||g<=0){toast('⚠️ 請輸入餵食克數');return}const note=$('fn').value;P.invCurrent=Math.max(0,(P.invCurrent||0)-g/1000);sP();await ins({cat_name:P.name,type:'feed',value:g,kcal:g*4,note});$('fg').value='';$('fn').value='';$('fkp').style.display='none';toast(`✅ 記錄 ${g}g（${g*4} kcal）`);await refresh()}
+async function sWgt(){const w=parseFloat($('wi').value);if(!w||w<=0){toast('⚠️ 請輸入體重');return}await ins({cat_name:P.name,type:'weight',value:w,note:''});$('wi').value='';toast(`✅ 體重 ${w} kg 已記錄`);await refresh()}
 async function sPee(s){await ins({cat_name:P.name,type:'pee',value:s==='normal'?1:0,note:s});toast(s==='normal'?'✅ 正常排尿已記錄':'⚠️ 異常排尿已記錄');await refresh()}
-async function sPoop(){
-  if(!selBr){toast('⚠️ 請先選便便等級');return}
-  const note=$('pn').value;await ins({cat_name:P.name,type:'poop',value:selBr,note});
-  document.querySelectorAll('.bi').forEach(e=>e.classList.remove('sel'));$('bsel').style.display='none';$('pn').value='';
-  const lv=selBr;selBr=null;toast(`✅ ${lv} 級便便已記錄`);await refresh();
-}
+async function sPoop(){if(!selBr){toast('⚠️ 請先選便便等級');return}const note=$('pn').value;await ins({cat_name:P.name,type:'poop',value:selBr,note});document.querySelectorAll('.bi').forEach(e=>e.classList.remove('sel'));$('bsel').style.display='none';$('pn').value='';const lv=selBr;selBr=null;toast(`✅ ${lv} 級便便已記錄`);await refresh()}
 async function addW(ml){await ins({cat_name:P.name,type:'water',value:ml,note:''});toast(`✅ +${ml} ml 飲水`);await refresh()}
 
 async function refresh(){
   const all=await fetch2(200),tod=all.filter(r=>isToday(r.created_at));
   $('hn').textContent=P.name;$('hb').textContent=P.breed;$('ha').textContent=age(P.birthday);applyAvatar();
-  const wg=P.waterGoal||200,wt=tod.filter(r=>r.type==='water').reduce((a,r)=>a+(r.value||0),0);
-  const wp=Math.min(100,Math.round(wt/wg*100));
-  $('sw').innerHTML=`${wt}<span style="font-size:.8rem;font-weight:400"> ml</span>`;
-  $('wgl').textContent=wg;$('wpct').textContent=wp;$('wdet').textContent=`${wt} / ${wg} ml`;
-  $('wring').style.strokeDashoffset=207*(1-wp/100);
-  const kc=tod.filter(r=>r.type==='feed').reduce((a,r)=>a+(r.kcal||r.value*4||0),0);
-  $('sk').innerHTML=`${kc}<span style="font-size:.8rem;font-weight:400"> kcal</span>`;
-  const ic=P.invCurrent||0,it=P.invTotal||5,dg=(P.dailyPlan||200)/4;
-  $('ikg').textContent=ic.toFixed(2);$('idys').textContent=dg>0?Math.floor(ic*1000/dg):0;
-  $('dpln').textContent=P.dailyPlan||200;$('ibar').style.width=Math.min(100,it>0?Math.round(ic/it*100):0)+'%';$('imax').textContent=it+' kg';
-  const alerts=[];
-  const lf=all.find(r=>r.type==='feed');
-  if(lf){const h=(Date.now()-new Date(lf.created_at).getTime())/3600000;if(h>8)alerts.push(`⏰ 超過 ${Math.floor(h)} 小時未餵食`)}else alerts.push('⏰ 今日尚未餵食');
-  const ws=all.filter(r=>r.type==='weight').slice(0,3);
-  if(ws.length===3&&ws[0].value<ws[1].value&&ws[1].value<ws[2].value)alerts.push(`📉 體重連續下降：${ws[2].value}→${ws[1].value}→${ws[0].value} kg`);
+  const wg=P.waterGoal||200,wt=tod.filter(r=>r.type==='water').reduce((a,r)=>a+(r.value||0),0),wp=Math.min(100,Math.round(wt/wg*100));
+  $('sw').innerHTML=`${wt}<span style="font-size:.8rem;font-weight:400"> ml</span>`;$('wgl').textContent=wg;$('wpct').textContent=wp;$('wdet').textContent=`${wt} / ${wg} ml`;$('wring').style.strokeDashoffset=207*(1-wp/100);
+  const kc=tod.filter(r=>r.type==='feed').reduce((a,r)=>a+(r.kcal||r.value*4||0),0);$('sk').innerHTML=`${kc}<span style="font-size:.8rem;font-weight:400"> kcal</span>`;
+  const ic=P.invCurrent||0,it=P.invTotal||5,dg=(P.dailyPlan||200)/4;$('ikg').textContent=ic.toFixed(2);$('idys').textContent=dg>0?Math.floor(ic*1000/dg):0;$('dpln').textContent=P.dailyPlan||200;$('ibar').style.width=Math.min(100,it>0?Math.round(ic/it*100):0)+'%';$('imax').textContent=it+' kg';
+  const alerts=[];const lf=all.find(r=>r.type==='feed');if(lf){const h=(Date.now()-new Date(lf.created_at).getTime())/3600000;if(h>8)alerts.push(`⏰ 超過 ${Math.floor(h)} 小時未餵食`)}else alerts.push('⏰ 今日尚未餵食');
+  const ws=all.filter(r=>r.type==='weight').slice(0,3);if(ws.length===3&&ws[0].value<ws[1].value&&ws[1].value<ws[2].value)alerts.push(`📉 體重連續下降：${ws[2].value}→${ws[1].value}→${ws[0].value} kg`);
   const ac=$('altcard');if(alerts.length){ac.style.display='block';$('altmsg').innerHTML=alerts.join('<br>')}else ac.style.display='none';
   renderRec(all.slice(0,6));
-  const wrs=R.filter(r=>r.type==='weight');
-  $('cw').textContent=wrs[0]?wrs[0].value:'—';
-  const te=$('wtrd');
-  if(wrs[0]&&wrs[1]){const d=(wrs[0].value-wrs[1].value).toFixed(2),a=d>0?'↑':d<0?'↓':'→',c=d>0?'var(--blush-dk)':d<0?'var(--green-dk)':'var(--text3)';te.innerHTML=`<span style="color:${c}">${a} ${Math.abs(d)} kg</span> 較上次`}else te.textContent='尚無比較數據';
+  const wrs=R.filter(r=>r.type==='weight');$('cw').textContent=wrs[0]?wrs[0].value:'—';
+  const te=$('wtrd');if(wrs[0]&&wrs[1]){const d=(wrs[0].value-wrs[1].value).toFixed(2),a=d>0?'↑':d<0?'↓':'→',c=d>0?'var(--blush-dk)':d<0?'var(--green-dk)':'var(--text3)';te.innerHTML=`<span style="color:${c}">${a} ${Math.abs(d)} kg</span> 較上次`}else te.textContent='尚無比較數據';
 }
-
 const IC={feed:{e:'🍽️',c:'rf'},water:{e:'💧',c:'rw2'},poop:{e:'💩',c:'rp'},pee:{e:'💛',c:'rpee'},weight:{e:'⚖️',c:'rwt'}};
 const LB={feed:r=>`餵食 ${r.value}g · ${r.kcal||r.value*4} kcal`,water:r=>`飲水 ${r.value} ml`,poop:r=>`便便 ${r.value} 級${r.note?' · '+r.note:''}`,pee:r=>r.note==='normal'?'正常排尿':'⚠️ 異常排尿',weight:r=>`體重 ${r.value} kg`};
-function mkR(r,short){
-  const ic=IC[r.type]||{e:'📝',c:'rf'},lb=LB[r.type]?LB[r.type](r):r.type;
-  const t=new Date(r.created_at);
-  const ts=short?`${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`:`${t.getFullYear()}/${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
-  return`<div class="ri"><div class="ric ${ic.c}">${ic.e}</div><div style="flex:1;min-width:0"><div class="rn">${lb}</div><div class="rtm">${ts}</div></div></div>`;
-}
+function mkR(r,short){const ic=IC[r.type]||{e:'📝',c:'rf'},lb=LB[r.type]?LB[r.type](r):r.type,t=new Date(r.created_at),ts=short?`${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`:`${t.getFullYear()}/${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;return`<div class="ri"><div class="ric ${ic.c}">${ic.e}</div><div style="flex:1;min-width:0"><div class="rn">${lb}</div><div class="rtm">${ts}</div></div></div>`}
 function renderRec(a){$('reclist').innerHTML=a.length?a.map(r=>mkR(r,true)).join(''):'<div style="text-align:center;padding:1.2rem;color:var(--text3);font-size:.78rem">暫無記錄</div>'}
-
 async function loadH(){htab='all';renderDash()}
-function hTab(t){
-  htab=t;['all','feed','toilet','weight'].forEach(x=>$('t-'+x).classList.toggle('on',x===t));
-  const dash=$('dash-panel'),list=$('list-panel');
-  if(t==='all'){dash.style.display='block';list.style.display='none';renderDash()}
-  else{dash.style.display='none';list.style.display='block';const m={feed:['feed','water'],toilet:['pee','poop'],weight:['weight']};renderH(R.filter(r=>m[t].includes(r.type)))}
-}
+function hTab(t){htab=t;['all','feed','toilet','weight'].forEach(x=>$('t-'+x).classList.toggle('on',x===t));const dash=$('dash-panel'),list=$('list-panel');if(t==='all'){dash.style.display='block';list.style.display='none';renderDash()}else{dash.style.display='none';list.style.display='block';const m={feed:['feed','water'],toilet:['pee','poop'],weight:['weight']};renderH(R.filter(r=>m[t].includes(r.type)))}}
 function renderH(a){$('hlist').innerHTML=a.length?a.map(r=>mkR(r,false)).join(''):'<div style="text-align:center;padding:1.2rem;color:var(--text3);font-size:.78rem">暫無記錄</div>'}
-
 function renderDash(){
-  const all=R,tod=all.filter(r=>isToday(r.created_at));
-  const now=new Date(),wd=['日','一','二','三','四','五','六'];
+  const all=R,tod=all.filter(r=>isToday(r.created_at)),now=new Date(),wd=['日','一','二','三','四','五','六'];
   $('dc-date').textContent=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（週${wd[now.getDay()]}）`;
   const wg=P.waterGoal||200,wt=tod.filter(r=>r.type==='water').reduce((a,r)=>a+(r.value||0),0),wp=Math.min(100,Math.round(wt/wg*100));
   $('dc-wring').style.strokeDashoffset=188*(1-wp/100);$('dc-wpct').textContent=wp+'%';$('dc-wml').textContent=`${wt}/${wg}ml`;
-  const wb=$('dc-wbadge');
-  if(wp>=100){wb.textContent='💧 達標！';wb.style.background='rgba(165,192,211,.25)';wb.style.color='var(--blue-dk)'}
-  else if(wp>=50){wb.textContent='進行中';wb.style.background='rgba(165,192,211,.15)';wb.style.color='var(--blue-dk)'}
-  else{wb.textContent='需補水';wb.style.background='rgba(237,187,187,.2)';wb.style.color='var(--blush-dk)'}
+  const wb=$('dc-wbadge');if(wp>=100){wb.textContent='💧 達標！';wb.style.background='rgba(165,192,211,.25)';wb.style.color='var(--blue-dk)'}else if(wp>=50){wb.textContent='進行中';wb.style.background='rgba(165,192,211,.15)';wb.style.color='var(--blue-dk)'}else{wb.textContent='需補水';wb.style.background='rgba(237,187,187,.2)';wb.style.color='var(--blush-dk)'}
   const kplan=P.dailyPlan||200,kc=tod.filter(r=>r.type==='feed').reduce((a,r)=>a+(r.kcal||r.value*4||0),0),kp=Math.min(100,Math.round(kc/kplan*100));
   $('dc-kring').style.strokeDashoffset=188*(1-kp/100);$('dc-kval').textContent=kc;$('dc-ksub').textContent=`/ ${kplan} kcal`;
-  const kb=$('dc-kbadge');
-  if(kp>=90){kb.textContent='🔥 達標！';kb.style.background='rgba(217,197,178,.28)';kb.style.color='var(--sand-dk)'}
-  else if(kc>0){kb.textContent=`${kp}% 進度`;kb.style.background='rgba(217,197,178,.18)';kb.style.color='var(--sand-dk)'}
-  else{kb.textContent='未餵食';kb.style.background='rgba(237,187,187,.2)';kb.style.color='var(--blush-dk)'}
-  const wrs=all.filter(r=>r.type==='weight').slice(0,7).reverse();
-  const wlatest=wrs[wrs.length-1],wprev=wrs[wrs.length-2];
-  $('dc-wval').innerHTML=wlatest?`${wlatest.value}<span class="dc-wunit"> kg</span>`:`—<span class="dc-wunit"> kg</span>`;
-  if(wlatest&&wprev){const d=(wlatest.value-wprev.value).toFixed(2),a=d>0?'↑':d<0?'↓':'→',c=d>0?'var(--blush-dk)':d<0?'var(--green-dk)':'var(--text3)';$('dc-wchg').innerHTML=`<span style="color:${c}">${a} ${Math.abs(d)} kg</span> 較上次`}
-  else $('dc-wchg').textContent=wlatest?'目前最新':'尚無記錄';
-  const sl=$('dc-sline'),sf=$('dc-sfill'),sd=$('dc-sdots'),slbl=$('dc-slabels');
-  sd.innerHTML='';slbl.innerHTML='';
-  if(wrs.length>=2){
-    const vals=wrs.map(r=>r.value),mn=Math.min(...vals)-.05,mx=Math.max(...vals)+.05,W=260,H=54;
-    const px=i=>8+(i/(wrs.length-1))*(W-16),py=v=>H-6-(v-mn)/(mx-mn)*(H-14);
-    const pts=wrs.map((r,i)=>`${px(i).toFixed(1)},${py(r.value).toFixed(1)}`).join(' ');
-    sl.setAttribute('points',pts);sf.setAttribute('d',`M${px(0).toFixed(1)},${H} ${pts} ${px(wrs.length-1).toFixed(1)},${H} Z`);
-    wrs.forEach((r,i)=>{
-      const cx=px(i),cy=py(r.value),isL=i===wrs.length-1;
-      const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
-      dot.setAttribute('cx',cx.toFixed(1));dot.setAttribute('cy',cy.toFixed(1));dot.setAttribute('r',isL?'4':'2.5');
-      dot.setAttribute('fill',isL?'var(--blue)':'rgba(165,192,211,.6)');dot.setAttribute('stroke','white');dot.setAttribute('stroke-width','1.5');sd.appendChild(dot);
-      if(i===0||i===wrs.length-1){const t=new Date(r.created_at),lb=document.createElement('span');lb.className='spark-lbl';lb.textContent=`${t.getMonth()+1}/${t.getDate()}`;slbl.appendChild(lb)}
-    });
-  }else{sl.setAttribute('points','');sf.setAttribute('d','')}
-  const wb2=$('dc-wbadge2'),ws3=all.filter(r=>r.type==='weight').slice(0,3);
-  if(ws3.length===3&&ws3[0].value<ws3[1].value&&ws3[1].value<ws3[2].value){wb2.textContent='📉 連續下降';wb2.style.background='var(--blush-lt)';wb2.style.color='var(--blush-dk)'}
-  else if(wlatest){wb2.textContent='✅ 穩定';wb2.style.background='rgba(184,216,200,.35)';wb2.style.color='var(--green-dk)'}
-  else{wb2.textContent='尚無記錄';wb2.style.background='var(--sand-lt)';wb2.style.color='var(--text3)'}
-  const lf=all.find(r=>r.type==='feed');
-  if(lf){const h=(Date.now()-new Date(lf.created_at).getTime())/3600000,hrs=Math.floor(h),mins=Math.floor((h%1)*60);
-    $('dc-fago').textContent=hrs>0?`${hrs}h ${mins}m`:`${mins} 分`;
-    const t=new Date(lf.created_at);$('dc-fsub').textContent=`${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')} · ${lf.value}g`;
-    if(h>8){$('dc-fwarn').style.display='inline-block';$('dc-fago').style.color='var(--blush-dk)'}else{$('dc-fwarn').style.display='none';$('dc-fago').style.color='var(--text)'}
-  }else{$('dc-fago').textContent='未記錄';$('dc-fsub').textContent='今日尚未餵食';$('dc-fago').style.color='var(--text3)';$('dc-fwarn').style.display='none'}
-  const ic=P.invCurrent||0,it=P.invTotal||5,dg2=(P.dailyPlan||200)/4,days=dg2>0?Math.floor(ic*1000/dg2):0,ipct=Math.min(100,it>0?Math.round(ic/it*100):0);
-  $('dc-ikg').textContent=ic.toFixed(2)+' kg';$('dc-idays').textContent=`剩餘約 ${days} 天`;$('dc-ibar').style.width=ipct+'%';
-  if(days<=3){$('dc-iwarn').style.display='inline-block';$('dc-icard').style.background='rgba(253,237,237,.82)';$('dc-icard').style.borderColor='rgba(237,187,187,.4)';$('dc-ikg').style.color='var(--blush-dk)'}
-  else{$('dc-iwarn').style.display='none';$('dc-icard').style.background='';$('dc-icard').style.borderColor='';$('dc-ikg').style.color='var(--text)'}
-  const tlTod=tod.filter(r=>r.type==='pee'||r.type==='poop').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-  $('dc-pcnt').textContent=tod.filter(r=>r.type==='pee').length;$('dc-pocnt').textContent=tod.filter(r=>r.type==='poop').length;
+  const kb=$('dc-kbadge');if(kp>=90){kb.textContent='🔥 達標！';kb.style.background='rgba(217,197,178,.28)';kb.style.color='var(--sand-dk)'}else if(kc>0){kb.textContent=`${kp}% 進度`;kb.style.background='rgba(217,197,178,.18)';kb.style.color='var(--sand-dk)'}else{kb.textContent='未餵食';kb.style.background='rgba(237,187,187,.2)';kb.style.color='var(--blush-dk)'}
+  const wrs=all.filter(r=>r.type==='weight').slice(0,7).reverse(),wl=wrs[wrs.length-1],wp2=wrs[wrs.length-2];
+  $('dc-wval').innerHTML=wl?`${wl.value}<span class="dc-wunit"> kg</span>`:`—<span class="dc-wunit"> kg</span>`;
+  if(wl&&wp2){const d=(wl.value-wp2.value).toFixed(2),a=d>0?'↑':d<0?'↓':'→',c=d>0?'var(--blush-dk)':d<0?'var(--green-dk)':'var(--text3)';$('dc-wchg').innerHTML=`<span style="color:${c}">${a} ${Math.abs(d)} kg</span> 較上次`}else $('dc-wchg').textContent=wl?'目前最新':'尚無記錄';
+  const sl=$('dc-sline'),sf=$('dc-sfill'),sd=$('dc-sdots'),slbl=$('dc-slabels');sd.innerHTML='';slbl.innerHTML='';
+  if(wrs.length>=2){const vals=wrs.map(r=>r.value),mn=Math.min(...vals)-.05,mx=Math.max(...vals)+.05,W=260,H=54,px=i=>8+(i/(wrs.length-1))*(W-16),py=v=>H-6-(v-mn)/(mx-mn)*(H-14),pts=wrs.map((r,i)=>`${px(i).toFixed(1)},${py(r.value).toFixed(1)}`).join(' ');sl.setAttribute('points',pts);sf.setAttribute('d',`M${px(0).toFixed(1)},${H} ${pts} ${px(wrs.length-1).toFixed(1)},${H} Z`);wrs.forEach((r,i)=>{const cx=px(i),cy=py(r.value),isL=i===wrs.length-1,dot=document.createElementNS('http://www.w3.org/2000/svg','circle');dot.setAttribute('cx',cx.toFixed(1));dot.setAttribute('cy',cy.toFixed(1));dot.setAttribute('r',isL?'4':'2.5');dot.setAttribute('fill',isL?'var(--blue)':'rgba(165,192,211,.6)');dot.setAttribute('stroke','white');dot.setAttribute('stroke-width','1.5');sd.appendChild(dot);if(i===0||i===wrs.length-1){const t=new Date(r.created_at),lb=document.createElement('span');lb.className='spark-lbl';lb.textContent=`${t.getMonth()+1}/${t.getDate()}`;slbl.appendChild(lb)}})}else{sl.setAttribute('points','');sf.setAttribute('d','')}
+  const wb2=$('dc-wbadge2'),ws3=all.filter(r=>r.type==='weight').slice(0,3);if(ws3.length===3&&ws3[0].value<ws3[1].value&&ws3[1].value<ws3[2].value){wb2.textContent='📉 連續下降';wb2.style.background='var(--blush-lt)';wb2.style.color='var(--blush-dk)'}else if(wl){wb2.textContent='✅ 穩定';wb2.style.background='rgba(184,216,200,.35)';wb2.style.color='var(--green-dk)'}else{wb2.textContent='尚無記錄';wb2.style.background='var(--sand-lt)';wb2.style.color='var(--text3)'}
+  const lf=all.find(r=>r.type==='feed');if(lf){const h=(Date.now()-new Date(lf.created_at).getTime())/3600000,hrs=Math.floor(h),mins=Math.floor((h%1)*60);$('dc-fago').textContent=hrs>0?`${hrs}h ${mins}m`:`${mins} 分`;const t=new Date(lf.created_at);$('dc-fsub').textContent=`${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')} · ${lf.value}g`;if(h>8){$('dc-fwarn').style.display='inline-block';$('dc-fago').style.color='var(--blush-dk)'}else{$('dc-fwarn').style.display='none';$('dc-fago').style.color='var(--text)'}}else{$('dc-fago').textContent='未記錄';$('dc-fsub').textContent='今日尚未餵食';$('dc-fago').style.color='var(--text3)';$('dc-fwarn').style.display='none'}
+  const ic=P.invCurrent||0,it=P.invTotal||5,dg2=(P.dailyPlan||200)/4,days=dg2>0?Math.floor(ic*1000/dg2):0,ipct=Math.min(100,it>0?Math.round(ic/it*100):0);$('dc-ikg').textContent=ic.toFixed(2)+' kg';$('dc-idays').textContent=`剩餘約 ${days} 天`;$('dc-ibar').style.width=ipct+'%';if(days<=3){$('dc-iwarn').style.display='inline-block';$('dc-icard').style.background='rgba(253,237,237,.82)';$('dc-icard').style.borderColor='rgba(237,187,187,.4)';$('dc-ikg').style.color='var(--blush-dk)'}else{$('dc-iwarn').style.display='none';$('dc-icard').style.background='';$('dc-icard').style.borderColor='';$('dc-ikg').style.color='var(--text)'}
+  const tlTod=tod.filter(r=>r.type==='pee'||r.type==='poop').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));$('dc-pcnt').textContent=tod.filter(r=>r.type==='pee').length;$('dc-pocnt').textContent=tod.filter(r=>r.type==='poop').length;
   const BC={1:'#C47878',2:'#D4A574',3:'#72A98E',4:'#D4A574',5:'#C47878'},BL={1:'1級·硬球',2:'2級·偏硬',3:'3級·理想',4:'4級·偏軟',5:'5級·水便'};
-  $('dc-tl').innerHTML=tlTod.length?tlTod.map(r=>{
-    const t=new Date(r.created_at),ts=`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
-    if(r.type==='pee'){const ab=r.note==='abnormal';return`<div class="tl-item"><div class="tl-dot tl-pee">💛</div><div style="flex:1"><div class="tl-name">${ab?'⚠️ 異常排尿':'正常排尿'}</div><div class="tl-time">${ts}</div></div>${ab?`<span class="tl-lv" style="background:var(--blush-lt);color:var(--blush-dk)">異常</span>`:''}</div>`}
-    else{const lv=r.value||3,col=BC[lv]||'var(--text3)',lbl=BL[lv]||`${lv}級`;return`<div class="tl-item"><div class="tl-dot tl-poop">💩</div><div style="flex:1"><div class="tl-name">便便${r.note?` · ${r.note}`:''}</div><div class="tl-time">${ts}</div></div><span class="tl-lv" style="background:${col}22;color:${col};border:1px solid ${col}44">${lbl}</span></div>`}
-  }).join(''):'<div class="tl-empty">今日尚無排泄記錄</div>';
-  let score=0;const issues=[],goods=[];
-  if(wp>=80){score+=25;goods.push('飲水充足')}else if(wp>=40){score+=14;issues.push('飲水不足')}else issues.push('嚴重缺水');
-  if(kp>=85){score+=22;goods.push('熱量達標')}else if(kc>0){score+=11;issues.push('熱量偏低')}else issues.push('未餵食');
-  const pA=tod.filter(r=>r.type==='pee'),abP=pA.some(r=>r.note==='abnormal');
-  if(pA.length>0&&!abP){score+=18;goods.push('排尿正常')}else if(abP){score+=4;issues.push('排尿異常')}else score+=10;
-  const poA=tod.filter(r=>r.type==='poop');
-  if(poA.length>0){const avg=poA.reduce((a,r)=>a+r.value,0)/poA.length;if(avg>=2&&avg<=4){score+=18;goods.push('排便良好')}else{score+=7;issues.push('排便異常')}}else score+=12;
-  if(lf){const h2=(Date.now()-new Date(lf.created_at).getTime())/3600000;if(h2<=8){score+=17;goods.push('規律餵食')}else{score+=6;issues.push('超時未餵')}}
-  score=Math.min(100,Math.max(0,score));
-  $('dc-sring').style.strokeDashoffset=188*(1-score/100);$('dc-snum').textContent=score;
+  $('dc-tl').innerHTML=tlTod.length?tlTod.map(r=>{const t=new Date(r.created_at),ts=`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;if(r.type==='pee'){const ab=r.note==='abnormal';return`<div class="tl-item"><div class="tl-dot tl-pee">💛</div><div style="flex:1"><div class="tl-name">${ab?'⚠️ 異常排尿':'正常排尿'}</div><div class="tl-time">${ts}</div></div>${ab?`<span class="tl-lv" style="background:var(--blush-lt);color:var(--blush-dk)">異常</span>`:''}</div>`}else{const lv=r.value||3,col=BC[lv]||'var(--text3)',lbl=BL[lv]||`${lv}級`;return`<div class="tl-item"><div class="tl-dot tl-poop">💩</div><div style="flex:1"><div class="tl-name">便便${r.note?` · ${r.note}`:''}</div><div class="tl-time">${ts}</div></div><span class="tl-lv" style="background:${col}22;color:${col};border:1px solid ${col}44">${lbl}</span></div>`}}).join(''):'<div class="tl-empty">今日尚無排泄記錄</div>';
+  let score=0;const issues=[],goods=[];if(wp>=80){score+=25;goods.push('飲水充足')}else if(wp>=40){score+=14;issues.push('飲水不足')}else issues.push('嚴重缺水');if(kp>=85){score+=22;goods.push('熱量達標')}else if(kc>0){score+=11;issues.push('熱量偏低')}else issues.push('未餵食');const pA=tod.filter(r=>r.type==='pee'),abP=pA.some(r=>r.note==='abnormal');if(pA.length>0&&!abP){score+=18;goods.push('排尿正常')}else if(abP){score+=4;issues.push('排尿異常')}else score+=10;const poA=tod.filter(r=>r.type==='poop');if(poA.length>0){const avg=poA.reduce((a,r)=>a+r.value,0)/poA.length;if(avg>=2&&avg<=4){score+=18;goods.push('排便良好')}else{score+=7;issues.push('排便異常')}}else score+=12;if(lf){const h2=(Date.now()-new Date(lf.created_at).getTime())/3600000;if(h2<=8){score+=17;goods.push('規律餵食')}else{score+=6;issues.push('超時未餵')}}
+  score=Math.min(100,Math.max(0,score));$('dc-sring').style.strokeDashoffset=188*(1-score/100);$('dc-snum').textContent=score;
   $('dc-pills').innerHTML=[...goods.map(g=>`<span class="dc-pill">✓ ${g}</span>`),...issues.map(i=>`<span class="dc-pill bad">! ${i}</span>`)].slice(0,4).join('');
-  const emoji=score>=85?'😻':score>=65?'😺':score>=45?'😿':'🙀';
-  $('dc-emoji').textContent=emoji;
-  const hero=$('dc-hero');
-  if(score>=85){$('dc-mtitle').textContent='棉花糖今天超棒！';$('dc-msub').textContent=(goods.slice(0,2).join('、'))||'所有指標正常 ✨';hero.style.background='linear-gradient(145deg,#9ECFE3,#B8D0E8 45%,#C8C0D8)'}
-  else if(score>=65){$('dc-mtitle').textContent='棉花糖狀態不錯';$('dc-msub').textContent=issues.length?`注意：${issues[0]}`:'整體表現良好 🌸';hero.style.background='linear-gradient(145deg,#B8D4E8,#C8B8D4 45%,#D4C0B0)'}
-  else if(score>=40){$('dc-mtitle').textContent='棉花糖需要關心 🫶';$('dc-msub').textContent=issues.slice(0,2).join('、');hero.style.background='linear-gradient(145deg,#D4B8C8,#C8B0A8 45%,#D8C4A8)'}
-  else{$('dc-mtitle').textContent='棉花糖狀況警示！';$('dc-msub').textContent=issues.slice(0,2).join('、');hero.style.background='linear-gradient(145deg,#D4A0A0,#C8A0B0 45%,#D4B8B0)'}
+  const emoji=score>=85?'😻':score>=65?'😺':score>=45?'😿':'🙀';$('dc-emoji').textContent=emoji;
+  const hero=$('dc-hero');if(score>=85){$('dc-mtitle').textContent='棉花糖今天超棒！';$('dc-msub').textContent=goods.slice(0,2).join('、')||'所有指標正常 ✨';hero.style.background='linear-gradient(145deg,#9ECFE3,#B8D0E8 45%,#C8C0D8)'}else if(score>=65){$('dc-mtitle').textContent='棉花糖狀態不錯';$('dc-msub').textContent=issues.length?`注意：${issues[0]}`:'整體表現良好 🌸';hero.style.background='linear-gradient(145deg,#B8D4E8,#C8B8D4 45%,#D4C0B0)'}else if(score>=40){$('dc-mtitle').textContent='棉花糖需要關心 🫶';$('dc-msub').textContent=issues.slice(0,2).join('、');hero.style.background='linear-gradient(145deg,#D4B8C8,#C8B0A8 45%,#D8C4A8)'}else{$('dc-mtitle').textContent='棉花糖狀況警示！';$('dc-msub').textContent=issues.slice(0,2).join('、');hero.style.background='linear-gradient(145deg,#D4A0A0,#C8A0B0 45%,#D4B8B0)'}
 }
 
 (async()=>{
-  const pawEmojis=['🐾','🐱','✨','🌸','💫','🐾'];
+  const pawEmojis=['🐾','🐱','✨','🌸','💫'];
   const pw=$('paw-wrap');
-  for(let i=0;i<10;i++){const p=document.createElement('div');p.className='paw';p.textContent=pawEmojis[Math.floor(Math.random()*pawEmojis.length)];p.style.left=Math.random()*100+'%';const dur=4+Math.random()*5;p.style.animationDuration=dur+'s';p.style.animationDelay=(Math.random()*dur*-1)+'s';p.style.fontSize=(.7+Math.random()*.8)+'rem';pw.appendChild(p)}
-  if(P.avatarImg){const c=$('sp-av');$('sp-emoji').style.display='none';const img=new Image();img.src=P.avatarImg;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%;position:absolute;inset:0';c.appendChild(img)}
-  else $('sp-emoji').textContent=P.avatarEmoji||'🐱';
+  for(let i=0;i<10;i++){const p=document.createElement('div');p.className='paw';p.textContent=pawEmojis[i%pawEmojis.length];p.style.cssText=`left:${Math.random()*100}%;font-size:${.7+Math.random()*.8}rem;animation-duration:${4+Math.random()*5}s;animation-delay:${Math.random()*-8}s`;pw.appendChild(p)}
+  if(P.avatarImg){const c=$('sp-av');$('sp-emoji').style.display='none';const img=new Image();img.src=P.avatarImg;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%;position:absolute;inset:0';c.appendChild(img)}else $('sp-emoji').textContent=P.avatarEmoji||'🐱';
   const steps=[{p:20,m:'正在喚醒棉花糖…'},{p:45,m:'梳理蓬鬆毛毛…'},{p:68,m:'準備健康數據…'},{p:85,m:'倒好新鮮飲水…'},{p:100,m:'棉花糖準備好了！'}];
-  const bar=$('sp-bar'),lbl=$('sp-lbl');
-  let si=0;const tick=setInterval(()=>{if(si<steps.length){bar.style.width=steps[si].p+'%';lbl.textContent=steps[si].m;si++}},300);
+  const bar=$('sp-bar'),lbl=$('sp-lbl');let si=0;
+  const tick=setInterval(()=>{if(si<steps.length){bar.style.width=steps[si].p+'%';lbl.textContent=steps[si].m;si++}},300);
   await refresh();
   clearInterval(tick);bar.style.width='100%';lbl.textContent='棉花糖準備好了！🐱';
   await new Promise(r=>setTimeout(r,520));
