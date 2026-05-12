@@ -65,8 +65,12 @@ nav{position:absolute;bottom:0;left:0;right:0;height:var(–nav);background:var(
 .cat-role-badge{font-size:11px;padding:2px 8px;background:var(–tan-bg);border-radius:20px;color:var(–ink2);font-weight:500;flex-shrink:0}
 .cat-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
 .meta-chip{font-size:12px;padding:3px 9px;background:var(–bg);border-radius:20px;color:var(–ink2);font-weight:500;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
-.reconnect-chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:4px 12px;background:var(–orange-bg);border-radius:20px;color:var(–accent2);font-weight:600;border:1px solid #fed7aa;margin-top:7px;width:fit-content}
-.reconnect-dot{width:6px;height:6px;border-radius:50%;background:#f97316;flex-shrink:0;animation:blink 2s infinite}
+.sync-chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:4px 12px;border-radius:20px;font-weight:600;margin-top:7px;width:fit-content;transition:all .3s}
+.sync-chip.syncing{background:var(–orange-bg);color:var(–accent2);border:1px solid #fed7aa}
+.sync-chip.synced{background:var(–green-bg);color:#16a34a;border:1px solid #bbf7d0}
+.sync-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.syncing .sync-dot{background:#f97316;animation:blink 2s infinite}
+.synced .sync-dot{background:#22c55e}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* rings */
@@ -106,29 +110,33 @@ nav{position:absolute;bottom:0;left:0;right:0;height:var(–nav);background:var(
 .act-num{font-size:20px;font-weight:700;line-height:1}
 .act-lbl{font-size:11px;color:var(–ink2);font-weight:500}
 
-/* ─── RECORD ─── */
-.rtabs{display:flex;gap:8px;padding:6px 14px 10px;overflow-x:auto}
-.rtabs::-webkit-scrollbar{display:none}
-.rtab{flex-shrink:0;padding:7px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:var(–card);color:var(–ink2);transition:all .18s;font-family:‘Noto Sans TC’,sans-serif}
-.rtab.active{background:var(–ink);color:#fff}
-.rtab:active{transform:scale(.93)}
-.rform{padding:0 14px;display:flex;flex-direction:column;gap:10px}
-.fcard{background:var(–card);border-radius:var(–r);padding:18px;box-shadow:var(–shadow)}
-.ftitle{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:7px}
-.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
-.fg:last-child{margin-bottom:0}
-.flabel{font-size:11px;font-weight:600;color:var(–ink2);letter-spacing:.06em;text-transform:uppercase}
-.finput{background:var(–bg);border:1.5px solid transparent;border-radius:var(–r-sm);padding:11px 13px;font-size:14px;font-family:‘Noto Sans TC’,sans-serif;color:var(–ink);outline:none;transition:border-color .18s;width:100%}
-.finput:focus{border-color:var(–accent);background:#fff}
-.finput::placeholder{color:var(–ink3)}
-textarea.finput{resize:none;min-height:72px}
-.chips{display:flex;gap:7px;flex-wrap:wrap}
-.chip{padding:7px 13px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(–border);background:var(–card);color:var(–ink2);transition:all .15s;font-family:‘Noto Sans TC’,sans-serif}
-.chip.on{background:var(–ink);color:#fff;border-color:var(–ink)}
-.chip:active{transform:scale(.92)}
-.sbtn{width:100%;padding:14px;border-radius:var(–r-sm);background:var(–ink);color:#fff;font-size:14px;font-weight:700;cursor:pointer;border:none;font-family:‘Noto Sans TC’,sans-serif;transition:transform .12s,opacity .18s;display:flex;align-items:center;justify-content:center;gap:8px}
-.sbtn:active{transform:scale(.97)}
-.sbtn:disabled{opacity:.5;cursor:not-allowed}
+/* ─── RECORD CARDS ─── */
+.rec-list{padding:0 14px;display:flex;flex-direction:column;gap:12px;padding-bottom:20px}
+.rec-card{border-radius:var(–r);padding:16px;box-shadow:var(–shadow)}
+.rc-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.rc-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.rc-info{flex:1}
+.rc-title{font-size:14px;font-weight:700}
+.rc-sub{font-size:11px;color:var(–ink2);margin-top:2px}
+.rc-badge{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.rc-tip{font-size:12px;color:var(–ink2);background:rgba(255,255,255,.6);border-radius:10px;padding:8px 12px;margin-bottom:10px}
+.rc-quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.rq-btn{background:rgba(255,255,255,.7);border-radius:12px;padding:12px 8px;text-align:center;cursor:pointer;transition:all .15s;border:2px solid transparent}
+.rq-btn:active{transform:scale(.94)}
+.rq-btn.rq-sel{background:#fff;border-color:var(–ink);box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+.rq-main{font-size:16px;font-weight:700;line-height:1.2}
+.rq-sub{font-size:11px;color:var(–ink2);margin-top:2px}
+.rc-custom-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.rc-custom-input{flex:1;background:rgba(255,255,255,.7);border:1.5px solid transparent;border-radius:10px;padding:10px 12px;font-size:14px;font-family:‘Noto Sans TC’,sans-serif;color:var(–ink);outline:none}
+.rc-custom-input:focus{border-color:var(–ink);background:#fff}
+.rc-custom-input::placeholder{color:var(–ink3)}
+.rc-custom-kcal{font-size:13px;font-weight:600;color:var(–ink2);white-space:nowrap}
+.rc-submit-btn{width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:‘Noto Sans TC’,sans-serif;transition:transform .12s,opacity .18s;display:flex;align-items:center;justify-content:center;gap:6px}
+.rc-submit-btn:active{transform:scale(.97)}
+.rc-submit-btn:disabled{opacity:.5;cursor:not-allowed}
+.rc-memo-input{width:100%;background:rgba(255,255,255,.7);border:1.5px solid transparent;border-radius:10px;padding:12px;font-size:13px;font-family:‘Noto Sans TC’,sans-serif;color:var(–ink);outline:none;resize:none;min-height:80px;margin-bottom:10px}
+.rc-memo-input:focus{border-color:var(–ink);background:#fff}
+.rc-memo-input::placeholder{color:var(–ink3)}
 
 /* ─── HISTORY ─── */
 .hfilter{display:flex;gap:8px;padding:6px 14px 10px;overflow-x:auto}
@@ -204,8 +212,6 @@ textarea.finput{resize:none;min-height:72px}
     </div>
   </div>
 
-  <!-- Hero -->
-
   <div class="hero-card">
     <div class="cat-ava">
       <span id="hero-emoji">🐱</span>
@@ -214,20 +220,18 @@ textarea.finput{resize:none;min-height:72px}
     <div class="cat-info">
       <div class="cat-name-row">
         <span class="cat-name" id="hero-name">棉花糖</span>
-        <span class="cat-role-badge">媽媽</span>
       </div>
       <div class="cat-chips">
         <span class="meta-chip">🎂 <span id="hero-age">—</span></span>
         <span class="meta-chip">⚖️ <span id="hero-weight">—</span> kg</span>
         <span class="meta-chip">🏠 來家 <span id="hero-days">—</span> 天</span>
       </div>
-      <div class="reconnect-chip">
-        <span class="reconnect-dot"></span>重連中
+      <!-- 同步狀態：隱藏顯示，功能保留 -->
+      <div id="sync-chip" style="display:none">
+        <span id="sync-label"></span>
       </div>
     </div>
   </div>
-
-  <!-- Progress Rings -->
 
   <div class="rings-grid">
     <div class="ring-card">
@@ -264,8 +268,6 @@ textarea.finput{resize:none;min-height:72px}
     </div>
   </div>
 
-  <!-- Poop alert -->
-
   <div class="alert-row" onclick="goPage('record')">
     <div class="alert-emoji">💩</div>
     <div class="alert-body">
@@ -274,8 +276,6 @@ textarea.finput{resize:none;min-height:72px}
     </div>
     <div class="abadge abadge-warn" id="alert-badge">留意</div>
   </div>
-
-  <!-- Activity -->
 
   <div class="act-grid">
     <div class="act-card food" onclick="goPage('record')">
@@ -303,102 +303,129 @@ textarea.finput{resize:none;min-height:72px}
     <div class="ptitle">記錄 ✏️</div>
     <div class="psub">新增今日健康資料</div>
   </div>
-  <div class="rtabs">
-    <button class="rtab active" data-tab="food" onclick="switchTab('food')">🍽️ 餐食</button>
-    <button class="rtab" data-tab="water" onclick="switchTab('water')">💧 飲水</button>
-    <button class="rtab" data-tab="poop" onclick="switchTab('poop')">💩 便便</button>
-  </div>
 
-  <!-- 餐食 -->
+  <div class="rec-list" id="rec-list-view">
 
-  <div class="rform" id="tab-food">
-    <div class="fcard">
-      <div class="ftitle">🍽️ 新增餐食</div>
-      <div class="fg">
-        <div class="flabel">食物名稱</div>
-        <input class="finput" id="food-name" placeholder="例：主食罐、乾飼料..." type="text"/>
-      </div>
-      <div class="fg">
-        <div class="flabel">份量</div>
-        <input class="finput" id="food-value" placeholder="例：50g" type="text"/>
-      </div>
-      <div class="fg">
-        <div class="flabel">熱量 (kcal)</div>
-        <input class="finput" id="food-kcal" placeholder="例：80" type="number" inputmode="decimal"/>
-      </div>
-      <div class="fg">
-        <div class="flabel">類別</div>
-        <div class="chips" id="food-type-chips">
-          <span class="chip on" data-val="主食罐" onclick="pickChip(this,'food-type')">主食罐</span>
-          <span class="chip" data-val="副食罐" onclick="pickChip(this,'food-type')">副食罐</span>
-          <span class="chip" data-val="乾飼料" onclick="pickChip(this,'food-type')">乾飼料</span>
-          <span class="chip" data-val="零食" onclick="pickChip(this,'food-type')">零食</span>
-          <span class="chip" data-val="其他" onclick="pickChip(this,'food-type')">其他</span>
-        </div>
-      </div>
-      <div class="fg">
-        <div class="flabel">備註</div>
-        <textarea class="finput" id="food-note" placeholder="吃完了嗎？有挑食嗎？"></textarea>
-      </div>
+```
+<!-- 餵食卡 -->
+<div class="rec-card" id="card-food" style="background:#f0f5f0">
+  <div class="rc-head">
+    <div class="rc-icon" style="background:#d4e8d4;color:#3a7d44">🍽️</div>
+    <div class="rc-info">
+      <div class="rc-title">餵食紀錄</div>
+      <div class="rc-sub">今日 <span id="rc-kcal-today">0</span> kcal・<span id="rc-meals-today">0</span> 餐</div>
     </div>
-    <button class="sbtn" id="food-btn" onclick="submitFood()">儲存餐食紀錄</button>
+    <div class="rc-badge" id="rc-food-badge" style="background:#d4e8d4;color:#3a7d44">今日 0 餐</div>
   </div>
-
-  <!-- 飲水 -->
-
-  <div class="rform" id="tab-water" style="display:none">
-    <div class="fcard">
-      <div class="ftitle">💧 新增飲水紀錄</div>
-      <div class="fg">
-        <div class="flabel">飲水量 (ml)</div>
-        <input class="finput" id="water-amount" placeholder="例：30" type="number" inputmode="decimal"/>
-      </div>
-      <div class="fg">
-        <div class="flabel">水源</div>
-        <div class="chips" id="water-type-chips">
-          <span class="chip on" data-val="飲水機" onclick="pickChip(this,'water-type')">飲水機</span>
-          <span class="chip" data-val="碗" onclick="pickChip(this,'water-type')">碗</span>
-          <span class="chip" data-val="罐頭湯汁" onclick="pickChip(this,'water-type')">罐頭湯汁</span>
-          <span class="chip" data-val="其他" onclick="pickChip(this,'water-type')">其他</span>
-        </div>
-      </div>
-      <div class="fg">
-        <div class="flabel">備註</div>
-        <textarea class="finput" id="water-note" placeholder="主動喝的？還是加在食物裡的？"></textarea>
-      </div>
+  <div class="rc-tip">🐱 棉花糖肚子餓了嗎？選擇份量，快去餵飯飯！</div>
+  <div class="rc-quick-grid">
+    <div class="rq-btn" onclick="quickFood(15,60)">
+      <div class="rq-main">15 g</div>
+      <div class="rq-sub">≈ 60 kcal</div>
     </div>
-    <button class="sbtn" id="water-btn" onclick="submitWater()">儲存飲水紀錄</button>
+    <div class="rq-btn" onclick="quickFood(30,121)">
+      <div class="rq-main">30 g</div>
+      <div class="rq-sub">≈ 121 kcal</div>
+    </div>
   </div>
+  <div class="rc-custom-row">
+    <input class="rc-custom-input" id="food-custom-g" type="number" inputmode="decimal" placeholder="自定克數 (g)"/>
+    <span class="rc-custom-kcal" id="food-custom-kcal-label">— kcal</span>
+  </div>
+  <button class="rc-submit-btn" style="background:#c8dfc8;color:#2d5a2d" onclick="quickFoodCustom()">＋ 加入自定份量</button>
+</div>
 
-  <!-- 便便 -->
-
-  <div class="rform" id="tab-poop" style="display:none">
-    <div class="fcard">
-      <div class="ftitle">💩 新增便便紀錄</div>
-      <div class="fg">
-        <div class="flabel">便便狀態</div>
-        <div class="chips" id="poop-type-chips">
-          <span class="chip on" data-val="正常" onclick="pickChip(this,'poop-type')">✅ 正常</span>
-          <span class="chip" data-val="偏軟" onclick="pickChip(this,'poop-type')">🔶 偏軟</span>
-          <span class="chip" data-val="腹瀉" onclick="pickChip(this,'poop-type')">🔴 腹瀉</span>
-          <span class="chip" data-val="偏硬" onclick="pickChip(this,'poop-type')">⬛ 偏硬</span>
-          <span class="chip" data-val="便秘" onclick="pickChip(this,'poop-type')">🚫 便秘</span>
-        </div>
-      </div>
-      <div class="fg">
-        <div class="flabel">次數</div>
-        <div class="chips" id="poop-count-chips">
-          <span class="chip on" data-val="1" onclick="pickChip(this,'poop-count')">1 次</span>
-          <span class="chip" data-val="2" onclick="pickChip(this,'poop-count')">2 次</span>
-          <span class="chip" data-val="3" onclick="pickChip(this,'poop-count')">3 次</span>
-        </div>
-      </div>
-      <div class="fg">
-        <div class="flabel">備註</div>
-        <textarea class="finput" id="poop-note" placeholder="顏色、氣味、有無異狀？"></textarea>
-      </div>
+<!-- 飲水卡 -->
+<div class="rec-card" id="card-water" style="background:#f0f4fb">
+  <div class="rc-head">
+    <div class="rc-icon" style="background:#dbe8f8;color:#2563eb">💧</div>
+    <div class="rc-info">
+      <div class="rc-title">飲水紀錄</div>
+      <div class="rc-sub">今日目標 <span id="rc-water-goal">200</span> ml</div>
     </div>
-    <button class="sbtn" id="poop-btn" onclick="submitPoop()">儲存便便紀錄</button>
+    <div class="rc-badge" id="rc-water-badge" style="background:#dbe8f8;color:#2563eb">今日 0 ml</div>
+  </div>
+  <div class="rc-tip">💙 讓棉花糖多喝水，腎臟會更健康～</div>
+  <div class="rc-quick-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="rq-btn" onclick="quickWater(30)"><div class="rq-main">30</div><div class="rq-sub">ml</div></div>
+    <div class="rq-btn" onclick="quickWater(50)"><div class="rq-main">50</div><div class="rq-sub">ml</div></div>
+    <div class="rq-btn" onclick="quickWater(100)"><div class="rq-main">100</div><div class="rq-sub">ml</div></div>
+  </div>
+  <div class="rc-custom-row">
+    <input class="rc-custom-input" id="water-custom-ml" type="number" inputmode="decimal" placeholder="自定飲水量 (ml)"/>
+    <span class="rc-custom-kcal">ml</span>
+  </div>
+  <button class="rc-submit-btn" style="background:#c5d9f5;color:#1e3a6e" onclick="quickWaterCustom()">＋ 加入自定飲水量</button>
+</div>
+
+<!-- 小便卡 -->
+<div class="rec-card" id="card-pee" style="background:#f0f4fb">
+  <div class="rc-head">
+    <div class="rc-icon" style="background:#dbe8f8;color:#2563eb">🚽</div>
+    <div class="rc-info">
+      <div class="rc-title">小便紀錄</div>
+      <div class="rc-sub">選擇今次的狀況</div>
+    </div>
+  </div>
+  <div class="rc-tip">🔍 觀察小便的量與顏色，是健康的重要指標</div>
+  <div class="rc-quick-grid">
+    <div class="rq-btn rq-sel" id="pee-vol-more" onclick="pickPee('vol','量多')">
+      <div class="rq-main" style="font-size:14px">↓ 量多</div>
+    </div>
+    <div class="rq-btn" id="pee-vol-less" onclick="pickPee('vol','量少')">
+      <div class="rq-main" style="font-size:14px">↓ 量少</div>
+    </div>
+    <div class="rq-btn" id="pee-col-dark" onclick="pickPee('col','顏色深')">
+      <div class="rq-main" style="font-size:14px">☀ 顏色深</div>
+    </div>
+    <div class="rq-btn" id="pee-col-light" onclick="pickPee('col','顏色淺')">
+      <div class="rq-main" style="font-size:14px">☀ 顏色淺</div>
+    </div>
+  </div>
+  <button class="rc-submit-btn" style="background:#c5d9f5;color:#1e3a6e" id="pee-btn" onclick="submitPee()">＋ 記錄一次小便</button>
+</div>
+
+<!-- 大便卡 -->
+<div class="rec-card" id="card-poop" style="background:#faf4ee">
+  <div class="rc-head">
+    <div class="rc-icon" style="background:#ecdcc8;color:#7c4a1e">💩</div>
+    <div class="rc-info">
+      <div class="rc-title">大便紀錄</div>
+      <div class="rc-sub">今天的狀況如何？</div>
+    </div>
+  </div>
+  <div class="rc-tip">🌿 便便是腸胃健康的晴雨表，記得每次都記錄喔</div>
+  <div class="rc-quick-grid">
+    <div class="rq-btn rq-sel" id="poop-t-normal" onclick="pickPoop('✓ 正常')">
+      <div class="rq-main" style="font-size:14px">✓ 正常</div>
+    </div>
+    <div class="rq-btn" id="poop-t-soft" onclick="pickPoop('≡ 軟便')">
+      <div class="rq-main" style="font-size:14px">≡ 軟便</div>
+    </div>
+    <div class="rq-btn" id="poop-t-diarrhea" onclick="pickPoop('⊙ 腹瀉')">
+      <div class="rq-main" style="font-size:14px">⊙ 腹瀉</div>
+    </div>
+    <div class="rq-btn" id="poop-t-hard" onclick="pickPoop('□ 乾硬')">
+      <div class="rq-main" style="font-size:14px">□ 乾硬</div>
+    </div>
+  </div>
+  <button class="rc-submit-btn" style="background:#dcc8a8;color:#4a2e10" id="poop-btn" onclick="submitPoop()">＋ 記錄一次大便</button>
+</div>
+
+<!-- 備忘卡 -->
+<div class="rec-card" id="card-memo" style="background:#f5f5f5">
+  <div class="rc-head">
+    <div class="rc-icon" style="background:#e0e0e0;color:#555">📝</div>
+    <div class="rc-info">
+      <div class="rc-title">備忘紀錄</div>
+      <div class="rc-sub">今天有特別的事嗎？</div>
+    </div>
+  </div>
+  <textarea class="rc-memo-input" id="memo-text" placeholder="棉花糖今天有什麼特別的表現呢？悄悄記下來 🐾"></textarea>
+  <button class="rc-submit-btn" style="background:#e0e0e0;color:#333" id="memo-btn" onclick="submitMemo()">＋ 儲存備忘</button>
+</div>
+```
+
   </div>
 </div>
 
@@ -413,7 +440,9 @@ textarea.finput{resize:none;min-height:72px}
     <button class="hchip active" data-f="all" onclick="setFilter('all')">全部</button>
     <button class="hchip" data-f="food" onclick="setFilter('food')">🍽️ 餐食</button>
     <button class="hchip" data-f="water" onclick="setFilter('water')">💧 飲水</button>
-    <button class="hchip" data-f="poop" onclick="setFilter('poop')">💩 便便</button>
+    <button class="hchip" data-f="pee" onclick="setFilter('pee')">🚽 小便</button>
+    <button class="hchip" data-f="poop" onclick="setFilter('poop')">💩 大便</button>
+    <button class="hchip" data-f="memo" onclick="setFilter('memo')">📝 備忘</button>
   </div>
   <div class="hlist" id="hist-list">
     <div class="empty"><div class="empty-ico">⏳</div><div class="empty-txt">載入中...</div></div>
@@ -534,8 +563,6 @@ textarea.finput{resize:none;min-height:72px}
   </div>
 </div>
 
-<!-- TOAST -->
-
 <div class="toast" id="toast"></div>
 
 <script>
@@ -544,10 +571,86 @@ var SURL = 'https://vmgwyvwkhqnjmbdbliia.supabase.co';
 var SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZ3d5dndraHFuam1iZGJsaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MzU2MDYsImV4cCI6MjA5NDAxMTYwNn0.ZKaombHKVeoLk1RgzYn912tjlUSv4KE8CS5Wl_DunFs';
 var db = window.supabase.createClient(SURL, SKEY);
 
-// ── Profile ───────────────────────────────────────────
+// ── Profile（預設值，會被 Supabase 資料覆蓋）────────────
 var P = {name:'棉花糖',breed:'海豹雙色布偶',birthday:'',weight:2.5,arrive:'',emoji:'🐱',kcal_goal:297,water_goal:200};
+var profileId = null; // 記錄 cat_profiles 的 row id
+
+// 啟動時先從 localStorage 讀快取，再從 Supabase 同步
 try{ var s=localStorage.getItem('cp'); if(s) P=Object.assign(P,JSON.parse(s)); }catch(e){}
-function saveP(){ try{localStorage.setItem('cp',JSON.stringify(P));}catch(e){} }
+
+// ── 同步狀態 UI ───────────────────────────────────────
+function setSyncStatus(status){
+  var chip = document.getElementById('sync-chip');
+  var label = document.getElementById('sync-label');
+  if(status === 'synced'){
+    chip.className = 'sync-chip synced';
+    label.textContent = '已同步雲端';
+  } else {
+    chip.className = 'sync-chip syncing';
+    label.textContent = '連接中...';
+  }
+}
+
+// ── 從 Supabase 載入貓咪設定 ─────────────────────────
+function loadProfile(){
+  setSyncStatus('syncing');
+  db.from('cat_profiles').select('*').order('updated_at',{ascending:false}).limit(1).then(function(r){
+    if(r.error || !r.data || !r.data.length){
+      // 資料庫沒有資料，把本機的 P 存進去
+      upsertProfile(function(){ setSyncStatus('synced'); });
+      return;
+    }
+    var row = r.data[0];
+    profileId = row.id;
+    // 用資料庫的值覆蓋本機
+    P.name        = row.name        || P.name;
+    P.breed       = row.breed       || P.breed;
+    P.birthday    = row.birthday    || P.birthday;
+    P.weight      = row.weight      || P.weight;
+    P.arrive      = row.arrive      || P.arrive;
+    P.emoji       = row.emoji       || P.emoji;
+    P.kcal_goal   = row.kcal_goal   || P.kcal_goal;
+    P.water_goal  = row.water_goal  || P.water_goal;
+    saveLocalP();
+    renderProfile();
+    refreshHome();
+    setSyncStatus('synced');
+  });
+}
+
+// ── 儲存設定到 Supabase ───────────────────────────────
+function upsertProfile(cb){
+  var payload = {
+    name:       P.name,
+    breed:      P.breed       || null,
+    birthday:   P.birthday    || null,
+    weight:     P.weight      || null,
+    arrive:     P.arrive      || null,
+    emoji:      P.emoji,
+    kcal_goal:  P.kcal_goal,
+    water_goal: P.water_goal,
+    updated_at: new Date().toISOString()
+  };
+
+  if(profileId){
+    // 已有資料列，直接 UPDATE
+    db.from('cat_profiles').update(payload).eq('id', profileId).then(function(r){
+      if(r.error){ console.error('profile update error', r.error); }
+      else{ setSyncStatus('synced'); }
+      if(cb) cb();
+    });
+  } else {
+    // 第一次，INSERT 並取回 id
+    db.from('cat_profiles').insert([payload]).select().then(function(r){
+      if(r.error){ console.error('profile insert error', r.error); }
+      else if(r.data && r.data.length){ profileId = r.data[0].id; setSyncStatus('synced'); }
+      if(cb) cb();
+    });
+  }
+}
+
+// ── 本機快取 ──────────────────────────────────────────
+function saveLocalP(){ try{localStorage.setItem('cp',JSON.stringify(P));}catch(e){} }
 
 // ── State ─────────────────────────────────────────────
 var chips = {'food-type':'主食罐','water-type':'飲水機','poop-type':'正常','poop-count':'1'};
@@ -561,23 +664,140 @@ function goPage(n){
   var nb=document.querySelector('.nav-btn[data-page="'+n+'"]');
   if(nb) nb.classList.add('active');
   if(n==='home') refreshHome();
+  if(n==='record'){ updateRecBadges(); }
   if(n==='history') loadHistory();
   if(n==='profile') renderProfile();
 }
 
-// ── Record tabs ───────────────────────────────────────
-function switchTab(t){
-  ['food','water','poop'].forEach(function(x){
-    document.getElementById('tab-'+x).style.display=(x===t)?'flex':'none';
+// ── Record card state ─────────────────────────────────
+var peeState = {vol:'量多', col:'顏色淺'};
+var poopType = '正常';
+
+function pickPee(key, val){
+  peeState[key] = val;
+  // 更新按鈕選中樣式
+  if(key==='vol'){
+    document.getElementById('pee-vol-more').className = val==='量多'?'rq-btn rq-sel':'rq-btn';
+    document.getElementById('pee-vol-less').className = val==='量少'?'rq-btn rq-sel':'rq-btn';
+  } else {
+    document.getElementById('pee-col-dark').className = val==='顏色深'?'rq-btn rq-sel':'rq-btn';
+    document.getElementById('pee-col-light').className = val==='顏色淺'?'rq-btn rq-sel':'rq-btn';
+  }
+}
+
+function pickPoop(val){
+  poopType = val;
+  ['poop-t-normal','poop-t-soft','poop-t-diarrhea','poop-t-hard'].forEach(function(id){
+    document.getElementById(id).className = 'rq-btn';
   });
-  document.querySelectorAll('.rtab').forEach(function(el){
-    el.classList.toggle('active',el.dataset.tab===t);
+  var map = {'✓ 正常':'poop-t-normal','≡ 軟便':'poop-t-soft','⊙ 腹瀉':'poop-t-diarrhea','□ 乾硬':'poop-t-hard'};
+  if(map[val]) document.getElementById(map[val]).className = 'rq-btn rq-sel';
+}
+
+// 餵食：快速克數
+function quickFood(g, kcal){
+  var rec = {cat_name:P.name, type:'主食罐', value:g+'g', kcal:kcal, note:'快速記錄 '+g+'g'};
+  var btn = document.getElementById('poop-btn'); // 用 toast 即可
+  db.from('health_records').insert([rec]).select().then(function(r){
+    if(r.error){toast('儲存失敗','❌');return;}
+    toast('已記錄 '+g+'g（'+kcal+' kcal）','🍽️');
+    refreshHome(); updateRecBadges();
   });
 }
-function pickChip(el,g){
-  el.closest('.chips').querySelectorAll('.chip').forEach(function(c){c.classList.remove('on')});
-  el.classList.add('on');
-  chips[g]=el.dataset.val;
+
+// 餵食：自定克數（每克約 4.03 kcal，皇家飼料預設）
+function quickFoodCustom(){
+  var g = parseFloat(document.getElementById('food-custom-g').value);
+  if(!g || isNaN(g)){toast('請輸入克數','⚠️');return;}
+  var kcal = Math.round(g * 4.03);
+  quickFood(g, kcal);
+  document.getElementById('food-custom-g').value='';
+  document.getElementById('food-custom-kcal-label').textContent='— kcal';
+}
+
+// 餵食自定克數即時換算
+document.getElementById('food-custom-g').addEventListener('input', function(){
+  var g = parseFloat(this.value);
+  document.getElementById('food-custom-kcal-label').textContent = isNaN(g)?'— kcal':'≈ '+Math.round(g*4.03)+' kcal';
+});
+
+// 飲水：快速 ml
+function quickWater(ml){
+  var rec = {cat_name:P.name, type:'飲水', value:ml+'ml', kcal:null, note:'飲水機'};
+  db.from('health_records').insert([rec]).select().then(function(r){
+    if(r.error){toast('儲存失敗','❌');return;}
+    toast('已記錄 '+ml+' ml 飲水','💧');
+    refreshHome(); updateRecBadges();
+  });
+}
+
+// 飲水：自定
+function quickWaterCustom(){
+  var ml = parseFloat(document.getElementById('water-custom-ml').value);
+  if(!ml || isNaN(ml)){toast('請輸入飲水量','⚠️');return;}
+  quickWater(ml);
+  document.getElementById('water-custom-ml').value='';
+}
+
+// 小便
+function submitPee(){
+  var btn = document.getElementById('pee-btn');
+  btn.disabled=true;
+  var rec = {cat_name:P.name, type:'小便', value:peeState.vol+'·'+peeState.col, kcal:null, note:null};
+  db.from('health_records').insert([rec]).select().then(function(r){
+    btn.disabled=false;
+    if(r.error){toast('儲存失敗','❌');return;}
+    toast('小便已記錄','🚽');
+    refreshHome();
+  });
+}
+
+// 大便
+function submitPoop(){
+  var btn = document.getElementById('poop-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
+  var rec = {cat_name:P.name, type:'便便', value:poopType+'·1次', kcal:null, note:null};
+  db.from('health_records').insert([rec]).select().then(function(r){
+    btn.disabled=false; btn.innerHTML='＋ 記錄一次大便';
+    if(r.error){toast('儲存失敗','❌');return;}
+    toast('便便已記錄','💩');
+    refreshHome(); updateRecBadges();
+  });
+}
+
+// 備忘
+function submitMemo(){
+  var txt = document.getElementById('memo-text').value.trim();
+  if(!txt){toast('請輸入備忘內容','⚠️');return;}
+  var btn = document.getElementById('memo-btn');
+  btn.disabled=true;
+  var rec = {cat_name:P.name, type:'備忘', value:null, kcal:null, note:txt};
+  db.from('health_records').insert([rec]).select().then(function(r){
+    btn.disabled=false;
+    if(r.error){toast('儲存失敗','❌');return;}
+    toast('備忘已儲存','📝');
+    document.getElementById('memo-text').value='';
+  });
+}
+
+// 更新記錄頁的今日數字 badge
+function updateRecBadges(){
+  var range = twDayToUtcRange(todayStr());
+  db.from('health_records').select('*').eq('cat_name',P.name)
+    .gte('created_at',range.start).lte('created_at',range.end).then(function(r){
+      if(r.error) return;
+      var recs = r.data||[];
+      var kcal=0, meals=0, water=0;
+      recs.forEach(function(rec){
+        if(rec.type==='飲水'){var ml=parseFloat((rec.value||'').replace('ml',''));if(!isNaN(ml))water+=ml;}
+        else if(rec.type!=='便便'&&rec.type!=='小便'&&rec.type!=='備忘'){if(rec.kcal)kcal+=parseFloat(rec.kcal)||0;meals++;}
+      });
+      document.getElementById('rc-kcal-today').textContent=Math.round(kcal);
+      document.getElementById('rc-meals-today').textContent=meals;
+      document.getElementById('rc-food-badge').textContent='今日 '+meals+' 餐';
+      document.getElementById('rc-water-goal').textContent=P.water_goal||200;
+      document.getElementById('rc-water-badge').textContent='今日 '+Math.round(water)+' ml';
+    });
 }
 
 // ── Toast ─────────────────────────────────────────────
@@ -596,85 +816,109 @@ function setBtn(id,loading,label){
 }
 
 // ── Submit ────────────────────────────────────────────
-function submitFood(){
-  var name=document.getElementById('food-name').value.trim();
-  var val=document.getElementById('food-value').value.trim();
-  var kcal=document.getElementById('food-kcal').value;
-  var note=document.getElementById('food-note').value.trim();
-  if(!name){toast('請輸入食物名稱','⚠️');return;}
-  var rec={cat_name:P.name,type:chips['food-type']||'餐食',value:val||null,kcal:kcal?parseFloat(kcal):null,note:name+(note?'｜'+note:'')};
-  setBtn('food-btn',true);
-  db.from('health_records').insert([rec]).select().then(function(r){
-    setBtn('food-btn',false,'儲存餐食紀錄');
-    if(r.error){toast('儲存失敗','❌');return;}
-    toast('餐食已記錄','🍽️');
-    ['food-name','food-value','food-kcal','food-note'].forEach(function(id){document.getElementById(id).value='';});
-    refreshHome();
-  });
-}
-function submitWater(){
-  var amt=document.getElementById('water-amount').value;
-  var note=document.getElementById('water-note').value.trim();
-  if(!amt){toast('請輸入飲水量','⚠️');return;}
-  var rec={cat_name:P.name,type:'飲水',value:parseFloat(amt)+'ml',kcal:null,note:(chips['water-type']||'飲水機')+(note?'｜'+note:'')};
-  setBtn('water-btn',true);
-  db.from('health_records').insert([rec]).select().then(function(r){
-    setBtn('water-btn',false,'儲存飲水紀錄');
-    if(r.error){toast('儲存失敗','❌');return;}
-    toast('飲水已記錄','💧');
-    ['water-amount','water-note'].forEach(function(id){document.getElementById(id).value='';});
-    refreshHome();
-  });
-}
+
 function submitPoop(){
   var note=document.getElementById('poop-note').value.trim();
   var rec={cat_name:P.name,type:'便便',value:chips['poop-type']+'·'+chips['poop-count']+'次',kcal:null,note:note||null};
   setBtn('poop-btn',true);
   db.from('health_records').insert([rec]).select().then(function(r){
     setBtn('poop-btn',false,'儲存便便紀錄');
-    if(r.error){toast('儲存失敗','❌');return;}
+    if(r.error){toast('儲存失敗','❌');console.error(r.error);return;}
     toast('便便已記錄','💩');
     document.getElementById('poop-note').value='';
     refreshHome();
   });
 }
 
-// ── Home ──────────────────────────────────────────────
-function todayStr(){
-  var d=new Date();
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+// ── 時區工具（台灣 UTC+8）────────────────────────────
+// 一天的定義：當天 AM 00:00 ~ PM 23:59（台灣時間）
+// 結算時間：每天 PM 11:59，AM 12:00 開始新的一天
+var TZ_OFFSET = 8 * 60; // 台灣 UTC+8，單位分鐘
+
+// 回傳台灣時間的 Date 物件
+function twNow(){
+  var now = new Date();
+  var utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utc + TZ_OFFSET * 60000);
 }
+
+// 回傳台灣時間今天的「日記日期」字串 YYYY-MM-DD
+// 規則：AM 00:00 ~ PM 23:59 都算同一天（正常日曆天）
+function todayStr(){
+  var tw = twNow();
+  return tw.getFullYear()+'-'+String(tw.getMonth()+1).padStart(2,'0')+'-'+String(tw.getDate()).padStart(2,'0');
+}
+
+// 把台灣日期字串轉成 Supabase 查詢用的 UTC 區間
+// 台灣 00:00 = UTC 前一天 16:00；台灣 23:59:59 = UTC 當天 15:59:59
+function twDayToUtcRange(twDateStr){
+  // twDateStr: 'YYYY-MM-DD'（台灣時間）
+  var start = new Date(twDateStr + 'T00:00:00+08:00');
+  var end   = new Date(twDateStr + 'T23:59:59+08:00');
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+// ── 結算提示（PM 11:30 ~ PM 11:59 顯示今日即將結算）──
+function checkSettlement(){
+  var tw = twNow();
+  var h = tw.getHours(), m = tw.getMinutes();
+  // PM 11:30 以後顯示結算倒數提示
+  if(h === 23 && m >= 30){
+    var remain = 59 - m;
+    toast('今天還有 '+remain+' 分鐘結算，記得補齊記錄！','⏰');
+  }
+}
+
+// ── Home ──────────────────────────────────────────────
 function refreshHome(){
-  var d=new Date();
+  var tw = twNow();
   var wk=['週日','週一','週二','週三','週四','週五','週六'];
-  document.getElementById('home-date').textContent=d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 · '+wk[d.getDay()];
+  document.getElementById('home-date').textContent=tw.getFullYear()+'年'+(tw.getMonth()+1)+'月'+tw.getDate()+'日 · '+wk[tw.getDay()];
   document.getElementById('hero-name').textContent=P.name;
   document.getElementById('hero-emoji').textContent=P.emoji;
   document.getElementById('hero-weight').textContent=P.weight||'—';
   if(P.birthday){
-    var bd=new Date(P.birthday),now=new Date();
+    var bd=new Date(P.birthday),now=twNow();
     var mo=(now.getFullYear()-bd.getFullYear())*12+(now.getMonth()-bd.getMonth());
     var y=Math.floor(mo/12),m=mo%12;
     document.getElementById('hero-age').textContent=(y>0?y+'歲':'')+(m>0?m+'個月':'');
   }
   if(P.arrive){
-    var diff=Math.floor((new Date()-new Date(P.arrive))/86400000);
+    var diff=Math.floor((twNow()-new Date(P.arrive))/86400000);
     document.getElementById('hero-days').textContent=diff;
   }
-  var t=todayStr();
+
+  // 用台灣時區的 UTC 區間查詢今日資料
+  var range = twDayToUtcRange(todayStr());
   db.from('health_records').select('*').eq('cat_name',P.name)
-    .gte('created_at',t+'T00:00:00').lte('created_at',t+'T23:59:59')
+    .gte('created_at', range.start)
+    .lte('created_at', range.end)
     .order('created_at',{ascending:false}).then(function(r){
       if(r.error) return;
       calcDay(r.data||[]);
     });
+
+  // 每次進首頁檢查是否快要結算
+  checkSettlement();
 }
+
 function calcDay(recs){
   var kcal=0,water=0,poop=0,meals=0,wCnt=0;
   recs.forEach(function(r){
-    if(r.type==='飲水'){var ml=parseFloat(r.value);if(!isNaN(ml))water+=ml;wCnt++;}
-    else if(r.type==='便便'){var p=parseInt((r.value||'').split('·')[1])||1;poop+=p;}
-    else{if(r.kcal)kcal+=parseFloat(r.kcal)||0;meals++;}
+    if(r.type==='飲水'){
+      // value 格式是 "30ml"，取數字部分
+      var ml=parseFloat((r.value||'').replace('ml',''));
+      if(!isNaN(ml)) water+=ml;
+      wCnt++;
+    } else if(r.type==='便便'){
+      // value 格式是 "正常·1次"，取次數
+      var parts=(r.value||'').split('·');
+      var cnt=parts.length>1?parseInt(parts[1]):1;
+      poop+=isNaN(cnt)?1:cnt;
+    } else {
+      if(r.kcal) kcal+=parseFloat(r.kcal)||0;
+      meals++;
+    }
   });
   var circ=232.5;
   var kg=P.kcal_goal||297,wg=P.water_goal||200;
@@ -708,6 +952,21 @@ function calcDay(recs){
 }
 
 // ── History ───────────────────────────────────────────
+// UTC 時間字串轉台灣日期字串 YYYY-MM-DD
+function utcToTwDate(utcStr){
+  if(!utcStr) return '—';
+  var d = new Date(utcStr);
+  var tw = new Date(d.getTime() + TZ_OFFSET * 60000);
+  return tw.getUTCFullYear()+'-'+String(tw.getUTCMonth()+1).padStart(2,'0')+'-'+String(tw.getUTCDate()).padStart(2,'0');
+}
+// UTC 時間字串轉台灣時間 HH:MM
+function utcToTwTime(utcStr){
+  if(!utcStr) return '';
+  var d = new Date(utcStr);
+  var tw = new Date(d.getTime() + TZ_OFFSET * 60000);
+  return String(tw.getUTCHours()).padStart(2,'0')+':'+String(tw.getUTCMinutes()).padStart(2,'0');
+}
+
 function loadHistory(){
   document.getElementById('hist-list').innerHTML='<div class="empty"><div class="empty-ico">⏳</div><div class="empty-txt">載入中...</div></div>';
   db.from('health_records').select('*').eq('cat_name',P.name)
@@ -724,29 +983,35 @@ function setFilter(f){
 function renderHist(){
   var list=allRec.filter(function(r){
     if(histF==='all') return true;
-    if(histF==='food') return r.type!=='飲水'&&r.type!=='便便';
+    if(histF==='food') return r.type!=='飲水'&&r.type!=='便便'&&r.type!=='小便'&&r.type!=='備忘';
     if(histF==='water') return r.type==='飲水';
+    if(histF==='pee') return r.type==='小便';
     if(histF==='poop') return r.type==='便便';
+    if(histF==='memo') return r.type==='備忘';
   });
   if(!list.length){
     document.getElementById('hist-list').innerHTML='<div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">沒有紀錄</div><div class="empty-s">快去新增第一筆吧！</div></div>';
     return;
   }
   var groups={};
-  list.forEach(function(r){var d=r.created_at?r.created_at.slice(0,10):'—';(groups[d]=groups[d]||[]).push(r);});
+  // 用台灣時區日期分組
+  list.forEach(function(r){
+    var d = utcToTwDate(r.created_at);
+    (groups[d]=groups[d]||[]).push(r);
+  });
   var t=todayStr();
-  var yd=new Date();yd.setDate(yd.getDate()-1);
-  var ys=yd.getFullYear()+'-'+String(yd.getMonth()+1).padStart(2,'0')+'-'+String(yd.getDate()).padStart(2,'0');
+  var yd=new Date(twNow().getTime()-86400000);
+  var ys=yd.getUTCFullYear()+'-'+String(yd.getUTCMonth()+1).padStart(2,'0')+'-'+String(yd.getUTCDate()).padStart(2,'0');
   var html='';
   Object.keys(groups).forEach(function(dt){
     var lbl=dt===t?'今天':dt===ys?'昨天':dt;
     html+='<div class="hday">'+lbl+'</div>';
     groups[dt].forEach(function(r){
-      var ico='🍽️',cls='',bg='#f9fafb';
+      var ico='🍽️',bg='#f9fafb';
       if(r.type==='飲水'){ico='💧';bg='var(--blue-bg)';}
       if(r.type==='便便'){ico='💩';bg='var(--tan-bg)';}
       var val=r.kcal?r.kcal+' kcal':(r.value||'');
-      var time=r.created_at?r.created_at.slice(11,16):'';
+      var time=utcToTwTime(r.created_at);
       html+='<div class="hitem">'+
         '<div class="htype-icon" style="background:'+bg+'">'+ico+'</div>'+
         '<div class="hbody"><div class="htitle">'+(r.note||r.type||'—')+'</div>'+
@@ -777,6 +1042,7 @@ var editMeta={
   water_goal:{title:'每日飲水目標',label:'目標飲水 (ml)',type:'number'},
   emoji:{title:'選擇貓咪頭像',label:'',type:'emoji'}
 };
+
 function openEdit(k){
   editKey=k;
   var m=editMeta[k];
@@ -789,16 +1055,35 @@ function openEdit(k){
   document.getElementById('modal-bg').classList.add('open');
   setTimeout(function(){if(m.type!=='emoji')inp.focus();},300);
 }
-function pickEmoji(e){P.emoji=e;saveP();closeModal();renderProfile();refreshHome();}
+
+function pickEmoji(e){
+  P.emoji=e;
+  saveLocalP();
+  upsertProfile();
+  closeModal();
+  renderProfile();
+  refreshHome();
+}
+
 function saveEdit(){
   var v=document.getElementById('modal-input').value.trim();
   if(!v&&editKey!=='emoji'){toast('請輸入內容','⚠️');return;}
+  // 數字欄位轉型
   P[editKey]=(['weight','kcal_goal','water_goal'].indexOf(editKey)>=0)?parseFloat(v):v;
-  saveP(); closeModal(); renderProfile(); refreshHome();
-  toast('已儲存','✅');
+  saveLocalP();       // 先存本機
+  closeModal();
+  renderProfile();
+  refreshHome();
+  // 再同步到 Supabase
+  setSyncStatus('syncing');
+  upsertProfile(function(){
+    toast('已儲存並同步','✅');
+  });
 }
+
 function maybeClose(e){if(e.target===document.getElementById('modal-bg'))closeModal();}
 function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
+
 function renderProfile(){
   document.getElementById('p-emoji').textContent=P.emoji;
   document.getElementById('p-name').textContent=P.name;
@@ -816,6 +1101,24 @@ function renderProfile(){
 // ── Init ──────────────────────────────────────────────
 refreshHome();
 renderProfile();
+loadProfile();
+
+// 每天 PM 23:59（台灣時間）自動結算，AM 00:00 刷新首頁
+(function scheduleReset(){
+  var tw = twNow();
+  var h = tw.getHours(), m = tw.getMinutes(), s = tw.getSeconds();
+  // 距離下一個午夜的毫秒數
+  var msToMidnight = ((23 - h) * 3600 + (59 - m) * 60 + (60 - s)) * 1000;
+  setTimeout(function(){
+    toast('新的一天開始了！☀️ 今日記錄已重置','🌅');
+    refreshHome();
+    // 之後每 24 小時再刷一次
+    setInterval(function(){
+      toast('新的一天開始了！☀️ 今日記錄已重置','🌅');
+      refreshHome();
+    }, 24 * 60 * 60 * 1000);
+  }, msToMidnight);
+})();
 </script>
 
 </body>
