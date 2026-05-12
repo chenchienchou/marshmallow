@@ -7,11 +7,7 @@
   <title>貓咪健康紀錄</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
 
-  <!--
-    ✅ 使用 <script src> 載入，不使用 type="module"
-       來源：jsDelivr CDN（穩定、全球 CDN、支援 UMD 格式）
-       載入後全域可用 window.supabase.createClient()
-  -->
+  <!-- ✅ Supabase JS SDK v2 · jsDelivr UMD（不用 type="module"） -->
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
@@ -99,7 +95,6 @@
       background: linear-gradient(90deg, var(--accent), var(--accent-soft), transparent);
     }
 
-    /* ── DEBUG PANEL ── */
     .debug-panel {
       background: #0d0d0d;
       border-bottom: 1px solid #2a2a2a;
@@ -121,7 +116,6 @@
     .warn { color: #ff6b6b; }
     .dim  { color: #555; }
 
-    /* ── FORM ── */
     .card-body { padding: 2rem 2.5rem 2.5rem; }
     .field-group { margin-bottom: 1.4rem; }
 
@@ -163,7 +157,6 @@
     }
 
     textarea { resize: vertical; min-height: 80px; }
-
     .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 
     .divider {
@@ -273,7 +266,7 @@
 <div class="card">
   <div class="card-header">
     <h1>貓咪健康紀錄</h1>
-    <p>health_records · supabase · debug mode</p>
+    <p>health_records · supabase</p>
   </div>
   <div class="accent-bar"></div>
 
@@ -326,65 +319,55 @@
 
   <div class="card-footer">
     <span class="dot"></span>
-    vmgwyvwkhqnjmbdbliia.supabase.co · debug build
+    vmgwyvwkhqnjmbdbliia.supabase.co
   </div>
 </div>
 
 <script>
-  // ─────────────────────────────────────────────────────────────
-  //  連線設定（.trim() 防止複製時夾帶空白）
-  //  ⚠️  前端只能放 Publishable (anon) Key
-  //      Service Role Key 絕對不能放在這裡
-  // ─────────────────────────────────────────────────────────────
   var SUPABASE_URL      = 'https://vmgwyvwkhqnjmbdbliia.supabase.co'.trim();
-  var SUPABASE_ANON_KEY = 'sb_publishable_G_iir9jUBnqBkIfhaGCyMg_fd449ELVng'.trim();
+  var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZ3d5dndraHFuam1iZGJsaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MzU2MDYsImV4cCI6MjA5NDAxMTYwNn0.ZKaombHKVeoLk1RgzYn912tjlUSv4KE8CS5Wl_DunFs'.trim();
 
-  // ── Debug：console 輸出 ──────────────────────────────────────
-  console.log('=== Supabase Debug Info ===');
+  console.log('=== Supabase Debug ===');
   console.log('URL       :', SUPABASE_URL);
   console.log('URL length:', SUPABASE_URL.length);
-  console.log('KEY (前16):', SUPABASE_ANON_KEY.slice(0, 16) + '…');
-  console.log('KEY length:', SUPABASE_ANON_KEY.length);
-  console.log('===========================');
+  console.log('KEY length:', SUPABASE_ANON_KEY.length, '(正常應為 220 左右)');
+  console.log('======================');
 
-  // ── Debug：頁面顯示 ──────────────────────────────────────────
   var urlOk = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.endsWith('/');
-  var keyOk = SUPABASE_ANON_KEY.length > 20;
+  var keyOk = SUPABASE_ANON_KEY.length > 100;
 
   document.getElementById('dbg-url').innerHTML =
     '<span class="' + (urlOk ? 'ok' : 'warn') + '">' +
     'URL  (' + SUPABASE_URL.length + ' chars) : ' + SUPABASE_URL +
-    (urlOk ? ' ✓' : ' ⚠ 格式異常') + '</span>';
+    (urlOk ? ' ✓' : ' ⚠') + '</span>';
 
   document.getElementById('dbg-key').innerHTML =
     '<span class="' + (keyOk ? 'ok' : 'warn') + '">' +
     'KEY  (' + SUPABASE_ANON_KEY.length + ' chars) : ' +
-    SUPABASE_ANON_KEY.slice(0, 16) + '…' + SUPABASE_ANON_KEY.slice(-6) +
+    SUPABASE_ANON_KEY.slice(0, 20) + '…' + SUPABASE_ANON_KEY.slice(-8) +
     (keyOk ? ' ✓' : ' ⚠ 長度異常') + '</span>';
 
-  // ── 初始化 Supabase client（使用 UMD 全域 window.supabase） ──
   var db = null;
   try {
     if (typeof window.supabase === 'undefined') {
-      throw new Error('window.supabase 未定義，請確認 CDN <script> 是否載入成功');
+      throw new Error('window.supabase 未定義，CDN 載入失敗');
     }
     db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     document.getElementById('dbg-sdk').innerHTML =
       '<span class="ok">SDK  : ✓ @supabase/supabase-js@2 (jsDelivr UMD) · client ready</span>';
-    console.log('[SDK] loaded OK, client ready');
+    console.log('[SDK] client ready');
   } catch (e) {
     document.getElementById('dbg-sdk').innerHTML =
-      '<span class="warn">SDK  : ✗ 初始化失敗 → ' + e.message + '</span>';
+      '<span class="warn">SDK  : ✗ ' + e.message + '</span>';
     console.error('[SDK] init failed:', e);
   }
 
-  // ── 送出函式 ─────────────────────────────────────────────────
   function submitRecord() {
     var btn    = document.getElementById('submitBtn');
     var status = document.getElementById('statusBar');
 
     if (!db) {
-      alert('Supabase SDK 初始化失敗，請檢查 Console。');
+      alert('Supabase SDK 初始化失敗，請查看 Console。');
       return;
     }
 
@@ -404,9 +387,6 @@
     if (kcal !== '') record.kcal  = parseFloat(kcal);
     if (note)        record.note  = note;
 
-    // 送出前再次 log
-    console.log('[Before insert] URL length:', SUPABASE_URL.length);
-    console.log('[Before insert] KEY length:', SUPABASE_ANON_KEY.length);
     console.log('[Before insert] payload:', JSON.stringify(record));
 
     btn.disabled = true;
@@ -418,28 +398,23 @@
       .insert([record])
       .select()
       .then(function(result) {
-        var data  = result.data;
-        var error = result.error;
-
-        if (error) {
-          // 完整錯誤物件
-          console.error('[Insert error] full object:', error);
-          var errStr = JSON.stringify(error, null, 2);
-          console.error('[Insert error] JSON:\n', errStr);
+        if (result.error) {
+          var errStr = JSON.stringify(result.error, null, 2);
+          console.error('[Insert error]', result.error);
           showStatus('error', '✕ 失敗\n\n' + errStr);
-          alert('失敗：' + error.message + '\n\n完整錯誤物件：\n' + errStr);
+          alert('失敗：' + result.error.message + '\n\n完整錯誤物件：\n' + errStr);
         } else {
-          console.log('[Insert success] data:', data);
-          showStatus('success', '✓ 存檔成功！\n\n' + JSON.stringify(data, null, 2));
+          console.log('[Insert success]', result.data);
+          showStatus('success', '✓ 存檔成功！\n\n' + JSON.stringify(result.data, null, 2));
           alert('存檔成功！');
           clearForm();
         }
       })
       .catch(function(err) {
-        console.error('[Unexpected error]', err);
         var errStr = JSON.stringify(err, Object.getOwnPropertyNames(err), 2);
+        console.error('[Unexpected error]', err);
         showStatus('error', '✕ 非預期錯誤\n\n' + errStr);
-        alert('失敗（非預期）：' + err.message + '\n\n完整錯誤物件：\n' + errStr);
+        alert('失敗：' + err.message + '\n\n' + errStr);
       })
       .finally(function() {
         btn.disabled = false;
@@ -459,7 +434,6 @@
     });
   }
 
-  // Enter 鍵送出
   document.querySelectorAll('input').forEach(function(el) {
     el.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') submitRecord();
