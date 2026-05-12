@@ -1543,6 +1543,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderInventory();       // init inventory display
   splashProgress(0, () => setTimeout(dismissSplash, 200));
   initSupabase();
+  scheduleDailyReset(); // 啟動每日台灣時區排程
 });
 
 // ════════ AGE — handled by applyProfile ════════
@@ -1596,6 +1597,40 @@ function confirmSwitchId() {
   showToast(_switchPending==='dad' ? '👦🏻 爸爸模式' : '👧🏻 媽媽模式');
 }
 
+
+// ════════ 每日排程（台灣時區 23:59 結算 / 00:00 歸零刷新）════════
+function scheduleDailyReset() {
+  const now = new Date();
+  // 計算台灣時區的現在時間
+  const twNow = new Date(now.getTime() + 8*60*60*1000);
+  const twH = twNow.getUTCHours();
+  const twM = twNow.getUTCMinutes();
+  const twS = twNow.getUTCSeconds();
+
+  // 計算距離台灣 23:59:00 還有多少毫秒
+  const secUntil2359 = ((23-twH)*3600 + (59-twM)*60 + (0-twS) + 86400) % 86400;
+  // 計算距離台灣 00:00:05 還有多少毫秒（多5秒確保跨日）
+  const secUntilMidnight = ((24-twH)*3600 + (0-twM)*60 + (5-twS) + 86400) % 86400;
+
+  // 23:59 結算通知
+  setTimeout(() => {
+    console.log('[棉花糖] 台灣時間 23:59 結算');
+    // 可在此加入結算邏輯（例如顯示今日總結 toast）
+    showToast('🌙 今日健康紀錄已結算！');
+    // 重新安排明天的排程
+    scheduleDailyReset();
+  }, secUntil2359 * 1000);
+
+  // 00:00 歸零刷新
+  setTimeout(() => {
+    console.log('[棉花糖] 台灣時間 00:00 刷新');
+    // 重新從遠端載入（這樣今日數據歸零、歷史保留）
+    if(db) loadRemote(); else { loadLocal(); updateAllUI(); }
+  }, secUntilMidnight * 1000);
+
+  console.log(`[棉花糖] 排程：${Math.round(secUntil2359/60)}分後結算，${Math.round(secUntilMidnight/60)}分後歸零`);
+}
+
 // ════════ SUPABASE ════════
 function initSupabase() {
   try {
@@ -1610,14 +1645,41 @@ function initSupabase() {
 }
 async function loadRemote() {
   try {
-    const {data,error} = await db.from('cat_logs').select('*').order('created_at',{ascending:false}).limit(300);
+    // 只抓最近 7 天的資料（台灣時區 7 天前 = UTC 7 天前）
+    const sevenDaysAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+    const {data,error} = await db.from('cat_logs').select('*')
+      .gte('created_at', sevenDaysAgo)
+      .order('created_at',{ascending:false})
+      .limit(500);
     if (error) throw error;
     allLogs = (data||[]).map(normRow); setBadge(true); updateAllUI();
+    syncPending(); // 恢復連線後同步離線記錄
   } catch(e) {
     console.warn('[棉花糖] 遠端失敗:', e.message);
     setBadge(false); loadLocal();
   }
 }
+
+// ════════ 離線 Pending 同步 ════════
+async function syncPending() {
+  if(!db) return;
+  try {
+    const pending = JSON.parse(localStorage.getItem('msh_pending')||'[]');
+    if(!pending.length) return;
+    console.log(`[棉花糖] 同步 ${pending.length} 筆 pending 記錄`);
+    const {error} = await db.from('cat_logs').insert(pending);
+    if(!error){
+      localStorage.removeItem('msh_pending');
+      console.log('[棉花糖] Pending 同步成功');
+      showToast(`☁️ 已同步 ${pending.length} 筆離線記錄`);
+    } else {
+      console.warn('[棉花糖] pending sync error:', error);
+    }
+  } catch(e) {
+    console.warn('[棉花糖] syncPending exception:', e);
+  }
+}
+
 // Normalize DB snake_case → UI camelCase
 function normRow(r) {
   return {
@@ -1819,11 +1881,18 @@ async function submitCart() {
     }catch(e){console.warn('[棉花糖] insert exception:', e);}
   }
   if(!ok){
+    // 離線：存入 pending queue，等恢復連線後自動同步
     localLogs.forEach(l=>{allLogs.unshift(l);});
-    saveLocal(); showToast(`✅ 已儲存 ${logs.length} 筆（離線）`);
+    try {
+      const pending = JSON.parse(localStorage.getItem('msh_pending')||'[]');
+      logs.forEach(l => pending.push(l));
+      localStorage.setItem('msh_pending', JSON.stringify(pending));
+    } catch(e){}
+    saveLocal(); showToast(`✅ 已儲存 ${logs.length} 筆（離線，將在連線後自動同步）`);
   } else {
     localLogs.forEach(l=>{if(!allLogs.find(x=>x.id===l.id))allLogs.unshift(l);});
-    showToast(`✅ ${logs.length} 筆紀錄儲存並同步`);
+    saveLocal();
+    showToast(`✅ ${logs.length} 筆紀錄已同步至雲端`);
   }
   // Deduct from inventory
   const feedItems = cart.filter(l=>l.type==='feed');
@@ -1917,7 +1986,16 @@ function renderInventory() {
 
 // ════════ UI UPDATE ════════
 function updateAllUI(){ updateHome(); checkAlerts(); renderHistory(); renderInventory(); }
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+function todayStr(){
+  // 台灣時區 UTC+8
+  const now = new Date();
+  const tw = new Date(now.getTime() + 8*60*60*1000);
+  return tw.toISOString().slice(0,10);
+}
+function nowTW(){
+  // 回傳台灣當前時間的 Date 物件
+  return new Date(Date.now() + 8*60*60*1000);
+}
 
 function setRing(id, pct) {
   const el = document.getElementById(id);
@@ -1927,7 +2005,13 @@ function setRing(id, pct) {
 }
 
 function updateHome() {
-  const tl=allLogs.filter(l=>l.created_at&&l.created_at.startsWith(todayStr()));
+  // 比對台灣時區的今天日期（created_at 是 UTC，需轉換後比對）
+  const td=todayStr();
+  const tl=allLogs.filter(l=>{
+    if(!l.created_at) return false;
+    const tw=new Date(new Date(l.created_at).getTime()+8*60*60*1000);
+    return tw.toISOString().slice(0,10)===td;
+  });
   let kcal=0,water=0,meals=0,pees=0,poos=0;
   tl.forEach(l=>{
     if(l.type==='feed'){kcal+=(l.feedKcal||0);meals++;}
@@ -1978,7 +2062,13 @@ function updateHome() {
 }
 
 function checkAlerts() {
-  const tl=allLogs.filter(l=>l.created_at&&l.created_at.startsWith(todayStr()));
+  // 比對台灣時區的今天日期（created_at 是 UTC，需轉換後比對）
+  const td=todayStr();
+  const tl=allLogs.filter(l=>{
+    if(!l.created_at) return false;
+    const tw=new Date(new Date(l.created_at).getTime()+8*60*60*1000);
+    return tw.toISOString().slice(0,10)===td;
+  });
   const danger=tl.some(l=>l.type==='poo'&&l.pooTag==='腹瀉')||tl.some(l=>l.type==='pee'&&l.peeTags&&l.peeTags.includes('血尿'));
   // Elegant alert pill, not red SOS box
   document.getElementById('alert-zone').innerHTML = danger
@@ -2006,9 +2096,29 @@ function renderHistory() {
     return;
   }
   const g={};
-  allLogs.forEach(l=>{const d=(l.created_at||'').slice(0,10)||'未知';if(!g[d])g[d]=[];g[d].push(l);});
+  allLogs.forEach(l=>{
+    let d='未知';
+    if(l.created_at){
+      // 轉台灣時區取日期
+      const tw=new Date(new Date(l.created_at).getTime()+8*60*60*1000);
+      d=tw.toISOString().slice(0,10);
+    }
+    if(!g[d])g[d]=[];g[d].push(l);
+  });
   const td=todayStr();
-  list.innerHTML=Object.keys(g).sort().reverse().map(date=>{
+  // 只保留最近 7 日
+  const last7=Array.from({length:7},(_,i)=>{
+    const d=new Date(new Date(td+'T00:00:00+08:00').getTime()-i*86400000);
+    const tw=new Date(d.getTime()+8*60*60*1000);
+    return tw.toISOString().slice(0,10);
+  });
+  const filteredDates=Object.keys(g).filter(d=>last7.includes(d));
+  document.getElementById('history-count').textContent=`最近 7 日 共 ${allLogs.filter(l=>{
+    if(!l.created_at)return false;
+    const tw=new Date(new Date(l.created_at).getTime()+8*60*60*1000);
+    return last7.includes(tw.toISOString().slice(0,10));
+  }).length} 筆`;
+  list.innerHTML=filteredDates.sort().reverse().map(date=>{
     const lbl=date===td?'今天':`${date}`;
     const items=g[date].map(l=>{
       const t=l.created_at?new Date(l.created_at).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}):'';
