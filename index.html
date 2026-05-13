@@ -1,14 +1,16 @@
 <!DOCTYPE html>
+
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="貓咪日記" />
-  <title>🐱 布偶貓健康日記</title>
+  <meta name="apple-mobile-web-app-title" content="棉花糖日記" />
+  <title>🐱 棉花糖健康日記</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
@@ -16,535 +18,571 @@
   <style>
     :root {
       --cream: #fdf6ee;
-      --warm-white: #fffaf4;
       --blush: #f4c6c6;
       --dusty-rose: #e8a4a4;
       --mauve: #c97c7c;
       --lavender: #d4c5e8;
-      --periwinkle: #b8aad4;
       --sage: #b5cbb4;
       --caramel: #d4a574;
       --chocolate: #8b5e3c;
       --ink: #2c1f1f;
       --muted: #8c7b7b;
-      --card-bg: rgba(255, 250, 244, 0.88);
-      --shadow-soft: 0 4px 24px rgba(139, 94, 60, 0.10);
-      --shadow-card: 0 8px 32px rgba(139, 94, 60, 0.12);
+      --card-bg: rgba(255,250,244,0.88);
+      --shadow-soft: 0 4px 24px rgba(139,94,60,0.10);
+      --shadow-card: 0 8px 32px rgba(139,94,60,0.12);
       --radius: 20px;
       --radius-sm: 12px;
       --safe-top: env(safe-area-inset-top, 44px);
-      --safe-bottom: env(safe-area-inset-bottom, 20px);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
     html, body {
-      height: 100%;
-      touch-action: manipulation;
-      overflow: hidden; /* prevent body scroll */
+      height: 100%; touch-action: manipulation;
+      overflow: hidden; background: var(--cream);
     }
-
     body {
-      font-family: 'Nunito', sans-serif;
-      background: var(--cream);
-      color: var(--ink);
+      font-family: 'Nunito', sans-serif; color: var(--ink);
       background-image:
-        radial-gradient(ellipse at 20% 0%, rgba(244,198,198,0.38) 0%, transparent 52%),
-        radial-gradient(ellipse at 85% 8%, rgba(212,197,232,0.30) 0%, transparent 48%),
-        radial-gradient(ellipse at 50% 100%, rgba(181,203,180,0.22) 0%, transparent 48%);
+        radial-gradient(ellipse at 20% 0%,  rgba(244,198,198,0.38) 0%, transparent 52%),
+        radial-gradient(ellipse at 85% 8%,  rgba(212,197,232,0.30) 0%, transparent 48%),
+        radial-gradient(ellipse at 50% 100%,rgba(181,203,180,0.22) 0%, transparent 48%);
       background-attachment: fixed;
     }
 
-    /* ─── App shell: full screen, flex column ─── */
-    #app {
-      width: 100%;
-      max-width: 430px;
-      height: 100dvh; /* dynamic viewport height — survives Safari toolbar */
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+    /* ══════════════════════════════
+       SPLASH
+    ══════════════════════════════ */
+    #splash {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: var(--cream);
+      background-image:
+        radial-gradient(ellipse at 20% 0%,  rgba(244,198,198,0.38) 0%, transparent 52%),
+        radial-gradient(ellipse at 85% 8%,  rgba(212,197,232,0.30) 0%, transparent 48%),
+        radial-gradient(ellipse at 50% 100%,rgba(181,203,180,0.22) 0%, transparent 48%);
+      padding: 40px 32px;
+      padding-top: calc(40px + env(safe-area-inset-top));
+      transition: opacity 0.5s ease, transform 0.5s ease;
     }
+    #splash.hide { opacity: 0; transform: scale(1.04); pointer-events: none; }
 
-    /* ─── Header: fixed at top, does NOT scroll ─── */
+    .splash-paw {
+      font-size: 76px; margin-bottom: 8px;
+      animation: bouncePaw 1.8s ease-in-out infinite;
+    }
+    @keyframes bouncePaw {
+      0%,100% { transform: translateY(0) rotate(-5deg); }
+      50%      { transform: translateY(-14px) rotate(5deg); }
+    }
+    .splash-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 38px; font-weight: 700; color: var(--chocolate);
+      margin-bottom: 4px;
+    }
+    .splash-sub { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 28px; text-align: center; }
+
+    /* Pet mini card on splash */
+    .splash-petcard {
+      width: 100%; max-width: 310px;
+      background: var(--card-bg); border-radius: var(--radius);
+      padding: 16px 18px; margin-bottom: 28px;
+      box-shadow: var(--shadow-card);
+      border: 1.5px solid rgba(255,255,255,0.82);
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px;
+    }
+    .pc-row { display: flex; flex-direction: column; gap: 2px; }
+    .pc-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .pc-val   { font-size: 14px; font-weight: 800; color: var(--chocolate); }
+
+    /* Days at home — full width in splash card */
+    .pc-row.wide { grid-column: 1/-1; }
+
+    /* Role picker */
+    .role-prompt { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 14px; text-align: center; }
+    .role-btns { display: flex; gap: 14px; width: 100%; max-width: 310px; }
+    .role-btn {
+      flex: 1; padding: 18px 10px; border-radius: var(--radius);
+      border: 2.5px solid rgba(201,124,124,0.2);
+      background: rgba(255,255,255,0.55);
+      cursor: pointer; font-family: 'Nunito', sans-serif;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      transition: all 0.2s; box-shadow: var(--shadow-soft);
+    }
+    .role-btn:active { transform: scale(0.94); }
+    .role-btn .rb-icon { font-size: 38px; }
+    .role-btn .rb-name { font-size: 17px; font-weight: 900; color: var(--chocolate); }
+    .role-btn .rb-sub  { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .role-btn.dad { border-color: rgba(100,140,210,0.4); background: rgba(215,228,252,0.5); }
+    .role-btn.mom { border-color: rgba(220,120,120,0.4); background: rgba(252,218,218,0.5); }
+    .role-btn.dad:active { background: rgba(180,210,255,0.7); }
+    .role-btn.mom:active { background: rgba(255,185,185,0.7); }
+
+    /* ══════════════════════════════
+       MAIN APP
+    ══════════════════════════════ */
+    #app { width: 100%; max-width: 430px; margin: 0 auto; position: relative; }
+
+    /* Header */
     .app-header {
-      flex-shrink: 0;
-      padding-top: var(--safe-top);
-      padding-left: 20px;
-      padding-right: 20px;
-      background: rgba(253,246,238,0.96);
-      backdrop-filter: blur(16px);
-      z-index: 10;
+      position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 430px;
+      padding-top: var(--safe-top); padding-left: 16px; padding-right: 16px;
+      background: rgba(253,246,238,0.96); backdrop-filter: blur(16px);
+      z-index: 100;
     }
     .header-inner {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 0 10px;
+      padding: 10px 0 9px; gap: 8px;
       border-bottom: 1.5px solid rgba(201,124,124,0.15);
     }
-    .header-cat {
-      display: flex; align-items: center; gap: 10px;
-    }
+    .header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
     .cat-avatar {
-      width: 44px; height: 44px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--blush), var(--lavender));
+      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg,var(--blush),var(--lavender));
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px;
-      box-shadow: 0 2px 10px rgba(201,124,124,0.25);
-      flex-shrink: 0;
+      font-size: 20px; box-shadow: 0 2px 10px rgba(201,124,124,0.25);
     }
-    .cat-name {
-      font-family: 'Playfair Display', serif;
-      font-size: 20px; font-weight: 700;
-      color: var(--chocolate);
-    }
-    .cat-subtitle {
-      font-size: 11px; color: var(--muted); font-weight: 600;
-      letter-spacing: 0.5px;
-      display: flex; align-items: center; gap: 4px;
-    }
-    .header-date { text-align: right; }
-    .header-date .date-main { font-size: 13px; font-weight: 800; color: var(--mauve); }
-    .header-date .date-time { font-size: 11px; color: var(--muted); }
+    .cat-name { font-family: 'Playfair Display',serif; font-size: 18px; font-weight: 700; color: var(--chocolate); }
+    .header-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
 
-    /* ─── Content area: grows to fill remaining space, scrollable ─── */
+    .conn-dot { width: 6px; height: 6px; border-radius: 50%; background: #ccc; display: inline-block; transition: background 0.3s; flex-shrink: 0; }
+    .conn-dot.ok  { background: #7bc87b; }
+    .conn-dot.err { background: #e87b7b; }
+    .conn-text { font-size: 10px; color: var(--muted); font-weight: 600; }
+
+    /* Mode badge — tap to switch */
+    .mode-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 50px;
+      font-size: 11px; font-weight: 800;
+      cursor: pointer; transition: all 0.15s;
+      border: 1.5px solid transparent; user-select: none;
+    }
+    .mode-badge.dad { background: rgba(180,210,255,0.6); color: #2a5ab0; border-color: rgba(100,150,220,0.35); }
+    .mode-badge.mom { background: rgba(255,185,185,0.6); color: #b03030; border-color: rgba(220,110,110,0.35); }
+    .mode-badge:active { transform: scale(0.92); }
+
+    /* Header right */
+    .header-right { text-align: right; flex-shrink: 0; }
+    .h-date { font-size: 12px; font-weight: 800; color: var(--mauve); white-space: nowrap; }
+    .h-time { font-size: 10px; color: var(--muted); }
+    .days-badge {
+      display: inline-block;
+      background: linear-gradient(135deg,rgba(244,198,198,0.7),rgba(212,197,232,0.65));
+      border-radius: 50px; padding: 2px 8px;
+      font-size: 10px; font-weight: 800; color: var(--chocolate);
+      margin-top: 3px; white-space: nowrap;
+    }
+
+    /* Content area */
     .content-area {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-      /* hide scrollbar visually but keep function */
-      scrollbar-width: none;
+      position: fixed;
+      top: calc(var(--safe-top) + 66px);
+      bottom: calc(56px + env(safe-area-inset-bottom));
+      left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 430px;
+      overflow-y: auto; overflow-x: hidden;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
     }
     .content-area::-webkit-scrollbar { display: none; }
 
-    /* ─── Pages ─── */
+    /* Pages */
     .page { display: none; padding: 16px 16px 20px; animation: fadeUp 0.28s ease; }
     .page.active { display: block; }
-
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(14px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ─── Section title ─── */
-    .section-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 22px; font-weight: 700; color: var(--chocolate);
-      margin-bottom: 4px;
-    }
-    .section-sub {
-      font-size: 12px; color: var(--muted); font-weight: 600;
-      margin-bottom: 16px; letter-spacing: 0.3px;
-    }
-
-    /* ─── Cards ─── */
-    .card {
-      background: var(--card-bg);
-      backdrop-filter: blur(12px);
-      border-radius: var(--radius);
-      padding: 18px;
-      box-shadow: var(--shadow-card);
-      border: 1.5px solid rgba(255,255,255,0.72);
-      margin-bottom: 14px;
-    }
-    .card-title {
-      font-size: 13px; font-weight: 800; color: var(--mauve);
-      text-transform: uppercase; letter-spacing: 0.8px;
-      margin-bottom: 14px;
-      display: flex; align-items: center; gap: 6px;
-    }
-
-    /* ─── Summary cards ─── */
-    .summary-row {
-      display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
-      margin-bottom: 14px;
-    }
-    .summary-card {
-      background: var(--card-bg);
-      backdrop-filter: blur(12px);
-      border-radius: var(--radius-sm);
-      padding: 14px;
-      box-shadow: var(--shadow-soft);
-      border: 1.5px solid rgba(255,255,255,0.72);
-      text-align: center;
-    }
-    .summary-card .s-icon { font-size: 24px; margin-bottom: 4px; }
-    .summary-card .s-value { font-size: 20px; font-weight: 900; color: var(--chocolate); line-height: 1; }
-    .summary-card .s-unit { font-size: 10px; color: var(--muted); font-weight: 700; }
-    .summary-card .s-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-    /* ─── Inputs ─── */
-    .input-group { margin-bottom: 12px; }
-    .input-label {
-      font-size: 12px; font-weight: 800; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.5px;
-      margin-bottom: 6px; display: flex; align-items: center; gap: 5px;
-    }
-    .input-row { display: flex; gap: 8px; align-items: center; }
-
-    input[type="number"],
-    input[type="text"],
-    input[type="time"],
-    select,
-    textarea {
-      width: 100%;
-      background: rgba(255,255,255,0.62);
-      border: 2px solid rgba(201,124,124,0.2);
-      border-radius: var(--radius-sm);
-      padding: 11px 14px;
-      font-family: 'Nunito', sans-serif;
-      font-size: 15px; font-weight: 700;
-      color: var(--ink);
-      outline: none;
-      transition: border-color 0.2s, background 0.2s;
-      -webkit-appearance: none;
-      appearance: none;
-    }
-    input:focus, select:focus, textarea:focus {
-      border-color: var(--dusty-rose);
-      background: rgba(255,255,255,0.92);
-    }
-    .input-unit { font-size: 12px; font-weight: 800; color: var(--muted); white-space: nowrap; min-width: 28px; }
-
-    /* ─── Tag chips ─── */
-    .tag-grid { display: flex; flex-wrap: wrap; gap: 7px; }
-    .tag-chip {
-      padding: 7px 13px;
-      border-radius: 50px;
-      font-size: 13px; font-weight: 700;
-      border: 2px solid rgba(201,124,124,0.22);
-      background: rgba(255,255,255,0.5);
-      color: var(--muted);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      user-select: none;
-    }
-    .tag-chip.selected {
-      background: linear-gradient(135deg, var(--blush), var(--lavender));
-      border-color: transparent;
-      color: var(--chocolate);
-      box-shadow: 0 2px 8px rgba(201,124,124,0.25);
-      transform: scale(1.04);
-    }
-    .tag-chip:active { transform: scale(0.95); }
-
-    /* ─── Poop grid ─── */
-    .poop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .poop-btn {
-      padding: 10px 8px;
-      border-radius: var(--radius-sm);
-      font-size: 13px; font-weight: 700;
-      border: 2px solid rgba(201,124,124,0.2);
-      background: rgba(255,255,255,0.5);
-      color: var(--muted);
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.15s ease;
-      display: flex; align-items: center; justify-content: center; gap: 5px;
-    }
-    .poop-btn.selected {
-      background: linear-gradient(135deg, #f0e6d3, #e8d4c0);
-      border-color: var(--caramel);
-      color: var(--chocolate);
-      box-shadow: 0 2px 8px rgba(212,165,116,0.3);
-    }
-    .poop-btn:active { transform: scale(0.95); }
-
-    /* ─── Save button ─── */
-    .btn-save {
-      width: 100%;
-      padding: 0;
-      border-radius: 18px;
-      background: linear-gradient(135deg, #e8a4a4 0%, #c97c7c 50%, #b8aad4 100%);
-      color: white;
-      font-family: 'Nunito', sans-serif;
-      border: none;
-      cursor: pointer;
-      box-shadow:
-        0 6px 28px rgba(201,124,124,0.45),
-        0 2px 8px rgba(184,170,212,0.3),
-        inset 0 1px 0 rgba(255,255,255,0.25);
-      transition: all 0.22s ease;
-      position: relative;
-      overflow: hidden;
-      margin-top: 6px;
-    }
-    .btn-save::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 60%);
-      border-radius: inherit;
-      pointer-events: none;
-    }
-    .btn-save-inner {
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      padding: 17px 24px;
-      position: relative; z-index: 1;
-    }
-    .btn-save-icon { font-size: 20px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15)); }
-    .btn-save-text { font-size: 17px; font-weight: 900; letter-spacing: 0.6px; text-shadow: 0 1px 3px rgba(0,0,0,0.12); }
-    .btn-save-sub { font-size: 11px; font-weight: 700; opacity: 0.8; letter-spacing: 0.4px; }
-    .btn-save:active { transform: scale(0.97); box-shadow: 0 3px 14px rgba(201,124,124,0.35); }
-    .btn-save.loading { opacity: 0.75; }
-
-    /* ─── Toast ─── */
-    .toast {
-      position: fixed;
-      bottom: calc(80px + var(--safe-bottom));
-      left: 50%; transform: translateX(-50%) translateY(20px);
-      background: var(--chocolate);
-      color: white;
-      padding: 12px 22px;
-      border-radius: 50px;
-      font-size: 14px; font-weight: 700;
-      box-shadow: 0 4px 20px rgba(44,31,31,0.3);
-      opacity: 0; transition: all 0.3s ease;
-      pointer-events: none; z-index: 999;
-      white-space: nowrap;
-    }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-    /* ─── Navigation: fixed at bottom, does NOT scroll ─── */
+    /* Nav bar */
     .nav-bar {
-      flex-shrink: 0;
-      background: rgba(253,246,238,0.94);
-      backdrop-filter: blur(20px) saturate(1.5);
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 430px;
+      background: rgba(253,246,238,0.96); backdrop-filter: blur(20px) saturate(1.5);
       border-top: 1.5px solid rgba(255,255,255,0.75);
       box-shadow: 0 -2px 20px rgba(139,94,60,0.08);
-      display: flex;
-      padding: 8px 12px;
-      /* ✅ Safe area: avoids iPhone home indicator */
+      display: flex; padding: 8px 12px;
       padding-bottom: calc(8px + env(safe-area-inset-bottom));
-      gap: 4px;
-      z-index: 10;
+      gap: 4px; z-index: 100;
     }
     .nav-item {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      padding: 8px 4px;
-      border-radius: 16px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      border: none;
-      background: transparent;
-      font-family: 'Nunito', sans-serif;
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 3px; padding: 8px 4px; border-radius: 16px;
+      cursor: pointer; transition: all 0.2s;
+      border: none; background: transparent; font-family: 'Nunito',sans-serif;
     }
-    .nav-item .nav-icon { font-size: 22px; line-height: 1; transition: transform 0.2s ease; }
-    .nav-item .nav-label { font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: 0.3px; transition: color 0.2s; }
-    .nav-item.active { background: linear-gradient(135deg, rgba(244,198,198,0.55), rgba(212,197,232,0.45)); }
+    .nav-item .nav-icon  { font-size: 20px; line-height: 1; transition: transform 0.2s; }
+    .nav-item .nav-label { font-size: 10px; font-weight: 800; color: var(--muted); letter-spacing: 0.3px; transition: color 0.2s; }
+    .nav-item.active { background: linear-gradient(135deg,rgba(244,198,198,0.55),rgba(212,197,232,0.45)); }
     .nav-item.active .nav-label { color: var(--chocolate); }
-    .nav-item.active .nav-icon { transform: scale(1.15); }
-    .nav-item:active { transform: scale(0.93); }
+    .nav-item.active .nav-icon  { transform: scale(1.15); }
+    .nav-item:active { transform: scale(0.92); }
 
-    /* ─── History ─── */
-    .history-item {
-      background: var(--card-bg);
-      backdrop-filter: blur(12px);
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
-      margin-bottom: 10px;
-      border: 1.5px solid rgba(255,255,255,0.72);
-      box-shadow: var(--shadow-soft);
-    }
-    .history-date { font-size: 12px; font-weight: 800; color: var(--mauve); margin-bottom: 8px; letter-spacing: 0.3px; }
-    .history-stats { display: flex; flex-wrap: wrap; gap: 6px; }
-    .stat-pill {
-      background: rgba(244,198,198,0.4);
-      border-radius: 50px;
-      padding: 4px 10px;
-      font-size: 12px; font-weight: 700;
-      color: var(--chocolate);
-    }
+    /* Section */
+    .section-title { font-family: 'Playfair Display',serif; font-size: 22px; font-weight: 700; color: var(--chocolate); margin-bottom: 4px; }
+    .section-sub   { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 16px; letter-spacing: 0.3px; }
 
-    /* ─── Connection dot ─── */
-    .conn-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #ccc; display: inline-block;
-      transition: background 0.3s; flex-shrink: 0;
-    }
-    .conn-dot.ok { background: #7bc87b; }
-    .conn-dot.err { background: #e87b7b; }
+    /* Cards */
+    .card { background: var(--card-bg); backdrop-filter: blur(12px); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-card); border: 1.5px solid rgba(255,255,255,0.72); margin-bottom: 14px; }
+    .card-title { font-size: 13px; font-weight: 800; color: var(--mauve); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
 
-    /* ─── Misc ─── */
+    /* Summary */
+    .summary-row { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 14px; }
+    .summary-card { background: var(--card-bg); backdrop-filter: blur(12px); border-radius: var(--radius-sm); padding: 14px; box-shadow: var(--shadow-soft); border: 1.5px solid rgba(255,255,255,0.72); text-align: center; }
+    .s-icon  { font-size: 24px; margin-bottom: 4px; }
+    .s-value { font-size: 20px; font-weight: 900; color: var(--chocolate); line-height: 1; }
+    .s-unit  { font-size: 10px; color: var(--muted); font-weight: 700; }
+    .s-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* Inputs */
+    .input-group { margin-bottom: 12px; }
+    .input-label { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+    .input-row { display: flex; gap: 8px; align-items: center; }
+    input[type="number"], input[type="text"], input[type="time"], select, textarea {
+      width: 100%; background: rgba(255,255,255,0.62);
+      border: 2px solid rgba(201,124,124,0.2); border-radius: var(--radius-sm);
+      padding: 11px 14px; font-family: 'Nunito',sans-serif;
+      font-size: 15px; font-weight: 700; color: var(--ink);
+      outline: none; transition: border-color 0.2s, background 0.2s;
+      -webkit-appearance: none; appearance: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--dusty-rose); background: rgba(255,255,255,0.92); }
+    .input-unit { font-size: 12px; font-weight: 800; color: var(--muted); white-space: nowrap; min-width: 28px; }
     textarea { resize: none; height: 72px; line-height: 1.5; }
-    .divider { height: 1.5px; background: linear-gradient(90deg, transparent, rgba(201,124,124,0.18), transparent); margin: 14px 0; }
+
+    /* Chips */
+    .tag-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+    .tag-chip { padding: 7px 13px; border-radius: 50px; font-size: 13px; font-weight: 700; border: 2px solid rgba(201,124,124,0.22); background: rgba(255,255,255,0.5); color: var(--muted); cursor: pointer; transition: all 0.15s; user-select: none; }
+    .tag-chip.selected { background: linear-gradient(135deg,var(--blush),var(--lavender)); border-color: transparent; color: var(--chocolate); box-shadow: 0 2px 8px rgba(201,124,124,0.25); transform: scale(1.04); }
+    .tag-chip:active { transform: scale(0.95); }
+
+    /* Poop */
+    .poop-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
+    .poop-btn { padding: 10px 8px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; border: 2px solid rgba(201,124,124,0.2); background: rgba(255,255,255,0.5); color: var(--muted); cursor: pointer; text-align: center; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 5px; }
+    .poop-btn.selected { background: linear-gradient(135deg,#f0e6d3,#e8d4c0); border-color: var(--caramel); color: var(--chocolate); box-shadow: 0 2px 8px rgba(212,165,116,0.3); }
+    .poop-btn:active { transform: scale(0.95); }
+
+    /* Save btn */
+    .btn-save { width: 100%; padding: 0; border-radius: 18px; background: linear-gradient(135deg,#e8a4a4 0%,#c97c7c 50%,#b8aad4 100%); color: white; font-family: 'Nunito',sans-serif; border: none; cursor: pointer; box-shadow: 0 6px 28px rgba(201,124,124,0.45),0 2px 8px rgba(184,170,212,0.3),inset 0 1px 0 rgba(255,255,255,0.25); transition: all 0.22s; position: relative; overflow: hidden; margin-top: 6px; }
+    .btn-save::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 60%); border-radius: inherit; pointer-events: none; }
+    .btn-save-inner { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 17px 24px; position: relative; z-index: 1; }
+    .btn-save-icon { font-size: 20px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15)); }
+    .btn-save-text { font-size: 17px; font-weight: 900; letter-spacing: 0.6px; text-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+    .btn-save-sub  { font-size: 11px; font-weight: 700; opacity: 0.8; letter-spacing: 0.4px; }
+    .btn-save:active { transform: scale(0.97); }
+    .btn-save.loading { opacity: 0.75; }
+
+    /* Divider */
+    .divider { height: 1.5px; background: linear-gradient(90deg,transparent,rgba(201,124,124,0.18),transparent); margin: 14px 0; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: calc(72px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--chocolate); color: white; padding: 12px 22px; border-radius: 50px; font-size: 14px; font-weight: 700; box-shadow: 0 4px 20px rgba(44,31,31,0.3); opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 9998; white-space: nowrap; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Empty / banners */
     .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
     .empty-state .empty-icon { font-size: 52px; margin-bottom: 12px; }
     .empty-state p { font-size: 14px; font-weight: 600; }
+    .today-banner { background: linear-gradient(135deg,rgba(244,198,198,0.5),rgba(212,197,232,0.4)); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; border: 1.5px solid rgba(255,255,255,0.72); }
+    .banner-title { font-family: 'Playfair Display',serif; font-size: 16px; color: var(--chocolate); margin-bottom: 10px; font-style: italic; }
 
-    .today-banner {
-      background: linear-gradient(135deg, rgba(244,198,198,0.5), rgba(212,197,232,0.4));
-      border-radius: var(--radius);
-      padding: 16px 18px;
-      margin-bottom: 14px;
-      border: 1.5px solid rgba(255,255,255,0.72);
-    }
-    .banner-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 16px; color: var(--chocolate); margin-bottom: 10px; font-style: italic;
-    }
+    /* History */
+    .history-item { background: var(--card-bg); backdrop-filter: blur(12px); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 10px; border: 1.5px solid rgba(255,255,255,0.72); box-shadow: var(--shadow-soft); }
+    .history-date  { font-size: 12px; font-weight: 800; color: var(--mauve); margin-bottom: 8px; letter-spacing: 0.3px; }
+    .history-stats { display: flex; flex-wrap: wrap; gap: 6px; }
+    .stat-pill { background: rgba(244,198,198,0.4); border-radius: 50px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: var(--chocolate); }
 
-    .loader {
-      display: inline-block; width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
-      border-radius: 50%; animation: spin 0.6s linear infinite;
-    }
+    /* Loader */
+    .loader { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Pet profile page ── */
+    .pet-profile-hero {
+      background: linear-gradient(135deg,rgba(244,198,198,0.58),rgba(212,197,232,0.52));
+      border-radius: var(--radius); padding: 24px 20px 20px; margin-bottom: 14px;
+      border: 1.5px solid rgba(255,255,255,0.82); box-shadow: var(--shadow-card);
+      text-align: center;
+    }
+    .pet-hero-emoji { font-size: 68px; margin-bottom: 8px; line-height: 1; }
+    .pet-hero-name  { font-family: 'Playfair Display',serif; font-size: 30px; font-weight: 700; color: var(--chocolate); }
+    .pet-hero-sub   { font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 5px; }
+
+    .pet-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 14px; }
+    .pet-item { background: var(--card-bg); border-radius: var(--radius-sm); padding: 14px 12px; border: 1.5px solid rgba(255,255,255,0.72); box-shadow: var(--shadow-soft); }
+    .pet-item.wide { grid-column: 1/-1; }
+    .pi-icon  { font-size: 20px; margin-bottom: 4px; }
+    .pi-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .pi-val   { font-size: 15px; font-weight: 800; color: var(--chocolate); margin-top: 3px; }
+
+    /* Neuter toggle card */
+    .neuter-card { background: var(--card-bg); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; border: 1.5px solid rgba(255,255,255,0.72); box-shadow: var(--shadow-soft); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .ni-title { font-size: 14px; font-weight: 800; color: var(--chocolate); }
+    .ni-sub   { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+    .toggle-row { display: flex; align-items: center; gap: 8px; }
+    .toggle-lbl { font-size: 12px; font-weight: 700; color: var(--muted); }
+    /* iOS toggle */
+    .ios-toggle { position: relative; width: 48px; height: 28px; flex-shrink: 0; }
+    .ios-toggle input { opacity: 0; width: 0; height: 0; }
+    .ios-slider { position: absolute; inset: 0; border-radius: 28px; background: #ddd; cursor: pointer; transition: background 0.25s; }
+    .ios-slider::before { content: ''; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: white; top: 3px; left: 3px; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: transform 0.25s; }
+    .ios-toggle input:checked + .ios-slider { background: var(--sage); }
+    .ios-toggle input:checked + .ios-slider::before { transform: translateX(20px); }
   </style>
+
 </head>
 <body>
 
-<div id="app">
+<!-- ══════════════════ SPLASH ══════════════════ -->
 
-  <!-- ① Header — fixed top, flex-shrink: 0 -->
+<div id="splash">
+  <div class="splash-paw">🐱</div>
+  <div class="splash-name">棉花糖</div>
+  <div class="splash-sub">布偶貓健康日記 · 歡迎回來 🌸</div>
+
+  <div class="splash-petcard">
+    <div class="pc-row">
+      <span class="pc-label">🎂 生日</span>
+      <span class="pc-val">2025.12.13</span>
+    </div>
+    <div class="pc-row">
+      <span class="pc-label">🏠 到家</span>
+      <span class="pc-val">2026.04.18</span>
+    </div>
+    <div class="pc-row">
+      <span class="pc-label">⚧ 性別</span>
+      <span class="pc-val">公貓 ♂</span>
+    </div>
+    <div class="pc-row">
+      <span class="pc-label">✂️ 結紮</span>
+      <span class="pc-val" id="splashNeuter">未結紮</span>
+    </div>
+    <div class="pc-row wide">
+      <span class="pc-label">📅 在家天數</span>
+      <span class="pc-val" id="splashDays">計算中...</span>
+    </div>
+  </div>
+
+  <div class="role-prompt">今天是誰在照顧棉花糖？</div>
+  <div class="role-btns">
+    <button class="role-btn dad" onclick="selectRole('dad')">
+      <span class="rb-icon">👨</span>
+      <span class="rb-name">爸爸</span>
+      <span class="rb-sub">Dad's turn</span>
+    </button>
+    <button class="role-btn mom" onclick="selectRole('mom')">
+      <span class="rb-icon">👩</span>
+      <span class="rb-name">媽媽</span>
+      <span class="rb-sub">Mom's turn</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════ MAIN APP ══════════════════ -->
+
+<div id="app" style="display:none;">
+
+  <!-- Header -->
+
   <header class="app-header">
     <div class="header-inner">
-      <div class="header-cat">
+      <div class="header-left">
         <div class="cat-avatar">🐱</div>
         <div>
-          <div class="cat-name">布偶貓日記</div>
-          <div class="cat-subtitle">
+          <div class="cat-name">棉花糖</div>
+          <div class="header-meta">
             <span class="conn-dot" id="connDot"></span>
-            <span id="connText">連線中...</span>
+            <span class="conn-text" id="connText">連線中...</span>
+            <span class="mode-badge dad" id="modeBadge" onclick="switchRole()" title="點擊切換">👨 爸爸</span>
           </div>
         </div>
       </div>
-      <div class="header-date">
-        <div class="date-main" id="headerDate">—</div>
-        <div class="date-time" id="headerTime">—</div>
+      <div class="header-right">
+        <div class="h-date" id="headerDate">—</div>
+        <div class="h-time" id="headerTime">—</div>
+        <div class="days-badge" id="daysHomeBadge">🏠 第 — 天</div>
       </div>
     </div>
   </header>
 
-  <!-- ② Content area — flex: 1, only this scrolls -->
+  <!-- Scrollable content -->
+
   <div class="content-area" id="contentArea">
 
-    <!-- ══ TODAY ══ -->
-    <div class="page active" id="page-today">
-      <div class="section-title">今日狀況 ☀️</div>
-      <div class="section-sub">台灣時間 · 每日 23:59 自動結算</div>
-      <div id="todaySummary"></div>
-      <div id="lastEntryCard"></div>
+```
+<!-- TODAY -->
+<div class="page active" id="page-today">
+  <div class="section-title">今日狀況 ☀️</div>
+  <div class="section-sub" id="todaySub">台灣時間 · 每日 23:59 自動結算</div>
+  <div id="todaySummary"></div>
+  <div id="lastEntryCard"></div>
+</div>
+
+<!-- RECORD -->
+<div class="page" id="page-record">
+  <div class="section-title">新增紀錄 🐾</div>
+  <div class="section-sub">記錄每一次餵食與排泄</div>
+
+  <div class="card">
+    <div class="card-title">🥣 餵食</div>
+    <div class="input-group">
+      <div class="input-label">⏰ 餵食時間</div>
+      <input type="time" id="feedTime" />
     </div>
-
-    <!-- ══ RECORD ══ -->
-    <div class="page" id="page-record">
-      <div class="section-title">新增紀錄 🐾</div>
-      <div class="section-sub">記錄每一次餵食與排泄</div>
-
-      <!-- 🥣 Feeding -->
-      <div class="card">
-        <div class="card-title">🥣 餵食</div>
-        <div class="input-group">
-          <div class="input-label">⏰ 餵食時間</div>
-          <input type="time" id="feedTime" />
-        </div>
-        <div class="input-group">
-          <div class="input-label">🍖 食物種類</div>
-          <select id="foodType">
-            <option value="乾飼料">🌾 乾飼料</option>
-            <option value="主食罐">🥫 主食罐</option>
-            <option value="副食罐">🍱 副食罐</option>
-            <option value="生食">🥩 生食</option>
-            <option value="點心">🍬 點心</option>
-          </select>
-        </div>
-        <div class="input-group">
-          <div class="input-label">⚖️ 克數</div>
-          <div class="input-row">
-            <input type="number" id="feedGrams" placeholder="0" min="0" max="500" />
-            <span class="input-unit">g</span>
-          </div>
-        </div>
-        <div class="input-group">
-          <div class="input-label">🔥 熱量</div>
-          <div class="input-row">
-            <input type="number" id="feedCalories" placeholder="自動計算 or 手動輸入" min="0" />
-            <span class="input-unit">kcal</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 💧 Water -->
-      <div class="card">
-        <div class="card-title">💧 飲水</div>
-        <div class="input-group">
-          <div class="input-label">飲水量</div>
-          <div class="input-row">
-            <input type="number" id="waterMl" placeholder="0" min="0" max="1000" />
-            <span class="input-unit">ml</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 🚽 Litter -->
-      <div class="card">
-        <div class="card-title">🚽 廁所</div>
-        <div class="input-group">
-          <div class="input-label">🟡 小便（可複選）</div>
-          <div class="tag-grid" id="peeTagGrid">
-            <div class="tag-chip" data-val="正常">😊 正常</div>
-            <div class="tag-chip" data-val="量多">💦 量多</div>
-            <div class="tag-chip" data-val="量少">💧 量少</div>
-            <div class="tag-chip" data-val="顏色異常">🟠 顏色異常</div>
-            <div class="tag-chip" data-val="血尿">🔴 血尿</div>
-            <div class="tag-chip" data-val="頻繁">🔁 頻繁</div>
-            <div class="tag-chip" data-val="未排尿">❌ 未排尿</div>
-          </div>
-        </div>
-        <div class="divider"></div>
-        <div class="input-group">
-          <div class="input-label">💩 大便狀態</div>
-          <div class="poop-grid" id="poopGrid">
-            <button class="poop-btn" data-val="正常">💩 正常</button>
-            <button class="poop-btn" data-val="偏軟">🤏 偏軟</button>
-            <button class="poop-btn" data-val="水便">💦 水便</button>
-            <button class="poop-btn" data-val="偏硬">🪨 偏硬</button>
-            <button class="poop-btn" data-val="未排便">❌ 未排便</button>
-            <button class="poop-btn" data-val="有血絲">🔴 有血絲</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 📝 Memo -->
-      <div class="card">
-        <div class="card-title">📝 備忘</div>
-        <div class="input-group">
-          <textarea id="memo" placeholder="今天有什麼特別的事嗎？比如活力、毛髮、眼睛狀況..."></textarea>
-        </div>
-      </div>
-
-      <!-- ✨ Save button — no stray dividers below -->
-      <button class="btn-save" id="saveBtn" onclick="saveRecord()">
-        <div class="btn-save-inner">
-          <span class="btn-save-icon" id="saveBtnIcon">✨</span>
-          <div>
-            <div class="btn-save-text" id="saveBtnText">儲存紀錄</div>
-            <div class="btn-save-sub">記錄毛孩的每一天</div>
-          </div>
-        </div>
-      </button>
+    <div class="input-group">
+      <div class="input-label">🍖 食物種類</div>
+      <select id="foodType">
+        <option value="乾飼料">🌾 乾飼料</option>
+        <option value="主食罐">🥫 主食罐</option>
+        <option value="副食罐">🍱 副食罐</option>
+        <option value="生食">🥩 生食</option>
+        <option value="點心">🍬 點心</option>
+      </select>
     </div>
-
-    <!-- ══ HISTORY ══ -->
-    <div class="page" id="page-history">
-      <div class="section-title">歷史紀錄 📅</div>
-      <div class="section-sub">過去 30 天的健康軌跡</div>
-      <div id="historyList">
-        <div class="empty-state">
-          <div class="empty-icon">🐱</div>
-          <p>載入中...</p>
-        </div>
+    <div class="input-group">
+      <div class="input-label">⚖️ 克數</div>
+      <div class="input-row">
+        <input type="number" id="feedGrams" placeholder="0" min="0" max="500" />
+        <span class="input-unit">g</span>
       </div>
     </div>
+    <div class="input-group">
+      <div class="input-label">🔥 熱量</div>
+      <div class="input-row">
+        <input type="number" id="feedCalories" placeholder="自動計算 or 手動輸入" min="0" />
+        <span class="input-unit">kcal</span>
+      </div>
+    </div>
+  </div>
 
-  </div><!-- end .content-area -->
+  <div class="card">
+    <div class="card-title">💧 飲水</div>
+    <div class="input-group">
+      <div class="input-label">飲水量</div>
+      <div class="input-row">
+        <input type="number" id="waterMl" placeholder="0" min="0" max="1000" />
+        <span class="input-unit">ml</span>
+      </div>
+    </div>
+  </div>
 
-  <!-- ③ Nav bar — fixed bottom, flex-shrink: 0, with safe-area padding -->
+  <div class="card">
+    <div class="card-title">🚽 廁所</div>
+    <div class="input-group">
+      <div class="input-label">🟡 小便（可複選）</div>
+      <div class="tag-grid" id="peeTagGrid">
+        <div class="tag-chip" data-val="正常">😊 正常</div>
+        <div class="tag-chip" data-val="量多">💦 量多</div>
+        <div class="tag-chip" data-val="量少">💧 量少</div>
+        <div class="tag-chip" data-val="顏色異常">🟠 顏色異常</div>
+        <div class="tag-chip" data-val="血尿">🔴 血尿</div>
+        <div class="tag-chip" data-val="頻繁">🔁 頻繁</div>
+        <div class="tag-chip" data-val="未排尿">❌ 未排尿</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="input-group">
+      <div class="input-label">💩 大便狀態</div>
+      <div class="poop-grid" id="poopGrid">
+        <button class="poop-btn" data-val="正常">💩 正常</button>
+        <button class="poop-btn" data-val="偏軟">🤏 偏軟</button>
+        <button class="poop-btn" data-val="水便">💦 水便</button>
+        <button class="poop-btn" data-val="偏硬">🪨 偏硬</button>
+        <button class="poop-btn" data-val="未排便">❌ 未排便</button>
+        <button class="poop-btn" data-val="有血絲">🔴 有血絲</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📝 備忘</div>
+    <div class="input-group">
+      <textarea id="memo" placeholder="今天有什麼特別的事嗎？比如活力、毛髮、眼睛狀況..."></textarea>
+    </div>
+  </div>
+
+  <button class="btn-save" id="saveBtn" onclick="saveRecord()">
+    <div class="btn-save-inner">
+      <span class="btn-save-icon" id="saveBtnIcon">✨</span>
+      <div>
+        <div class="btn-save-text" id="saveBtnText">儲存紀錄</div>
+        <div class="btn-save-sub" id="saveBtnSub">記錄毛孩的每一天</div>
+      </div>
+    </div>
+  </button>
+</div>
+
+<!-- HISTORY -->
+<div class="page" id="page-history">
+  <div class="section-title">歷史紀錄 📅</div>
+  <div class="section-sub" id="historySub">過去 30 天的健康軌跡</div>
+  <div id="historyList">
+    <div class="empty-state"><div class="empty-icon">🐱</div><p>載入中...</p></div>
+  </div>
+</div>
+
+<!-- PET PROFILE -->
+<div class="page" id="page-pet">
+  <div class="section-title">棉花糖 🐾</div>
+  <div class="section-sub">毛孩資料卡</div>
+
+  <div class="pet-profile-hero">
+    <div class="pet-hero-emoji">🐱</div>
+    <div class="pet-hero-name">棉花糖</div>
+    <div class="pet-hero-sub" id="petAgeStr">布偶貓 · 計算中...</div>
+  </div>
+
+  <div class="pet-grid">
+    <div class="pet-item">
+      <div class="pi-icon">🎂</div>
+      <div class="pi-label">生日</div>
+      <div class="pi-val">2025.12.13</div>
+    </div>
+    <div class="pet-item">
+      <div class="pi-icon">🏠</div>
+      <div class="pi-label">到家日</div>
+      <div class="pi-val">2026.04.18</div>
+    </div>
+    <div class="pet-item">
+      <div class="pi-icon">⚧</div>
+      <div class="pi-label">性別</div>
+      <div class="pi-val">公貓 ♂</div>
+    </div>
+    <div class="pet-item">
+      <div class="pi-icon">🐾</div>
+      <div class="pi-label">品種</div>
+      <div class="pi-val">布偶貓</div>
+    </div>
+    <div class="pet-item wide">
+      <div class="pi-icon">🏠</div>
+      <div class="pi-label">在家天數</div>
+      <div class="pi-val" id="petDaysHome">計算中...</div>
+    </div>
+  </div>
+
+  <!-- Neuter toggle -->
+  <div class="neuter-card">
+    <div>
+      <div class="ni-title">✂️ 結紮狀態</div>
+      <div class="ni-sub" id="neuterSub">尚未結紮 — 結紮後請開啟此選項</div>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-lbl" id="neuterLbl">未結紮</span>
+      <label class="ios-toggle">
+        <input type="checkbox" id="neuterToggle" onchange="saveNeuter()" />
+        <span class="ios-slider"></span>
+      </label>
+    </div>
+  </div>
+</div>
+```
+
+  </div><!-- end content-area -->
+
+  <!-- Nav bar -->
+
   <nav class="nav-bar">
     <button class="nav-item active" id="nav-today" onclick="switchPage('today')">
       <span class="nav-icon">☀️</span>
@@ -558,6 +596,10 @@
       <span class="nav-icon">📅</span>
       <span class="nav-label">歷史</span>
     </button>
+    <button class="nav-item" id="nav-pet" onclick="switchPage('pet')">
+      <span class="nav-icon">🐱</span>
+      <span class="nav-label">棉花糖</span>
+    </button>
   </nav>
 
 </div><!-- end #app -->
@@ -565,53 +607,193 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 //  SUPABASE
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 const SUPABASE_URL = 'https://vmgwyvwkhqnjmbdbliia.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZ3d5dndraHFuam1iZGJsaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MzU2MDYsImV4cCI6MjA5NDAxMTYwNn0.ZKaombHKVeoLk1RgzYn912tjlUSv4KE8CS5Wl_DunFs';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ══════════════════════════════════════════
-//  TAIWAN TIME
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
+//  PET CONSTANTS
+// ──────────────────────────────────────
+const BIRTHDAY  = new Date('2025-12-13T00:00:00+08:00');
+const HOME_DATE = new Date('2026-04-18T00:00:00+08:00');
+
+// ──────────────────────────────────────
+//  ROLE (dad / mom)
+// ──────────────────────────────────────
+let currentRole = localStorage.getItem('cat_role') || null;
+
+const ROLES = {
+  dad: { icon: '👨', label: '爸爸', cls: 'dad' },
+  mom: { icon: '👩', label: '媽媽', cls: 'mom' },
+};
+
+function selectRole(role) {
+  currentRole = role;
+  localStorage.setItem('cat_role', role);
+  hideSplash(() => {
+    document.getElementById('app').style.display = '';
+    initApp();
+  });
+}
+
+function switchRole() {
+  currentRole = currentRole === 'dad' ? 'mom' : 'dad';
+  localStorage.setItem('cat_role', currentRole);
+  applyRoleUI();
+  showToast(currentRole === 'dad' ? '👨 已切換成爸爸模式' : '👩 已切換成媽媽模式');
+  loadToday();
+}
+
+function applyRoleUI() {
+  if (!currentRole) return;
+  const r = ROLES[currentRole];
+  const badge = document.getElementById('modeBadge');
+  badge.textContent = r.icon + ' ' + r.label;
+  badge.className = 'mode-badge ' + r.cls;
+  document.getElementById('todaySub').textContent = `台灣時間 · ${r.label}模式 · 每日 23:59 自動結算`;
+  document.getElementById('historySub').textContent = `${r.label}的記錄 · 過去 30 天`;
+  document.getElementById('saveBtnSub').textContent = `${r.label}幫棉花糖記錄每一天`;
+}
+
+// ──────────────────────────────────────
+//  NEUTER STATUS
+// ──────────────────────────────────────
+function loadNeuter() {
+  const on = localStorage.getItem('cat_neutered') === 'true';
+  document.getElementById('neuterToggle').checked = on;
+  updateNeuterUI(on);
+  document.getElementById('splashNeuter').textContent = on ? '已結紮 ✂️' : '未結紮';
+}
+function saveNeuter() {
+  const on = document.getElementById('neuterToggle').checked;
+  localStorage.setItem('cat_neutered', on);
+  updateNeuterUI(on);
+  document.getElementById('splashNeuter').textContent = on ? '已結紮 ✂️' : '未結紮';
+  showToast(on ? '✂️ 已更新為已結紮 🎉' : '已更新為未結紮');
+}
+function updateNeuterUI(on) {
+  document.getElementById('neuterLbl').textContent = on ? '已結紮' : '未結紮';
+  document.getElementById('neuterSub').textContent = on ? '棉花糖已完成結紮手術 ✂️' : '尚未結紮 — 結紮後請開啟此選項';
+}
+
+// ──────────────────────────────────────
+//  TIME HELPERS
+// ──────────────────────────────────────
 function getTWNow() {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
 }
 function formatTWDate(d) {
-  const y = d.getFullYear(), m = d.getMonth()+1, day = d.getDate();
   const wdays = ['日','一','二','三','四','五','六'];
-  return `${y}年${m}月${day}日 (${wdays[d.getDay()]})`;
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 (${wdays[d.getDay()]})`;
 }
 function formatTWTime(d) {
-  return d.toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'Asia/Taipei' });
+  return d.toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: true, timeZone:'Asia/Taipei' });
 }
 function getTWDateOnly(d = getTWNow()) {
   return d.toLocaleDateString('sv-SE', { timeZone:'Asia/Taipei' });
 }
+function daysSince(fromDate) {
+  return Math.floor((getTWNow() - fromDate) / 86400000);
+}
+function calcAge(birthday) {
+  const now = getTWNow();
+  let months = (now.getFullYear() - birthday.getFullYear()) * 12 + (now.getMonth() - birthday.getMonth());
+  if (now.getDate() < birthday.getDate()) months--;
+  if (months < 12) return `${months} 個月大`;
+  const y = Math.floor(months / 12), m = months % 12;
+  return m > 0 ? `${y} 歲 ${m} 個月` : `${y} 歲`;
+}
 
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 //  CLOCK
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 function updateClock() {
   const now = getTWNow();
   document.getElementById('headerDate').textContent = formatTWDate(now);
   document.getElementById('headerTime').textContent = formatTWTime(now);
+  const d = daysSince(HOME_DATE);
+  document.getElementById('daysHomeBadge').textContent = `🏠 到家第 ${d} 天`;
 }
-updateClock();
-setInterval(updateClock, 1000);
 
-// Default feed time
-(function() {
+// ──────────────────────────────────────
+//  SPLASH
+// ──────────────────────────────────────
+function hideSplash(cb) {
+  const el = document.getElementById('splash');
+  el.classList.add('hide');
+  setTimeout(() => { el.style.display = 'none'; cb && cb(); }, 520);
+}
+
+// Populate splash data immediately
+(function initSplash() {
+  const d = daysSince(HOME_DATE);
+  document.getElementById('splashDays').textContent = `第 ${d} 天 🎉`;
+  document.getElementById('splashNeuter').textContent =
+    localStorage.getItem('cat_neutered') === 'true' ? '已結紮 ✂️' : '未結紮';
+
+  if (currentRole) {
+    // Brief brand moment, then auto-enter
+    setTimeout(() => hideSplash(() => {
+      document.getElementById('app').style.display = '';
+      initApp();
+    }), 1400);
+  }
+})();
+
+// ──────────────────────────────────────
+//  INIT APP
+// ──────────────────────────────────────
+function initApp() {
+  updateClock();
+  setInterval(updateClock, 1000);
+  applyRoleUI();
+  loadNeuter();
+  refreshPetPage();
+  testConnection();
+  loadToday();
+
+  // Default feed time
   const now = getTWNow();
   document.getElementById('feedTime').value =
     String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-})();
 
-// ══════════════════════════════════════════
+  // Pee chips
+  document.querySelectorAll('#peeTagGrid .tag-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const v = chip.dataset.val;
+      if (selectedPeeTags.includes(v)) {
+        selectedPeeTags = selectedPeeTags.filter(x => x !== v);
+        chip.classList.remove('selected');
+      } else {
+        selectedPeeTags.push(v);
+        chip.classList.add('selected');
+      }
+    });
+  });
+
+  // Poop buttons
+  document.querySelectorAll('#poopGrid .poop-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#poopGrid .poop-btn').forEach(b => b.classList.remove('selected'));
+      selectedPoop = btn.dataset.val;
+      btn.classList.add('selected');
+    });
+  });
+}
+
+function refreshPetPage() {
+  document.getElementById('petAgeStr').textContent = `布偶貓 · ${calcAge(BIRTHDAY)}`;
+  document.getElementById('petDaysHome').textContent = `${daysSince(HOME_DATE)} 天 🎉`;
+  loadNeuter();
+}
+
+// ──────────────────────────────────────
 //  CONNECTION TEST
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 async function testConnection() {
   try {
     const { error } = await db.from('cat_records').select('id').limit(1);
@@ -623,73 +805,54 @@ async function testConnection() {
     document.getElementById('connText').textContent = '連線失敗';
   }
 }
-testConnection();
 
-// ══════════════════════════════════════════
-//  NAVIGATION — scroll content area to top on switch
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
+//  NAVIGATION
+// ──────────────────────────────────────
 function switchPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
   document.getElementById('contentArea').scrollTo({ top: 0, behavior: 'smooth' });
-  if (name === 'today') loadToday();
+  if (name === 'today')   loadToday();
   if (name === 'history') loadHistory();
+  if (name === 'pet')     refreshPetPage();
 }
 
-// ══════════════════════════════════════════
-//  TAG CHIPS & POOP BUTTONS
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
+//  FORM STATE
+// ──────────────────────────────────────
 let selectedPeeTags = [];
 let selectedPoop = '';
 
-document.querySelectorAll('#peeTagGrid .tag-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    const val = chip.dataset.val;
-    if (selectedPeeTags.includes(val)) {
-      selectedPeeTags = selectedPeeTags.filter(v => v !== val);
-      chip.classList.remove('selected');
-    } else {
-      selectedPeeTags.push(val);
-      chip.classList.add('selected');
-    }
-  });
-});
-
-document.querySelectorAll('#poopGrid .poop-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#poopGrid .poop-btn').forEach(b => b.classList.remove('selected'));
-    selectedPoop = btn.dataset.val;
-    btn.classList.add('selected');
-  });
-});
-
-// ══════════════════════════════════════════
-//  SAVE
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
+//  SAVE  (user_mode added — no DB schema change needed if column exists;
+//         if column doesn't exist yet, Supabase will ignore unknown fields
+//         OR add column "user_mode text" in Supabase table editor)
+// ──────────────────────────────────────
 async function saveRecord() {
-  const btn = document.getElementById('saveBtn');
+  const btn     = document.getElementById('saveBtn');
   const btnIcon = document.getElementById('saveBtnIcon');
   const btnText = document.getElementById('saveBtnText');
+  const now     = getTWNow();
 
-  const now = getTWNow();
   const record = {
-    record_date: getTWDateOnly(now),
-    record_time: document.getElementById('feedTime').value || null,
-    food_type: document.getElementById('foodType').value,
-    feed_grams: parseFloat(document.getElementById('feedGrams').value) || null,
+    record_date:   getTWDateOnly(now),
+    record_time:   document.getElementById('feedTime').value || null,
+    food_type:     document.getElementById('foodType').value,
+    feed_grams:    parseFloat(document.getElementById('feedGrams').value) || null,
     calories_kcal: parseFloat(document.getElementById('feedCalories').value) || null,
-    water_ml: parseFloat(document.getElementById('waterMl').value) || null,
-    pee_tags: selectedPeeTags.length > 0 ? selectedPeeTags : null,
-    poop_state: selectedPoop || null,
-    memo: document.getElementById('memo').value.trim() || null,
+    water_ml:      parseFloat(document.getElementById('waterMl').value) || null,
+    pee_tags:      selectedPeeTags.length > 0 ? selectedPeeTags : null,
+    poop_state:    selectedPoop || null,
+    memo:          document.getElementById('memo').value.trim() || null,
     created_at_tw: now.toISOString(),
+    user_mode:     currentRole || 'unknown',
   };
 
   if (!record.feed_grams && !record.water_ml && selectedPeeTags.length === 0 && !selectedPoop) {
-    showToast('⚠️ 請至少填寫一項資料');
-    return;
+    showToast('⚠️ 請至少填寫一項資料'); return;
   }
 
   btn.classList.add('loading');
@@ -721,43 +884,45 @@ function resetForm() {
     String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
 }
 
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 //  TODAY
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 async function loadToday() {
   try {
-    const { data, error } = await db
-      .from('cat_records').select('*')
+    let q = db.from('cat_records').select('*')
       .eq('record_date', getTWDateOnly())
       .order('record_time', { ascending: true });
+    if (currentRole) q = q.eq('user_mode', currentRole);
+
+    const { data, error } = await q;
     if (error) throw error;
 
-    const summaryEl = document.getElementById('todaySummary');
+    const sumEl  = document.getElementById('todaySummary');
     const lastEl = document.getElementById('lastEntryCard');
+    const rCfg   = ROLES[currentRole] || { icon:'', label:'' };
 
     if (!data || data.length === 0) {
-      summaryEl.innerHTML = `
+      sumEl.innerHTML = `
         <div class="today-banner">
-          <div class="banner-title">今天還沒有紀錄 🌙</div>
+          <div class="banner-title">${rCfg.icon} ${rCfg.label}今天還沒有紀錄 🌙</div>
           <div style="font-size:13px;color:var(--muted);font-weight:600;">快去新增第一筆吧！</div>
         </div>`;
-      lastEl.innerHTML = '';
-      return;
+      lastEl.innerHTML = ''; return;
     }
 
-    const totalG = data.reduce((s,r)=>s+(r.feed_grams||0),0);
-    const totalC = data.reduce((s,r)=>s+(r.calories_kcal||0),0);
-    const totalW = data.reduce((s,r)=>s+(r.water_ml||0),0);
+    const tG = data.reduce((s,r) => s + (r.feed_grams||0), 0);
+    const tC = data.reduce((s,r) => s + (r.calories_kcal||0), 0);
+    const tW = data.reduce((s,r) => s + (r.water_ml||0), 0);
 
-    summaryEl.innerHTML = `
+    sumEl.innerHTML = `
       <div class="summary-row">
-        <div class="summary-card"><div class="s-icon">🥣</div><div class="s-value">${totalG.toFixed(0)}</div><div class="s-unit">克</div><div class="s-label">今日總餵食</div></div>
-        <div class="summary-card"><div class="s-icon">🔥</div><div class="s-value">${totalC.toFixed(0)}</div><div class="s-unit">kcal</div><div class="s-label">總熱量</div></div>
-        <div class="summary-card"><div class="s-icon">💧</div><div class="s-value">${totalW.toFixed(0)}</div><div class="s-unit">ml</div><div class="s-label">飲水量</div></div>
+        <div class="summary-card"><div class="s-icon">🥣</div><div class="s-value">${tG.toFixed(0)}</div><div class="s-unit">克</div><div class="s-label">今日總餵食</div></div>
+        <div class="summary-card"><div class="s-icon">🔥</div><div class="s-value">${tC.toFixed(0)}</div><div class="s-unit">kcal</div><div class="s-label">總熱量</div></div>
+        <div class="summary-card"><div class="s-icon">💧</div><div class="s-value">${tW.toFixed(0)}</div><div class="s-unit">ml</div><div class="s-label">飲水量</div></div>
         <div class="summary-card"><div class="s-icon">📋</div><div class="s-value">${data.length}</div><div class="s-unit">筆</div><div class="s-label">紀錄筆數</div></div>
       </div>`;
 
-    const recent = [...data].reverse().slice(0,3);
+    const recent = [...data].reverse().slice(0, 3);
     lastEl.innerHTML = `
       <div class="card">
         <div class="card-title">📋 今日紀錄</div>
@@ -765,57 +930,61 @@ async function loadToday() {
           <div style="padding:8px 0;border-bottom:1px solid rgba(201,124,124,0.1);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
               <span style="font-size:13px;font-weight:800;color:var(--chocolate);">${r.record_time||'--'} · ${r.food_type||''}</span>
-              ${r.feed_grams?`<span style="font-size:12px;color:var(--muted);font-weight:700;">${r.feed_grams}g</span>`:''}
+              ${r.feed_grams ? `<span style="font-size:12px;color:var(--muted);font-weight:700;">${r.feed_grams}g</span>` : ''}
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:4px;">
-              ${r.water_ml?`<span class="stat-pill">💧 ${r.water_ml}ml</span>`:''}
-              ${r.poop_state?`<span class="stat-pill">💩 ${r.poop_state}</span>`:''}
-              ${(r.pee_tags&&r.pee_tags.length)?r.pee_tags.map(t=>`<span class="stat-pill">🟡 ${t}</span>`).join(''):''}
-              ${r.memo?`<span class="stat-pill">📝 備忘</span>`:''}
+              ${r.water_ml      ? `<span class="stat-pill">💧 ${r.water_ml}ml</span>` : ''}
+              ${r.poop_state    ? `<span class="stat-pill">💩 ${r.poop_state}</span>` : ''}
+              ${(r.pee_tags&&r.pee_tags.length) ? r.pee_tags.map(t=>`<span class="stat-pill">🟡 ${t}</span>`).join('') : ''}
+              ${r.memo          ? `<span class="stat-pill">📝 備忘</span>` : ''}
             </div>
           </div>`).join('')}
       </div>`;
   } catch (e) {
-    document.getElementById('todaySummary').innerHTML = `
-      <div class="today-banner"><div class="banner-title">⚠️ 無法載入</div><div style="font-size:12px;color:var(--muted);">${e.message}</div></div>`;
+    document.getElementById('todaySummary').innerHTML =
+      `<div class="today-banner"><div class="banner-title">⚠️ 無法載入</div><div style="font-size:12px;color:var(--muted);">${e.message}</div></div>`;
   }
 }
 
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 //  HISTORY
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 async function loadHistory() {
   const el = document.getElementById('historyList');
   el.innerHTML = '<div class="empty-state"><div class="empty-icon">🐱</div><p>載入中...</p></div>';
   try {
-    const { data, error } = await db
-      .from('cat_records').select('*')
-      .order('record_date', { ascending:false })
-      .order('record_time', { ascending:false })
+    let q = db.from('cat_records').select('*')
+      .order('record_date', { ascending: false })
+      .order('record_time', { ascending: false })
       .limit(200);
+    if (currentRole) q = q.eq('user_mode', currentRole);
+
+    const { data, error } = await q;
     if (error) throw error;
     if (!data || !data.length) {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>還沒有任何紀錄</p></div>';
       return;
     }
+
     const grouped = {};
-    data.forEach(r => { if (!grouped[r.record_date]) grouped[r.record_date]=[]; grouped[r.record_date].push(r); });
+    data.forEach(r => { if (!grouped[r.record_date]) grouped[r.record_date] = []; grouped[r.record_date].push(r); });
+
     el.innerHTML = Object.keys(grouped).map(date => {
-      const recs = grouped[date];
-      const tG = recs.reduce((s,r)=>s+(r.feed_grams||0),0);
-      const tW = recs.reduce((s,r)=>s+(r.water_ml||0),0);
-      const tC = recs.reduce((s,r)=>s+(r.calories_kcal||0),0);
-      const poops = [...new Set(recs.map(r=>r.poop_state).filter(Boolean))];
-      const pees  = [...new Set(recs.flatMap(r=>r.pee_tags||[]))];
+      const recs  = grouped[date];
+      const tG    = recs.reduce((s,r) => s+(r.feed_grams||0), 0);
+      const tW    = recs.reduce((s,r) => s+(r.water_ml||0), 0);
+      const tC    = recs.reduce((s,r) => s+(r.calories_kcal||0), 0);
+      const poops = [...new Set(recs.map(r => r.poop_state).filter(Boolean))];
+      const pees  = [...new Set(recs.flatMap(r => r.pee_tags||[]))];
       return `
         <div class="history-item">
           <div class="history-date">📅 ${fmtHistDate(date)} · ${recs.length} 筆</div>
           <div class="history-stats">
-            ${tG?`<span class="stat-pill">🥣 ${tG.toFixed(0)}g</span>`:''}
-            ${tC?`<span class="stat-pill">🔥 ${tC.toFixed(0)}kcal</span>`:''}
-            ${tW?`<span class="stat-pill">💧 ${tW.toFixed(0)}ml</span>`:''}
-            ${poops.map(p=>`<span class="stat-pill">💩 ${p}</span>`).join('')}
-            ${pees.slice(0,3).map(p=>`<span class="stat-pill">🟡 ${p}</span>`).join('')}
+            ${tG ? `<span class="stat-pill">🥣 ${tG.toFixed(0)}g</span>` : ''}
+            ${tC ? `<span class="stat-pill">🔥 ${tC.toFixed(0)}kcal</span>` : ''}
+            ${tW ? `<span class="stat-pill">💧 ${tW.toFixed(0)}ml</span>` : ''}
+            ${poops.map(p => `<span class="stat-pill">💩 ${p}</span>`).join('')}
+            ${pees.slice(0,3).map(p => `<span class="stat-pill">🟡 ${p}</span>`).join('')}
           </div>
         </div>`;
     }).join('');
@@ -830,18 +999,15 @@ function fmtHistDate(str) {
   return `${+m}月${+d}日 (${wdays[new Date(+y,+m-1,+d).getDay()]})`;
 }
 
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 //  TOAST
-// ══════════════════════════════════════════
+// ──────────────────────────────────────
 function showToast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
 }
-
-// Init
-loadToday();
 </script>
 
 </body>
