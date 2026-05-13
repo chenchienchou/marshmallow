@@ -624,7 +624,7 @@ const HOME_DATE = new Date('2026-04-18T00:00:00+08:00');
 // ──────────────────────────────────────
 //  ROLE (dad / mom)
 // ──────────────────────────────────────
-let currentRole = localStorage.getItem('cat_role') || null;
+let currentRole = null; // always ask on every open
 
 const ROLES = {
   dad: { icon: '👨', label: '爸爸', cls: 'dad' },
@@ -633,7 +633,7 @@ const ROLES = {
 
 function selectRole(role) {
   currentRole = role;
-  localStorage.setItem('cat_role', role);
+  // not persisted — ask every time
   hideSplash(() => {
     document.getElementById('app').style.display = '';
     initApp();
@@ -642,7 +642,7 @@ function selectRole(role) {
 
 function switchRole() {
   currentRole = currentRole === 'dad' ? 'mom' : 'dad';
-  localStorage.setItem('cat_role', currentRole);
+  // not persisted
   applyRoleUI();
   showToast(currentRole === 'dad' ? '👨 已切換成爸爸模式' : '👩 已切換成媽媽模式');
   loadToday();
@@ -735,13 +735,7 @@ function hideSplash(cb) {
   document.getElementById('splashNeuter').textContent =
     localStorage.getItem('cat_neutered') === 'true' ? '已結紮 ✂️' : '未結紮';
 
-  if (currentRole) {
-    // Brief brand moment, then auto-enter
-    setTimeout(() => hideSplash(() => {
-      document.getElementById('app').style.display = '';
-      initApp();
-    }), 1400);
-  }
+  // always show splash — user must pick a role every time
 })();
 
 // ──────────────────────────────────────
@@ -848,7 +842,7 @@ async function saveRecord() {
     poop_state:    selectedPoop || null,
     memo:          document.getElementById('memo').value.trim() || null,
     created_at_tw: now.toISOString(),
-    user_mode:     currentRole || 'unknown',
+    // user_mode: not yet in DB schema
   };
 
   if (!record.feed_grams && !record.water_ml && selectedPeeTags.length === 0 && !selectedPoop) {
@@ -889,13 +883,11 @@ function resetForm() {
 // ──────────────────────────────────────
 async function loadToday() {
   try {
-    let q = db.from('cat_records').select('*')
+    const { data: _r, error } = await db.from('cat_records').select('*')
       .eq('record_date', getTWDateOnly())
       .order('record_time', { ascending: true });
-    if (currentRole) q = q.eq('user_mode', currentRole);
-
-    const { data, error } = await q;
     if (error) throw error;
+    const data = currentRole ? (_r||[]).filter(r => !r.user_mode || r.user_mode === currentRole) : (_r||[]);
 
     const sumEl  = document.getElementById('todaySummary');
     const lastEl = document.getElementById('lastEntryCard');
@@ -953,13 +945,11 @@ async function loadHistory() {
   const el = document.getElementById('historyList');
   el.innerHTML = '<div class="empty-state"><div class="empty-icon">🐱</div><p>載入中...</p></div>';
   try {
-    let q = db.from('cat_records').select('*')
+    const { data: _h, error } = await db.from('cat_records').select('*')
       .order('record_date', { ascending: false })
       .order('record_time', { ascending: false })
       .limit(200);
-    if (currentRole) q = q.eq('user_mode', currentRole);
-
-    const { data, error } = await q;
+    const data = currentRole ? (_h||[]).filter(r => !r.user_mode || r.user_mode === currentRole) : (_h||[]);
     if (error) throw error;
     if (!data || !data.length) {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>還沒有任何紀錄</p></div>';
