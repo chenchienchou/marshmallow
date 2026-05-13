@@ -185,7 +185,8 @@
       flex: 0 0 auto;
       display: flex;
       padding: 8px 12px;
-      padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+      /* FIX: use max() so PWA standalone mode also gets safe-area padding */
+      padding-bottom: max(8px, env(safe-area-inset-bottom, 20px));
       gap: 4px;
       background: rgba(253,246,238,0.96);
       backdrop-filter: blur(20px) saturate(1.5);
@@ -617,7 +618,6 @@ function initApp() {
   testConnection();
   loadToday();
 
-  // ✅ FIX: update feedTime display every minute so it stays current
   updateFeedTimeDefault();
   setInterval(updateFeedTimeDefault, 60000);
 
@@ -645,16 +645,12 @@ function initApp() {
   });
 }
 
-// Update the time input default to current time
 function updateFeedTimeDefault() {
   const el = document.getElementById('feedTime');
-  // Only auto-update if user hasn't manually changed it (check if it's empty or matches a "stale" pattern)
-  // We update it so it always shows current time as placeholder
   const now = getTWNow();
   const hh = String(now.getHours()).padStart(2,'0');
   const mm = String(now.getMinutes()).padStart(2,'0');
   el.placeholder = `${hh}:${mm}`;
-  // Only set value if field appears to be the default (not modified by user)
   if (!el.dataset.userModified) {
     el.value = `${hh}:${mm}`;
   }
@@ -693,7 +689,6 @@ function switchPage(name) {
   if (name === 'today')   loadToday();
   if (name === 'history') loadHistory();
   if (name === 'pet')     refreshPetPage();
-  // ✅ FIX: refresh time when navigating to record page
   if (name === 'record') {
     updateFeedTimeDefault();
     document.getElementById('feedTime').dataset.userModified = '';
@@ -706,7 +701,6 @@ function switchPage(name) {
 let selectedPeeTags = [];
 let selectedPoop = '';
 
-// Mark feedTime as user-modified when touched
 document.addEventListener('DOMContentLoaded', () => {
   const ft = document.getElementById('feedTime');
   if (ft) ft.addEventListener('change', () => { ft.dataset.userModified = '1'; });
@@ -720,15 +714,12 @@ async function saveRecord() {
   const btnIcon = document.getElementById('saveBtnIcon');
   const btnText = document.getElementById('saveBtnText');
 
-  // ✅ FIX: always capture current time at moment of saving
   const now = getTWNow();
   const currentHH = String(now.getHours()).padStart(2,'0');
   const currentMM = String(now.getMinutes()).padStart(2,'0');
   const feedTimeEl = document.getElementById('feedTime');
-  // Use what's in the input, or fall back to current time
   const recordTime = feedTimeEl.value || `${currentHH}:${currentMM}`;
 
-  // ✅ FIX: always read food_type fresh from the select element
   const foodTypeEl = document.getElementById('foodType');
   const foodType = foodTypeEl.options[foodTypeEl.selectedIndex].value;
 
@@ -774,7 +765,6 @@ function resetForm() {
   selectedPeeTags = []; selectedPoop = '';
   document.querySelectorAll('#peeTagGrid .tag-chip').forEach(c => c.classList.remove('selected'));
   document.querySelectorAll('#poopGrid .poop-btn').forEach(b => b.classList.remove('selected'));
-  // Reset time to current
   const now = getTWNow();
   const ft = document.getElementById('feedTime');
   ft.value = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
@@ -782,7 +772,7 @@ function resetForm() {
 }
 
 // ──────────────────────────────────────
-//  TODAY
+//  TODAY  ← 主要修改區
 // ──────────────────────────────────────
 async function loadToday() {
   try {
@@ -817,15 +807,17 @@ async function loadToday() {
         <div class="summary-card"><div class="s-icon">📋</div><div class="s-value">${data.length}</div><div class="s-unit">筆</div><div class="s-label">紀錄筆數</div></div>
       </div>`;
 
-    // ✅ FIX: show all records (not just 3), show actual food_type from DB
+    // FIX 1: 標題改成「爸比/媽咪新增了 N 筆」
+    // FIX 2: 只有水、廁所等（無 feed_grams）時，不顯示食物類型
     const recent = [...data].reverse();
+    const roleLabel = currentRole === 'dad' ? '爸比' : '媽咪';
     lastEl.innerHTML = `
       <div class="card">
-        <div class="card-title">📋 今日紀錄（共 ${data.length} 筆）</div>
+        <div class="card-title">📋 ${roleLabel}新增了 ${data.length} 筆</div>
         ${recent.map(r => `
           <div style="padding:8px 0;border-bottom:1px solid rgba(201,124,124,0.1);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:13px;font-weight:800;color:var(--chocolate);">${r.record_time||'--'} · ${r.food_type||'未記錄'}</span>
+              <span style="font-size:13px;font-weight:800;color:var(--chocolate);">${r.record_time||'--'}${r.feed_grams ? ' · ' + (r.food_type||'未記錄') : ''}</span>
               ${r.feed_grams ? `<span style="font-size:12px;color:var(--muted);font-weight:700;">${r.feed_grams}g</span>` : ''}
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:4px;">
@@ -905,7 +897,7 @@ function showToast(msg) {
 </script>
 
 <!-- PWA install hint -->
-<div id="pwa-hint" style="display:none;position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));left:16px;right:16px;background:var(--chocolate);color:white;border-radius:16px;padding:14px 16px;display:none;align-items:center;justify-content:space-between;gap:12px;z-index:9997;box-shadow:0 4px 20px rgba(44,31,31,0.3);">
+<div id="pwa-hint" style="display:none;position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));left:16px;right:16px;background:var(--chocolate);color:white;border-radius:16px;padding:14px 16px;align-items:center;justify-content:space-between;gap:12px;z-index:9997;box-shadow:0 4px 20px rgba(44,31,31,0.3);">
   <div style="font-size:13px;font-weight:700;line-height:1.5;">
     <strong>📲 加到主畫面，體驗更好！</strong><br>
     點 Safari 下方的 <strong>「分享」</strong> → <strong>「加入主畫面」</strong>
