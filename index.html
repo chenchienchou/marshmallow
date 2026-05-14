@@ -1218,50 +1218,21 @@ function showToast(msg){
 </script>
 
 <script>
-/* ── iPhone PWA safe-area-inset-bottom JS fix ──
-   CSS env() is unreliable in standalone PWA mode on some iOS versions.
-   We read the value via a temporary element and set it as a CSS variable.
-   Also accounts for orientation changes.
+/* ── iPhone PWA safe-area-inset-bottom fix ──
+   Read env() via a probe element. Cap at 60px max to prevent layout explosion.
 */
 function applySafeAreaBottom() {
-  // Method 1: read via computed style on a test element
   const probe = document.createElement('div');
-  probe.style.cssText = [
-    'position:fixed',
-    'bottom:0',
-    'left:0',
-    'width:1px',
-    'height:env(safe-area-inset-bottom,0px)',
-    'pointer-events:none',
-    'visibility:hidden',
-    'z-index:-1'
-  ].join(';');
+  probe.style.cssText = 'position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);pointer-events:none;visibility:hidden;z-index:-9999';
   document.body.appendChild(probe);
-  const sab = probe.getBoundingClientRect().height;
+  const sab = Math.min(probe.getBoundingClientRect().height, 60); // cap at 60px
   document.body.removeChild(probe);
-
-  // Method 2: fallback — on iPhone 15 Pro the home bar is ~34px
-  // If probe returns 0 in PWA mode, use window.screen height delta
-  let finalSab = sab;
-  if (finalSab <= 0 && window.navigator.standalone) {
-    // Rough heuristic: screen height - visible height difference
-    const screenH = window.screen.height;
-    const winH = window.innerHeight;
-    const delta = screenH - winH;
-    // On iPhone 15 Pro: screen=932, innerHeight varies; typical home bar ~34px
-    if (delta > 0 && delta < 100) finalSab = Math.min(delta, 50);
-    else finalSab = 34; // safe default for notch iPhones
-  }
-
+  // Only apply if we got a sane value; 34px is safe default for home-bar iPhones
+  const finalSab = (sab > 0 && sab <= 60) ? sab : (window.navigator.standalone ? 34 : 0);
   document.documentElement.style.setProperty('--sab', finalSab + 'px');
 }
-
-// Run on load and orientation change
 applySafeAreaBottom();
-window.addEventListener('resize', applySafeAreaBottom);
-window.addEventListener('orientationchange', () => {
-  setTimeout(applySafeAreaBottom, 300);
-});
+window.addEventListener('orientationchange', () => setTimeout(applySafeAreaBottom, 300));
 </script>
 
 </body>
