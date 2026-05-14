@@ -48,15 +48,15 @@
   position:fixed;inset:0;z-index:9999;
   display:flex;flex-direction:column;
   align-items:center;
-  justify-content:flex-start;
+  justify-content:center;
   background:var(--bg);
   background-image:
     radial-gradient(ellipse 80% 50% at 10% 0%,rgba(244,198,198,0.25) 0%,transparent 60%),
     radial-gradient(ellipse 60% 40% at 90% 10%,rgba(184,170,212,0.2) 0%,transparent 55%);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-top: calc(env(safe-area-inset-top, 44px) + 24px);
-  padding-bottom: calc(env(safe-area-inset-bottom, 34px) + 24px);
+  padding-top: calc(env(safe-area-inset-top, 44px) + 16px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 34px) + 16px);
   padding-left: 28px;
   padding-right: 28px;
   transition:opacity 0.5s ease,transform 0.5s ease;
@@ -118,8 +118,8 @@
 
 /* ══ APP SHELL ══ */
 #app{
-  width:100%;
-  height:100dvh;
+  position:fixed;
+  inset:0;
   display:flex;flex-direction:column;overflow:hidden;
 }
 
@@ -200,31 +200,20 @@
 .page.active{display:block}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
-/* ══════════════════════════════════════════
-   NAV BAR — iPhone 15 Pro PWA SAFE AREA FIX
-   JS sets --sab CSS variable at runtime so
-   env() unreliability in PWA mode is bypassed.
-══════════════════════════════════════════ */
+/* ══ NAV BAR ══ */
 .nav-bar{
   flex:0 0 auto;
   display:flex;
-  flex-direction:column;
+  flex-direction:row;
   background:rgba(245,240,235,0.96);
   backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
   border-top:1px solid var(--border);
-}
-.nav-items-row {
-  display:flex;
-  padding:6px 8px 8px;
+  padding:6px 8px;
+  padding-bottom:max(8px, env(safe-area-inset-bottom, 0px));
   gap:4px;
 }
-/* Height set by JS to exactly match the home indicator */
-.nav-safe-area {
-  height: var(--sab, env(safe-area-inset-bottom, 0px));
-  min-height: 0;
-  flex-shrink: 0;
-  width: 100%;
-}
+.nav-items-row { display:contents; }
+.nav-safe-area { display:none; }
 
 .nav-item{
   flex:1;display:flex;flex-direction:column;align-items:center;
@@ -1215,24 +1204,6 @@ function showToast(msg){
   el.textContent=msg;el.classList.add("show");
   setTimeout(()=>el.classList.remove("show"),2800);
 }
-</script>
-
-<script>
-/* ── iPhone PWA safe-area-inset-bottom fix ──
-   Read env() via a probe element. Cap at 60px max to prevent layout explosion.
-*/
-function applySafeAreaBottom() {
-  const probe = document.createElement('div');
-  probe.style.cssText = 'position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);pointer-events:none;visibility:hidden;z-index:-9999';
-  document.body.appendChild(probe);
-  const sab = Math.min(probe.getBoundingClientRect().height, 60); // cap at 60px
-  document.body.removeChild(probe);
-  // Only apply if we got a sane value; 34px is safe default for home-bar iPhones
-  const finalSab = (sab > 0 && sab <= 60) ? sab : (window.navigator.standalone ? 34 : 0);
-  document.documentElement.style.setProperty('--sab', finalSab + 'px');
-}
-applySafeAreaBottom();
-window.addEventListener('orientationchange', () => setTimeout(applySafeAreaBottom, 300));
 </script>
 
 </body>
