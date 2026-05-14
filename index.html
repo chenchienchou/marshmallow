@@ -27,7 +27,6 @@
       --r-sm: 12px;
       --shadow: 0 2px 16px rgba(0,0,0,0.08);
       --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
-      /* BC34 Royal Canin: 362 kcal per 100g */
       --bc34-kcal-per-g: 3.62;
     }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -42,22 +41,20 @@
       background-attachment:fixed;touch-action:manipulation;overflow:hidden;
     }
 
-    /* ══ SPLASH ══ */
+    /* ══ SPLASH — FIX: justify-content:center + proper padding ══ */
     #splash{
       position:fixed;inset:0;z-index:9999;
       display:flex;flex-direction:column;
       align-items:center;
-      justify-content:flex-start;
+      justify-content:center;
       background:var(--bg);
       background-image:
         radial-gradient(ellipse 80% 50% at 10% 0%,rgba(244,198,198,0.25) 0%,transparent 60%),
         radial-gradient(ellipse 60% 40% at 90% 10%,rgba(184,170,212,0.2) 0%,transparent 55%);
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      padding-top: calc(env(safe-area-inset-top, 44px) + 24px);
-      padding-bottom: calc(env(safe-area-inset-bottom, 34px) + 24px);
-      padding-left: 28px;
-      padding-right: 28px;
+      padding: calc(env(safe-area-inset-top, 44px) + 16px) 28px calc(env(safe-area-inset-bottom, 34px) + 16px);
+      gap: 0;
       transition:opacity 0.5s ease,transform 0.5s ease;
     }
     #splash.hide{opacity:0;transform:scale(1.03);pointer-events:none}
@@ -118,7 +115,6 @@
     /* ══ APP SHELL ══ */
     #app{
       width:100%;
-      /* Use dvh for dynamic viewport height — handles iPhone 15 Pro notch+home area */
       height:100dvh;
       display:flex;flex-direction:column;overflow:hidden;
     }
@@ -200,16 +196,15 @@
     .page.active{display:block}
     @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
-    /* ── NAV BAR — KEY FIX for iPhone 15 Pro ── */
+    /* ══ NAV BAR — FIXED: flush to iPhone 15 Pro bottom ══ */
     .nav-bar{
       flex:0 0 auto;
       display:flex;
       background:rgba(245,240,235,0.96);
       backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
       border-top:1px solid var(--border);
-      /* Use padding-bottom with safe-area — no gap on iPhone 15 Pro */
-      padding:6px 8px 0;
-      padding-bottom:max(env(safe-area-inset-bottom, 0px), 8px);
+      padding:6px 8px;
+      padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 6px);
       gap:4px;
     }
     .nav-item{
@@ -332,7 +327,7 @@
     .tl-pill.pee{background:rgba(232,210,85,0.15);color:#8a6a10}
     .tl-pill.memo{background:rgba(184,170,212,0.2);color:#5a4a8a}
 
-    /* ══ RECORD PAGE — REDESIGNED ══ */
+    /* ══ RECORD PAGE ══ */
     .rec-section{
       background:var(--surface);border-radius:var(--r);
       border:1px solid var(--border);box-shadow:var(--shadow);
@@ -372,7 +367,7 @@
     .input-unit{font-size:12px;font-weight:800;color:var(--ink3);white-space:nowrap;min-width:28px}
     textarea{resize:none;height:80px;line-height:1.6}
 
-    /* ── FOOD QUICK BUTTONS — NEW STYLE ── */
+    /* ── FOOD QUICK BUTTONS ── */
     .food-quick-grid{
       display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;
     }
@@ -711,12 +706,10 @@
         </div>
         <div class="rec-body">
           <div class="info-tip">🐾 BC34 幼貓飼料 — 每克 3.62 kcal，自動換算熱量</div>
-
           <div class="input-group">
             <div class="input-lbl">⏰ 餵食時間</div>
             <input type="time" id="feedTime"/>
           </div>
-
           <div class="input-lbl" style="margin-bottom:8px">🍖 食物種類</div>
           <div class="food-type-chips" id="foodTypeChips">
             <button class="food-chip selected" data-val="乾飼料" onclick="selectFoodType(this)">🌾 乾飼料</button>
@@ -725,7 +718,6 @@
             <button class="food-chip" data-val="生食" onclick="selectFoodType(this)">🥩 生食</button>
             <button class="food-chip" data-val="點心" onclick="selectFoodType(this)">🍬 點心</button>
           </div>
-
           <div class="input-lbl" style="margin-bottom:8px">⚡ 快速份量</div>
           <div class="food-quick-grid" id="quickFoodBtns">
             <div class="food-quick-btn" data-g="15" onclick="selectQuickGrams(this,15)">
@@ -753,7 +745,6 @@
               <div class="fqb-kcal">≈ 297 kcal</div>
             </div>
           </div>
-
           <div class="input-group">
             <div class="input-lbl">⚖️ 自定克數</div>
             <div class="input-row">
@@ -761,8 +752,6 @@
               <span class="input-unit">g</span>
             </div>
           </div>
-
-          <!-- KCAL LIVE BANNER -->
           <div class="kcal-banner" id="kcalBanner">
             <div>
               <div class="kcal-banner-label">熱量換算 (BC34)</div>
@@ -965,7 +954,6 @@ const db=createClient(SUPABASE_URL,SUPABASE_KEY);
 const BIRTHDAY=new Date("2025-12-13T00:00:00+08:00");
 const HOME_DATE=new Date("2026-04-18T00:00:00+08:00");
 const KCAL_TARGET=297,WATER_TARGET=200;
-// Royal Canin BC34 kitten: 362 kcal per 100g = 3.62 kcal per gram
 const BC34_KCAL_PER_G=3.62;
 
 let currentRole=null;
@@ -973,7 +961,6 @@ let selectedPeeVal="",selectedPoopVal="";
 let selectedFoodType="乾飼料";
 const ROLES={dad:{icon:"🧑",label:"爸爸",cls:"dad"},mom:{icon:"👩",label:"媽媽",cls:"mom"}};
 
-/* ── SPLASH ── */
 function pickRole(r){
   currentRole=r;
   document.querySelectorAll(".role-card").forEach(c=>c.classList.remove("selected"));
@@ -987,7 +974,6 @@ function enterApp(){
   setTimeout(()=>{sp.style.display="none";document.getElementById("app").style.display="";initApp();},500);
 }
 
-/* ── INIT ── */
 function initApp(){
   updateClock();setInterval(updateClock,1000);
   applyRoleUI();loadNeuter();refreshPetPage();
@@ -1014,7 +1000,6 @@ function switchRole(){
   applyRoleUI();showToast(currentRole==="dad"?"🧑 切換成爸爸":"👩 切換成媽媽");loadToday();
 }
 
-/* ── NEUTER ── */
 function loadNeuter(){
   const on=localStorage.getItem("cat_neutered")==="true";
   document.getElementById("neuterToggle").checked=on;updateNeuterUI(on);
@@ -1030,7 +1015,6 @@ function updateNeuterUI(on){
   document.getElementById("headerNeuter").textContent=on?"已結紮":"尚未結紮";
 }
 
-/* ── TIME ── */
 function getTWNow(){return new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Taipei"}))}
 function pad(n){return String(n).padStart(2,"0")}
 function formatDate(d){const w=["日","一","二","三","四","五","六"];return`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 (${w[d.getDay()]})`}
@@ -1054,7 +1038,6 @@ function updateClock(){
   setFeedTimeNow();
 }
 
-/* ── CONNECTION ── */
 async function testConnection(){
   try{
     const{error}=await db.from("cat_records").select("id").limit(1);
@@ -1067,7 +1050,6 @@ async function testConnection(){
   }
 }
 
-/* ── NAV ── */
 function switchPage(n){
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
@@ -1084,28 +1066,24 @@ function switchPage(n){
   }
 }
 
-/* ── FOOD TYPE CHIPS ── */
 function selectFoodType(el){
   document.querySelectorAll(".food-chip").forEach(b=>b.classList.remove("selected"));
   el.classList.add("selected");
   selectedFoodType=el.dataset.val;
 }
 
-/* ── KCAL LIVE BANNER ── */
 function updateKcalBanner(){
   const g=parseFloat(document.getElementById("feedGrams").value)||null;
   const bv=document.getElementById("kcalBannerVal");
   if(g&&g>0){
     const kcal=(g*BC34_KCAL_PER_G).toFixed(1);
     bv.textContent=kcal;
-    // Deselect quick buttons if manual input
     document.querySelectorAll("#quickFoodBtns .food-quick-btn").forEach(b=>b.classList.remove("selected"));
   }else{
     bv.textContent="—";
   }
 }
 
-/* ── QUICK BTNS ── */
 function selectQuickGrams(el,g){
   document.querySelectorAll("#quickFoodBtns .food-quick-btn").forEach(b=>b.classList.remove("selected"));
   el.classList.add("selected");
@@ -1133,7 +1111,6 @@ function resetQuickBtns(){
   document.getElementById("kcalBannerVal").textContent="—";
 }
 
-/* ── QUICK ADD PEE ── */
 async function quickAddPee(){
   if(!selectedPeeVal){showToast("⚠️ 請先選擇狀況");return}
   const now=getTWNow();
@@ -1148,7 +1125,6 @@ async function quickAddPee(){
   }catch(e){showToast("❌ "+e.message)}
 }
 
-/* ── QUICK ADD POOP ── */
 async function quickAddPoop(){
   if(!selectedPoopVal){showToast("⚠️ 請先選擇狀況");return}
   const now=getTWNow();
@@ -1163,7 +1139,6 @@ async function quickAddPoop(){
   }catch(e){showToast("❌ "+e.message)}
 }
 
-/* ── SAVE ── */
 async function saveRecord(){
   const btn=document.getElementById("saveBtn");
   const icon=document.getElementById("saveBtnIcon");
@@ -1176,7 +1151,6 @@ async function saveRecord(){
   if(!grams&&!water&&!selectedPoopVal&&!selectedPeeVal&&!memo){
     showToast("⚠️ 請至少填寫一項資料");return;
   }
-  // BC34: 3.62 kcal/g
   const kcal=grams?(grams*BC34_KCAL_PER_G):null;
   const rec={
     record_date:getDateOnly(now),
@@ -1197,7 +1171,6 @@ async function saveRecord(){
     if(error)throw error;
     showToast("✅ 紀錄已儲存！");
     ["feedGrams","waterMl","memo"].forEach(id=>document.getElementById(id).value="");
-    // Reset food type chips to default
     document.querySelectorAll(".food-chip").forEach(b=>b.classList.remove("selected"));
     document.querySelector('.food-chip[data-val="乾飼料"]').classList.add("selected");
     selectedFoodType="乾飼料";
@@ -1208,7 +1181,6 @@ async function saveRecord(){
   finally{btn.classList.remove("loading");icon.textContent="✨";txt.textContent="儲存這次紀錄"}
 }
 
-/* ── SMART ALERTS ── */
 function buildAlerts(data){
   const alerts=[];const now=getTWNow();const hourNow=now.getHours();
   const totalW=data.reduce((s,r)=>s+(r.water_ml||0),0);
@@ -1242,7 +1214,6 @@ function renderAlerts(alerts){
     </div>`).join("");
 }
 
-/* ── RING ANIMATION ── */
 function updateRing(id,val,target){
   const pct=Math.min(1,val/target);
   const offset=150.8-(150.8*pct);
@@ -1250,7 +1221,6 @@ function updateRing(id,val,target){
   const pEl=document.getElementById("ring-"+id+"-pct");if(pEl)pEl.textContent=Math.round(pct*100);
 }
 
-/* ── TODAY ── */
 async function loadToday(){
   try{
     const{data:_r,error}=await db.from("cat_records").select("*")
@@ -1322,7 +1292,6 @@ async function loadToday(){
   }
 }
 
-/* ── HISTORY ── */
 async function loadHistory(){
   const el=document.getElementById("historyList");
   el.innerHTML='<div class="empty-state"><div class="empty-icon">🐱</div><p>載入中...</p></div>';
@@ -1357,14 +1326,12 @@ async function loadHistory(){
   }catch(e){el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`}
 }
 
-/* ── PET PAGE ── */
 function refreshPetPage(){
   document.getElementById("petAgeStr").textContent=`布偶貓 · ${calcAge(BIRTHDAY)}`;
   document.getElementById("petDaysHome").textContent=`${daysSince(HOME_DATE)} 天 🎉`;
   loadNeuter();
 }
 
-/* ── TOAST ── */
 function showToast(msg){
   const el=document.getElementById("toast");
   el.textContent=msg;el.classList.add("show");
