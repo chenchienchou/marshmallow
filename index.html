@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8"/>
@@ -12,613 +13,433 @@
   <style>
     :root {
       --bg: #f5f0eb;
-      --surface: rgba(255,255,255,0.85);
-      --surface2: rgba(255,255,255,0.65);
+      --surface: rgba(255,255,255,0.88);
+      --surface-glass: rgba(255,255,255,0.72);
       --border: rgba(0,0,0,0.06);
+      --border-soft: rgba(0,0,0,0.04);
       --ink: #1a1412;
       --ink2: #6b5e58;
       --ink3: #a8998f;
+      --ink4: #c8bdb8;
       --accent: #c97c7c;
       --accent2: #b8aad4;
       --green: #7bc87b;
       --amber: #e8a855;
       --blue: #7aaed4;
-      --r: 18px;
-      --r-sm: 12px;
-      --shadow: 0 2px 16px rgba(0,0,0,0.08);
-      --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
-      --bc34-kcal-per-g: 3.62;
-      /* Nav bar 高度常數：icon+label+top padding = 約 60px，加上 safe area */
+      --r: 20px;
+      --r-sm: 14px;
+      --shadow: 0 2px 16px rgba(0,0,0,0.07);
+      --shadow-sm: 0 1px 8px rgba(0,0,0,0.05);
       --nav-height: 60px;
+      --bc34: 3.62;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
-    /* ══ 整體佈局：鎖死螢幕高度 ══ */
-    html {
-      height: 100%;
-      background: var(--bg);
-    }
+    html { height: 100%; background: var(--bg); }
     body {
-      /* 主容器：flex 縱向，鎖死 100vh，不讓 body 本身捲動 */
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-      font-family: "Nunito", sans-serif;
-      color: var(--ink);
-      background: var(--bg);
+      display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+      font-family: "Nunito", sans-serif; color: var(--ink); background: var(--bg);
       background-image:
-        radial-gradient(ellipse 80% 50% at 10% 0%, rgba(244,198,198,0.25) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 90% 10%, rgba(184,170,212,0.2) 0%, transparent 55%),
-        radial-gradient(ellipse 70% 50% at 50% 100%, rgba(181,203,180,0.18) 0%, transparent 55%);
+        radial-gradient(ellipse 80% 50% at 10% 0%, rgba(244,198,198,0.22) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 10%, rgba(184,170,212,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 50% 100%, rgba(181,203,180,0.15) 0%, transparent 55%);
       background-attachment: fixed;
       touch-action: manipulation;
     }
+    @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+    .skeleton {
+      background: linear-gradient(90deg,rgba(0,0,0,0.06) 25%,rgba(0,0,0,0.03) 50%,rgba(0,0,0,0.06) 75%);
+      background-size: 200% 100%; animation: shimmer 1.6s infinite; border-radius: 8px;
+    }
+    .skeleton-card { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); padding:20px; margin-bottom:12px; }
+    .skeleton-line { height:12px; margin-bottom:8px; }
+    .skeleton-circle { width:56px; height:56px; border-radius:50%; }
+    #skeletonLoader { display:block; padding:16px 14px; }
+    #skeletonLoader.hidden { display:none; }
 
-    /* ══ SPLASH ══ */
-    #splash {
-      position: fixed; inset: 0; z-index: 9999;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      background: var(--bg);
-      background-image:
-        radial-gradient(ellipse 80% 50% at 10% 0%, rgba(244,198,198,0.25) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 90% 10%, rgba(184,170,212,0.2) 0%, transparent 55%);
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      padding: calc(env(safe-area-inset-top, 44px) + 16px) 28px calc(env(safe-area-inset-bottom, 34px) + 16px);
-      transition: opacity 0.5s ease, transform 0.5s ease;
-    }
-    #splash.hide { opacity: 0; transform: scale(1.03); pointer-events: none; }
+```
+/* SPLASH */
+#splash {
+  position:fixed; inset:0; z-index:9999;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:var(--bg);
+  background-image:radial-gradient(ellipse 80% 50% at 10% 0%,rgba(244,198,198,0.25) 0%,transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 10%,rgba(184,170,212,0.2) 0%,transparent 55%);
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top,44px) + 16px) 28px calc(env(safe-area-inset-bottom,34px) + 16px);
+  transition:opacity 0.5s ease,transform 0.5s ease;
+}
+#splash.hide { opacity:0; transform:scale(1.03); pointer-events:none; }
+.splash-avatar { width:88px; height:88px; border-radius:50%; object-fit:cover; display:block; margin:0 auto 20px; box-shadow:0 6px 28px rgba(0,0,0,0.14); border:3px solid white; flex-shrink:0; }
+.splash-question { font-family:"Playfair Display",serif; font-size:26px; font-weight:700; color:var(--ink); text-align:center; line-height:1.35; margin-bottom:6px; }
+.splash-sub2 { font-size:13px; color:var(--ink3); font-weight:600; margin-bottom:32px; text-align:center; }
+.role-cards { display:flex; gap:14px; width:100%; max-width:340px; margin-bottom:24px; }
+.role-card { flex:1; background:var(--surface); border-radius:var(--r); padding:24px 12px 20px; border:2px solid var(--border); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:10px; transition:all 0.2s; box-shadow:var(--shadow); }
+.role-card:active { transform:scale(0.95); }
+.role-card.sel-dad { border-color:#7aaed4; background:rgba(122,174,212,0.08); box-shadow:0 4px 20px rgba(122,174,212,0.2); }
+.role-card.sel-mom { border-color:#c97c7c; background:rgba(201,124,124,0.08); box-shadow:0 4px 20px rgba(201,124,124,0.2); }
+.rc-icon-wrap { width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.rc-icon-wrap.dad { background:rgba(122,174,212,0.15); }
+.rc-icon-wrap.mom { background:rgba(244,198,198,0.3); }
+.rc-name { font-size:17px; font-weight:900; color:var(--ink); }
+.rc-sub { font-size:11px; color:var(--ink3); font-weight:600; }
+.splash-enter-btn { width:100%; max-width:340px; background:var(--ink); color:white; border:none; border-radius:50px; padding:17px 24px; font-family:"Nunito",sans-serif; font-size:17px; font-weight:800; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 20px rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:12px; flex-shrink:0; }
+.splash-enter-btn:active { transform:scale(0.97); }
+.splash-enter-btn:disabled { opacity:0.4; cursor:default; }
+.splash-save-note { font-size:11px; color:var(--ink3); font-weight:600; text-align:center; }
 
-    .splash-avatar {
-      width: 88px; height: 88px; border-radius: 50%;
-      object-fit: cover; display: block;
-      margin: 0 auto 16px;
-      box-shadow: 0 6px 28px rgba(0,0,0,0.14);
-      border: 3px solid white; flex-shrink: 0;
-    }
-    .splash-question {
-      font-family: "Playfair Display", serif;
-      font-size: 26px; font-weight: 700; color: var(--ink);
-      text-align: center; line-height: 1.3; margin-bottom: 6px;
-    }
-    .splash-sub2 { font-size: 13px; color: var(--ink3); font-weight: 600; margin-bottom: 28px; text-align: center; }
+/* APP SHELL */
+#app { display:flex; flex-direction:column; flex:1; overflow:hidden; padding-bottom:calc(var(--nav-height) + env(safe-area-inset-bottom,0px)); }
+.app-header { flex:0 0 auto; background:rgba(245,240,235,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:0 16px; padding-top:env(safe-area-inset-top,44px); }
+.header-inner { display:flex; align-items:center; gap:10px; padding:10px 0; }
+.h-avatar-wrap { position:relative; flex-shrink:0; cursor:pointer; }
+.h-avatar { width:46px; height:46px; border-radius:50%; border:2.5px solid white; box-shadow:0 2px 10px rgba(0,0,0,0.12); object-fit:cover; display:block; transition:opacity 0.2s; }
+.h-avatar:active { opacity:0.8; }
+.h-edit-dot { position:absolute; bottom:0; right:0; width:17px; height:17px; border-radius:50%; background:#1a1412; border:2px solid white; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+.h-info { flex:1; min-width:0; }
+.h-name-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.h-name { font-family:"Playfair Display",serif; font-size:19px; font-weight:700; color:var(--ink); }
+.mode-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:50px; font-size:11px; font-weight:800; cursor:pointer; transition:all 0.15s; user-select:none; }
+.mode-pill-dad { background:rgba(122,174,212,0.2); color:#3a6ab0; }
+.mode-pill-mom { background:rgba(244,198,198,0.4); color:#b04040; }
+.mode-pill:active { transform:scale(0.92); }
+.h-meta { display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap; }
+.h-breed { font-size:11px; color:var(--ink3); font-weight:600; }
+.h-tag { display:inline-flex; align-items:center; gap:3px; background:rgba(0,0,0,0.05); border-radius:50px; padding:2px 7px; font-size:10px; font-weight:700; color:var(--ink2); }
+.conn-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:50px; background:rgba(123,200,123,0.15); font-size:10px; font-weight:700; color:#3a8a3a; }
+.conn-badge.err { background:rgba(232,123,123,0.15); color:#8a3a3a; }
+.conn-badge.loading { background:rgba(0,0,0,0.06); color:var(--ink3); }
+.conn-dot { width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.h-right { text-align:right; flex-shrink:0; }
+.h-date { font-size:11px; font-weight:800; color:var(--accent); }
+.h-time { font-size:10px; color:var(--ink3); }
+.days-pill { display:inline-block; background:linear-gradient(135deg,rgba(244,198,198,0.5),rgba(184,170,212,0.45)); border-radius:50px; padding:2px 8px; font-size:10px; font-weight:800; color:#6b3a6b; margin-top:3px; }
 
-    .role-cards { display: flex; gap: 14px; width: 100%; max-width: 340px; margin-bottom: 20px; }
-    .role-card {
-      flex: 1; background: var(--surface); border-radius: var(--r);
-      padding: 20px 12px; border: 2px solid var(--border);
-      cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px;
-      transition: all 0.2s; box-shadow: var(--shadow);
-    }
-    .role-card:active { transform: scale(0.95); }
-    .role-card.selected { border-color: var(--accent); background: rgba(201,124,124,0.08); }
-    .role-card .rc-avatar {
-      width: 56px; height: 56px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 28px; background: rgba(0,0,0,0.05); flex-shrink: 0;
-    }
-    .role-card.dad .rc-avatar { background: rgba(122,174,212,0.2); }
-    .role-card.mom .rc-avatar { background: rgba(244,198,198,0.35); }
-    .role-card .rc-name { font-size: 17px; font-weight: 900; color: var(--ink); }
-    .role-card .rc-sub { font-size: 11px; color: var(--ink3); font-weight: 600; }
+.content-area { flex:1 1 0; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.content-area::-webkit-scrollbar { display:none; }
+.page { display:none; padding:16px 14px 20px; animation:fadeUp 0.3s ease; }
+.page.active { display:block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 
-    .splash-enter-btn {
-      width: 100%; max-width: 340px;
-      background: var(--ink); color: white;
-      border: none; border-radius: 50px; padding: 17px 24px;
-      font-family: "Nunito", sans-serif; font-size: 17px; font-weight: 800;
-      cursor: pointer; transition: all 0.2s;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      margin-bottom: 10px; flex-shrink: 0;
-    }
-    .splash-enter-btn:active { transform: scale(0.97); }
-    .splash-enter-btn:disabled { opacity: 0.4; cursor: default; }
-    .splash-save-note { font-size: 11px; color: var(--ink3); font-weight: 600; text-align: center; }
+/* NAV */
+.nav-bar { position:fixed; bottom:0; left:0; width:100%; display:flex; background:rgba(245,240,235,0.96); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-top:1px solid var(--border); padding:6px 8px 0; padding-bottom:env(safe-area-inset-bottom,0px); gap:4px; box-sizing:border-box; z-index:1000; }
+.nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:8px 6px 8px; border-radius:14px; cursor:pointer; transition:all 0.2s; border:none; background:transparent; font-family:"Nunito",sans-serif; }
+.nav-icon { font-size:22px; line-height:1; height:26px; display:flex; align-items:center; justify-content:center; transition:transform 0.2s; }
+.nav-cat-img { width:24px; height:24px; border-radius:50%; object-fit:cover; display:block; }
+.nav-label { font-size:10px; font-weight:800; color:var(--ink3); transition:color 0.2s; }
+.nav-item.active { background:rgba(201,124,124,0.1); }
+.nav-item.active .nav-label { color:#8b4a4a; }
+.nav-item.active .nav-icon { transform:scale(1.1); }
+.nav-item:active { transform:scale(0.92); }
 
-    /* ══ APP SHELL ══ */
-    #app {
-      /* 同樣 flex column，鎖死螢幕，撐滿 body */
-      display: flex;
-      flex-direction: column;
-      flex: 1;               /* 佔滿 body 剩餘空間 */
-      overflow: hidden;
-      /* 為 fixed nav-bar 留出底部空間（safe area + nav content） */
-      padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
-    }
+/* TODAY */
+.alert-card { border-radius:var(--r); border:1px solid transparent; padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px; animation:slideIn 0.3s ease; }
+@keyframes slideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+.alert-card.warn { background:rgba(232,168,85,0.1); border-color:rgba(232,168,85,0.25); }
+.alert-card.info { background:rgba(122,174,212,0.09); border-color:rgba(122,174,212,0.22); }
+.alert-card.ok { background:rgba(123,200,123,0.09); border-color:rgba(123,200,123,0.22); }
+.alert-card.alert { background:rgba(201,124,124,0.09); border-color:rgba(201,124,124,0.25); }
+.alert-icon-wrap { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.alert-card.warn .alert-icon-wrap { background:rgba(232,168,85,0.15); }
+.alert-card.ok .alert-icon-wrap { background:rgba(123,200,123,0.15); }
+.alert-card.alert .alert-icon-wrap { background:rgba(201,124,124,0.12); }
+.alert-card.info .alert-icon-wrap { background:rgba(122,174,212,0.13); }
+.alert-body { flex:1; }
+.alert-title { font-size:13px; font-weight:800; color:var(--ink); margin-bottom:2px; }
+.alert-desc { font-size:12px; color:var(--ink2); font-weight:600; line-height:1.4; }
+.alert-badge { font-size:10px; font-weight:800; padding:3px 8px; border-radius:50px; flex-shrink:0; }
+.alert-badge.warn { background:rgba(232,168,85,0.18); color:#9a6a10; }
+.alert-badge.alert { background:rgba(201,124,124,0.18); color:#8b3a3a; }
+.alert-badge.ok { background:rgba(123,200,123,0.18); color:#2a6a2a; }
+.alert-badge.info { background:rgba(122,174,212,0.18); color:#2a4a8a; }
+.stats-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.stat-card { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--shadow); padding:16px 14px; position:relative; }
+.stat-gear-btn { position:absolute; top:12px; right:12px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.04); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; }
+.stat-gear-btn:active { background:rgba(0,0,0,0.09); }
+.stat-label { font-size:11px; color:var(--ink3); font-weight:700; margin-bottom:8px; letter-spacing:0.3px; padding-right:28px; }
+.stat-ring-wrap { display:flex; align-items:center; gap:12px; }
+.stat-ring { position:relative; width:56px; height:56px; flex-shrink:0; }
+.stat-ring svg { transform:rotate(-90deg); }
+.stat-ring-bg { fill:none; stroke:rgba(0,0,0,0.06); stroke-width:5; }
+.stat-ring-fill { fill:none; stroke-width:5; stroke-linecap:round; transition:stroke-dashoffset 0.7s cubic-bezier(0.34,1.56,0.64,1); }
+.stat-ring-val { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:var(--ink); flex-direction:column; line-height:1; }
+.stat-ring-unit { font-size:8px; font-weight:700; color:var(--ink3); }
+.stat-right { flex:1; min-width:0; }
+.stat-val-big { font-size:22px; font-weight:900; color:var(--ink); line-height:1; }
+.stat-val-unit { font-size:11px; color:var(--ink3); font-weight:700; }
+.stat-status { display:inline-flex; align-items:center; gap:4px; margin-top:6px; padding:3px 8px; border-radius:50px; font-size:10px; font-weight:800; }
+.stat-status.ok { background:rgba(123,200,123,0.13); color:#2a6a2a; }
+.stat-status.warn { background:rgba(232,168,85,0.13); color:#9a6a10; }
+.stat-status.low { background:rgba(122,174,212,0.13); color:#2a4a8a; }
+.stat-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
+.activity-card { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--shadow); padding:16px; margin-bottom:12px; }
+.activity-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.activity-title { font-size:12px; font-weight:800; color:var(--ink2); text-transform:uppercase; letter-spacing:0.8px; }
+.activity-count { font-size:11px; color:var(--ink3); font-weight:700; }
+.activity-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.act-item { background:rgba(0,0,0,0.03); border-radius:14px; padding:12px 8px; text-align:center; transition:all 0.2s; }
+.act-item.has-data { background:rgba(255,255,255,0.85); box-shadow:var(--shadow-sm); }
+.act-icon-wrap { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; margin:0 auto 6px; }
+.act-item.has-data .act-icon-wrap { background:rgba(0,0,0,0.04); }
+.act-val { font-size:20px; font-weight:900; color:var(--ink); line-height:1; }
+.act-unit { font-size:10px; color:var(--ink3); font-weight:700; }
+.timeline-card { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--shadow); overflow:hidden; margin-bottom:12px; }
+.timeline-header { padding:14px 16px 10px; border-bottom:1px solid var(--border-soft,rgba(0,0,0,0.04)); }
+.timeline-title { font-size:12px; font-weight:800; color:var(--ink2); text-transform:uppercase; letter-spacing:0.8px; }
+.timeline-item { display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-bottom:1px solid rgba(0,0,0,0.03); }
+.timeline-item:last-child { border-bottom:none; }
+.tl-time { font-size:12px; font-weight:700; color:var(--ink3); min-width:44px; padding-top:2px; }
+.tl-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:4px; border:2px solid white; }
+.tl-body { flex:1; }
+.tl-main { font-size:13px; font-weight:800; color:var(--ink); margin-bottom:5px; }
+.tl-pills { display:flex; flex-wrap:wrap; gap:4px; }
+.tl-pill { border-radius:50px; padding:2px 8px; font-size:11px; font-weight:700; }
+.tl-pill.food { background:rgba(232,168,85,0.12); color:#8a5a10; }
+.tl-pill.water { background:rgba(122,174,212,0.12); color:#2a4a8a; }
+.tl-pill.poop { background:rgba(180,140,100,0.12); color:#6a4a20; }
+.tl-pill.pee { background:rgba(210,190,80,0.12); color:#7a6010; }
+.tl-pill.memo { background:rgba(184,170,212,0.15); color:#5a4a8a; }
 
-    /* ── HEADER（固定在頂部，不捲動）── */
-    .app-header {
-      flex: 0 0 auto;        /* 不縮放，高度由內容決定 */
-      background: rgba(245,240,235,0.92);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-      padding: 0 16px;
-      padding-top: env(safe-area-inset-top, 44px);
-    }
-    .header-inner {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 0;
-    }
-    .h-avatar-wrap { position: relative; flex-shrink: 0; }
-    .h-avatar {
-      width: 46px; height: 46px; border-radius: 50%;
-      border: 2.5px solid white;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
-      object-fit: cover; display: block;
-    }
-    .h-edit-dot {
-      position: absolute; bottom: 0; right: 0;
-      width: 16px; height: 16px; border-radius: 50%;
-      background: #1a1412; border: 2px solid white;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 8px; color: white; cursor: pointer;
-    }
-    .h-info { flex: 1; min-width: 0; }
-    .h-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .h-name { font-family: "Playfair Display", serif; font-size: 19px; font-weight: 700; color: var(--ink); }
-    .mode-pill {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 3px 10px; border-radius: 50px;
-      font-size: 11px; font-weight: 800; cursor: pointer;
-      transition: all 0.15s; user-select: none;
-    }
-    .mode-pill.dad { background: rgba(122,174,212,0.2); color: #3a6ab0; }
-    .mode-pill.mom { background: rgba(244,198,198,0.4); color: #b04040; }
-    .mode-pill:active { transform: scale(0.92); }
-    .h-meta { display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
-    .h-breed { font-size: 11px; color: var(--ink3); font-weight: 600; }
-    .h-tag {
-      display: inline-flex; align-items: center; gap: 3px;
-      background: rgba(0,0,0,0.06); border-radius: 50px;
-      padding: 2px 7px; font-size: 10px; font-weight: 700; color: var(--ink2);
-    }
-    .conn-badge {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 3px 8px; border-radius: 50px;
-      background: rgba(123,200,123,0.15);
-      font-size: 10px; font-weight: 700; color: #3a8a3a;
-    }
-    .conn-badge.err { background: rgba(232,123,123,0.15); color: #8a3a3a; }
-    .conn-badge.loading { background: rgba(0,0,0,0.06); color: var(--ink3); }
-    .conn-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-    .h-right { text-align: right; flex-shrink: 0; }
-    .h-date { font-size: 11px; font-weight: 800; color: var(--accent); }
-    .h-time { font-size: 10px; color: var(--ink3); }
-    .days-pill {
-      display: inline-block;
-      background: linear-gradient(135deg, rgba(244,198,198,0.6), rgba(184,170,212,0.5));
-      border-radius: 50px; padding: 2px 8px;
-      font-size: 10px; font-weight: 800; color: #6b3a6b; margin-top: 3px;
-    }
+/* RECORD */
+.page-title { font-family:"Playfair Display",serif; font-size:22px; font-weight:700; color:var(--ink); margin-bottom:4px; }
+.page-sub { font-size:12px; color:var(--ink3); font-weight:600; margin-bottom:16px; }
+.rec-section { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--shadow); margin-bottom:14px; overflow:hidden; }
+.rec-header { padding:14px 16px 12px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(0,0,0,0.04); }
+.rec-header-icon { width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.rec-header-icon.food { background:rgba(232,168,85,0.13); }
+.rec-header-icon.water { background:rgba(122,174,212,0.13); }
+.rec-header-icon.toilet { background:rgba(180,140,100,0.1); }
+.rec-header-icon.memo { background:rgba(184,170,212,0.13); }
+.rec-header-icon.pee { background:rgba(210,190,80,0.1); }
+.rec-header-text { flex:1; }
+.rec-header-title { font-size:14px; font-weight:800; color:var(--ink); }
+.rec-header-sub { font-size:11px; color:var(--ink3); font-weight:600; margin-top:1px; }
+.rec-badge { font-size:11px; font-weight:800; padding:3px 9px; border-radius:50px; background:rgba(0,0,0,0.05); color:var(--ink2); }
+.rec-body { padding:14px 16px; }
+.input-group { margin-bottom:12px; }
+.input-lbl { font-size:11px; font-weight:800; color:var(--ink3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:flex; align-items:center; gap:5px; }
+input[type="number"],input[type="text"],input[type="time"],select,textarea { width:100%; background:rgba(0,0,0,0.03); border:1.5px solid rgba(0,0,0,0.07); border-radius:14px; padding:11px 14px; font-family:"Nunito",sans-serif; font-size:15px; font-weight:700; color:var(--ink); outline:none; transition:all 0.2s; -webkit-appearance:none; appearance:none; }
+input:focus,select:focus,textarea:focus { border-color:var(--accent); background:white; }
+.input-unit { font-size:12px; font-weight:800; color:var(--ink3); white-space:nowrap; min-width:28px; }
+textarea { resize:none; height:80px; line-height:1.6; }
 
-    /* ── 中間內容區：flex:1 + overflow-y:auto ── */
-    .content-area {
-      flex: 1 1 0;           /* 自動拉長填滿剩餘空間 */
-      overflow-y: auto;      /* 超出時只有這裡捲動 */
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .content-area::-webkit-scrollbar { display: none; }
+/* STEPPER */
+.stepper-row { display:flex; gap:0; align-items:center; border:1.5px solid rgba(0,0,0,0.07); border-radius:14px; overflow:hidden; background:rgba(0,0,0,0.03); }
+.stepper-btn { width:44px; height:44px; border:none; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; flex-shrink:0; }
+.stepper-btn:active { background:rgba(0,0,0,0.06); }
+.stepper-input { flex:1; border:none!important; border-radius:0!important; background:transparent!important; text-align:center; font-size:17px; font-weight:900; min-width:0; }
+.stepper-input:focus { background:transparent!important; }
 
-    /* ── PAGES ── */
-    .page { display: none; padding: 16px 14px 20px; animation: fadeUp 0.3s ease; }
-    .page.active { display: block; }
-    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+/* iOS SEG CONTROL */
+.seg-control-wrap { background:rgba(0,0,0,0.06); border-radius:12px; padding:3px; position:relative; display:flex; gap:0; margin-bottom:14px; overflow:hidden; }
+.seg-slider { position:absolute; top:3px; bottom:3px; background:white; border-radius:9px; box-shadow:0 1px 6px rgba(0,0,0,0.1),0 0 0 0.5px rgba(0,0,0,0.04); transition:all 0.3s cubic-bezier(0.34,1.2,0.64,1); pointer-events:none; }
+.seg-btn { flex:1; padding:7px 4px; border:none; background:transparent; font-family:"Nunito",sans-serif; font-size:11px; font-weight:800; color:var(--ink3); cursor:pointer; border-radius:9px; z-index:1; position:relative; transition:color 0.2s; white-space:nowrap; text-align:center; }
+.seg-btn.active { color:var(--ink); }
+.seg-btn:active { opacity:0.7; }
 
-    /* ══ 底部導覽列：position fixed 完美貼底 ══ */
-    .nav-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      display: flex;
-      background: rgba(245,240,235,0.96);
-      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-      border-top: 1px solid var(--border);
-      /* 上方給 nav items 的 padding */
-      padding: 6px 8px 0;
-      /* 底部延伸到 home indicator 下方 */
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-      gap: 4px;
-      box-sizing: border-box;
-      z-index: 1000;
-    }
-    .nav-item {
-      flex: 1; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 3px;
-      /* 給 item 本身底部加一點呼吸空間（在 safe-area 之上） */
-      padding: 8px 6px 8px;
-      border-radius: 14px; cursor: pointer; transition: all 0.2s;
-      border: none; background: transparent; font-family: "Nunito", sans-serif;
-    }
-    .nav-icon {
-      font-size: 22px; line-height: 1;
-      height: 26px;
-      display: flex; align-items: center; justify-content: center;
-      transition: transform 0.2s;
-    }
-    .nav-cat-img {
-      width: 24px; height: 24px; border-radius: 50%;
-      object-fit: cover; display: block;
-    }
-    .nav-label { font-size: 10px; font-weight: 800; color: var(--ink3); transition: color 0.2s; }
-    .nav-item.active { background: rgba(201,124,124,0.12); }
-    .nav-item.active .nav-label { color: #8b4a4a; }
-    .nav-item.active .nav-icon { transform: scale(1.1); }
-    .nav-item:active { transform: scale(0.92); }
+/* FOOD QUICK */
+.food-quick-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+.food-quick-btn { background:rgba(232,168,85,0.06); border:1.5px solid rgba(232,168,85,0.18); border-radius:16px; padding:13px 6px; cursor:pointer; text-align:center; transition:all 0.15s; font-family:"Nunito",sans-serif; }
+.food-quick-btn:active { transform:scale(0.95); }
+.food-quick-btn.selected { border-color:var(--amber); background:rgba(232,168,85,0.16); box-shadow:0 3px 12px rgba(232,168,85,0.18); }
+.fqb-grams { font-size:18px; font-weight:900; color:var(--ink); line-height:1; }
+.fqb-kcal { font-size:10px; color:var(--amber); font-weight:700; margin-top:4px; transition:all 0.2s; }
 
-    /* ── SECTION TITLES ── */
-    .page-title { font-family: "Playfair Display", serif; font-size: 22px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
-    .page-sub { font-size: 12px; color: var(--ink3); font-weight: 600; margin-bottom: 16px; }
+/* WATER QUICK */
+.water-quick-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+.water-quick-btn { background:rgba(122,174,212,0.06); border:1.5px solid rgba(122,174,212,0.18); border-radius:16px; padding:13px 6px; cursor:pointer; text-align:center; transition:all 0.15s; font-family:"Nunito",sans-serif; }
+.water-quick-btn:active { transform:scale(0.95); }
+.water-quick-btn.selected { border-color:var(--blue); background:rgba(122,174,212,0.16); box-shadow:0 3px 12px rgba(122,174,212,0.18); }
+.wqb-val { font-size:18px; font-weight:900; color:var(--ink); line-height:1; }
+.wqb-unit { font-size:10px; color:var(--ink3); font-weight:700; margin-top:1px; }
 
-    /* ── CARDS ── */
-    .card {
-      background: var(--surface); border-radius: var(--r);
-      border: 1px solid var(--border); box-shadow: var(--shadow);
-      margin-bottom: 12px; overflow: hidden;
-    }
+/* KCAL COEFF TOGGLE */
+.coeff-toggle-row { display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,0.03); border-radius:12px; padding:8px 12px; margin-bottom:10px; }
+.coeff-lbl { font-size:11px; font-weight:700; color:var(--ink3); }
+.coeff-seg { display:flex; background:rgba(0,0,0,0.06); border-radius:8px; padding:2px; gap:2px; }
+.coeff-btn { padding:4px 10px; border:none; background:transparent; font-family:"Nunito",sans-serif; font-size:11px; font-weight:800; color:var(--ink3); cursor:pointer; border-radius:6px; transition:all 0.2s; }
+.coeff-btn.active { background:white; color:var(--ink); box-shadow:0 1px 4px rgba(0,0,0,0.1); }
 
-    /* ── TODAY PAGE ── */
-    .alert-card {
-      border-radius: var(--r); border: 1px solid transparent;
-      padding: 14px 16px; margin-bottom: 10px;
-      display: flex; align-items: center; gap: 12px;
-      animation: slideIn 0.3s ease;
-    }
-    @keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
-    .alert-card.warn { background: rgba(232,168,85,0.12); border-color: rgba(232,168,85,0.3); }
-    .alert-card.info { background: rgba(122,174,212,0.1); border-color: rgba(122,174,212,0.25); }
-    .alert-card.ok { background: rgba(123,200,123,0.1); border-color: rgba(123,200,123,0.25); }
-    .alert-card.alert { background: rgba(201,124,124,0.1); border-color: rgba(201,124,124,0.3); }
-    .alert-icon { font-size: 28px; flex-shrink: 0; }
-    .alert-body { flex: 1; }
-    .alert-title { font-size: 14px; font-weight: 800; color: var(--ink); margin-bottom: 2px; }
-    .alert-desc { font-size: 12px; color: var(--ink2); font-weight: 600; line-height: 1.4; }
-    .alert-badge { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 50px; flex-shrink: 0; }
-    .alert-badge.warn { background: rgba(232,168,85,0.2); color: #9a6a10; }
-    .alert-badge.alert { background: rgba(201,124,124,0.2); color: #8b3a3a; }
-    .alert-badge.ok { background: rgba(123,200,123,0.2); color: #2a6a2a; }
-    .alert-badge.info { background: rgba(122,174,212,0.2); color: #2a4a8a; }
+/* KCAL BANNER */
+.kcal-banner { background:rgba(255,255,255,0.72); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(232,168,85,0.2); border-radius:14px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; box-shadow:0 2px 12px rgba(232,168,85,0.08); }
+.kcal-banner-label { font-size:11px; font-weight:700; color:var(--ink3); }
+.kcal-banner-val { font-size:22px; font-weight:900; color:var(--amber); transition:all 0.2s; }
+.kcal-banner-unit { font-size:11px; font-weight:700; color:var(--ink3); margin-left:4px; }
 
-    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-    .stat-card {
-      background: var(--surface); border-radius: var(--r);
-      border: 1px solid var(--border); box-shadow: var(--shadow); padding: 16px 14px;
-    }
-    .stat-label { font-size: 11px; color: var(--ink3); font-weight: 700; margin-bottom: 8px; letter-spacing: 0.3px; }
-    .stat-ring-wrap { display: flex; align-items: center; gap: 12px; }
-    .stat-ring { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
-    .stat-ring svg { transform: rotate(-90deg); }
-    .stat-ring-bg { fill: none; stroke: rgba(0,0,0,0.07); stroke-width: 5; }
-    .stat-ring-fill { fill: none; stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
-    .stat-ring-val {
-      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 900; color: var(--ink); flex-direction: column; line-height: 1;
-    }
-    .stat-ring-unit { font-size: 8px; font-weight: 700; color: var(--ink3); }
-    .stat-right { flex: 1; min-width: 0; }
-    .stat-val-big { font-size: 22px; font-weight: 900; color: var(--ink); line-height: 1; }
-    .stat-val-unit { font-size: 11px; color: var(--ink3); font-weight: 700; }
-    .stat-status {
-      display: inline-flex; align-items: center; gap: 4px;
-      margin-top: 6px; padding: 3px 8px; border-radius: 50px; font-size: 10px; font-weight: 800;
-    }
-    .stat-status.ok { background: rgba(123,200,123,0.15); color: #2a6a2a; }
-    .stat-status.warn { background: rgba(232,168,85,0.15); color: #9a6a10; }
-    .stat-status.low { background: rgba(122,174,212,0.15); color: #2a4a8a; }
-    .stat-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+/* PEE */
+.pee-status-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+.pee-status-btn { background:rgba(210,190,80,0.05); border:1.5px solid rgba(210,190,80,0.16); border-radius:16px; padding:14px 6px; cursor:pointer; text-align:center; transition:all 0.15s; font-family:"Nunito",sans-serif; display:flex; flex-direction:column; align-items:center; gap:6px; }
+.pee-status-btn:active { transform:scale(0.95); }
+.pee-status-btn.selected { border-color:rgba(200,160,40,0.55); background:rgba(210,190,80,0.14); box-shadow:0 2px 10px rgba(200,160,40,0.12); }
+.pee-status-icon { width:28px; height:28px; display:flex; align-items:center; justify-content:center; }
+.pee-status-label { font-size:11px; font-weight:800; color:var(--ink2); }
+.pee-status-btn.selected .pee-status-label { color:#7a5a10; }
 
-    .activity-card {
-      background: var(--surface); border-radius: var(--r);
-      border: 1px solid var(--border); box-shadow: var(--shadow); padding: 16px; margin-bottom: 12px;
-    }
-    .activity-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .activity-title { font-size: 13px; font-weight: 800; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.6px; }
-    .activity-count { font-size: 11px; color: var(--ink3); font-weight: 700; }
-    .activity-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .act-item { background: rgba(0,0,0,0.04); border-radius: 12px; padding: 12px 8px; text-align: center; transition: all 0.2s; }
-    .act-item.has-data { background: rgba(255,255,255,0.8); box-shadow: 0 1px 8px rgba(0,0,0,0.07); }
-    .act-icon { font-size: 24px; margin-bottom: 4px; }
-    .act-val { font-size: 20px; font-weight: 900; color: var(--ink); line-height: 1; }
-    .act-unit { font-size: 10px; color: var(--ink3); font-weight: 700; }
+/* POOP */
+.poop-status-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:14px; }
+.poop-status-btn { background:rgba(180,140,100,0.05); border:1.5px solid rgba(180,140,100,0.13); border-radius:16px; padding:16px 10px; cursor:pointer; text-align:center; transition:all 0.15s; font-family:"Nunito",sans-serif; display:flex; flex-direction:column; align-items:center; gap:6px; }
+.poop-status-btn:active { transform:scale(0.95); }
+.poop-status-btn.selected { border-color:rgba(160,110,70,0.45); background:rgba(180,140,100,0.13); box-shadow:0 2px 10px rgba(160,110,70,0.12); }
+.poop-status-icon { width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
+.poop-status-label { font-size:13px; font-weight:800; color:var(--ink2); }
+.poop-status-btn.selected .poop-status-label { color:#6a4a10; }
 
-    .timeline-card {
-      background: var(--surface); border-radius: var(--r);
-      border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 12px;
-    }
-    .timeline-header { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
-    .timeline-title { font-size: 13px; font-weight: 800; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.6px; }
-    .timeline-item {
-      display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px;
-      border-bottom: 1px solid rgba(0,0,0,0.04);
-    }
-    .timeline-item:last-child { border-bottom: none; }
-    .tl-time { font-size: 12px; font-weight: 700; color: var(--ink3); min-width: 44px; padding-top: 2px; }
-    .tl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; border: 2px solid white; }
-    .tl-body { flex: 1; }
-    .tl-main { font-size: 13px; font-weight: 800; color: var(--ink); margin-bottom: 4px; }
-    .tl-pills { display: flex; flex-wrap: wrap; gap: 4px; }
-    .tl-pill { background: rgba(0,0,0,0.06); border-radius: 50px; padding: 2px 8px; font-size: 11px; font-weight: 700; color: var(--ink2); }
-    .tl-pill.food { background: rgba(232,168,85,0.15); color: #8a5a10; }
-    .tl-pill.water { background: rgba(122,174,212,0.15); color: #2a4a8a; }
-    .tl-pill.poop { background: rgba(180,140,100,0.15); color: #6a4a20; }
-    .tl-pill.pee { background: rgba(232,210,85,0.15); color: #8a6a10; }
-    .tl-pill.memo { background: rgba(184,170,212,0.2); color: #5a4a8a; }
+.rec-action-btn { width:100%; padding:14px 20px; border-radius:50px; font-family:"Nunito",sans-serif; font-size:14px; font-weight:800; border:none; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+.rec-action-btn.pee { background:rgba(210,190,80,0.12); color:#7a5a10; border:1.5px solid rgba(200,160,40,0.25); }
+.rec-action-btn.poop { background:rgba(180,140,100,0.1); color:#6a4a20; border:1.5px solid rgba(160,110,70,0.22); }
+.rec-action-btn:active { transform:scale(0.97); }
+.rec-submit { padding:14px 16px; border-top:1px solid rgba(0,0,0,0.04); }
+.btn-confirm { width:100%; padding:16px 24px; border-radius:50px; background:var(--ink); color:white; font-family:"Nunito",sans-serif; font-size:16px; font-weight:800; border:none; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.16); transition:all 0.2s; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; gap:8px; }
+.btn-confirm:active { transform:scale(0.97); }
+.btn-confirm.loading { opacity:0.7; }
+.info-tip { background:rgba(123,200,123,0.07); border:1px solid rgba(123,200,123,0.18); border-radius:11px; padding:9px 12px; margin-bottom:12px; font-size:11px; font-weight:700; color:#3a6a3a; display:flex; align-items:center; gap:6px; }
 
-    /* ══ RECORD PAGE ══ */
-    .rec-section {
-      background: var(--surface); border-radius: var(--r);
-      border: 1px solid var(--border); box-shadow: var(--shadow);
-      margin-bottom: 14px; overflow: hidden;
-    }
-    .rec-header {
-      padding: 14px 16px 12px; display: flex; align-items: center; gap: 10px;
-      border-bottom: 1px solid var(--border);
-    }
-    .rec-header-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
-    }
-    .rec-header-icon.food { background: rgba(232,168,85,0.15); }
-    .rec-header-icon.water { background: rgba(122,174,212,0.15); }
-    .rec-header-icon.toilet { background: rgba(180,140,100,0.12); }
-    .rec-header-icon.memo { background: rgba(184,170,212,0.15); }
-    .rec-header-icon.pee { background: rgba(232,210,85,0.12); }
-    .rec-header-text { flex: 1; }
-    .rec-header-title { font-size: 14px; font-weight: 800; color: var(--ink); }
-    .rec-header-sub { font-size: 11px; color: var(--ink3); font-weight: 600; margin-top: 1px; }
-    .rec-badge { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 50px; background: rgba(0,0,0,0.06); color: var(--ink2); }
-    .rec-body { padding: 14px 16px; }
+/* HISTORY */
+.history-item { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--shadow); padding:14px 16px; margin-bottom:10px; }
+.history-date { font-size:12px; font-weight:800; color:var(--accent); margin-bottom:8px; }
+.history-pills { display:flex; flex-wrap:wrap; gap:5px; }
+.h-pill { background:rgba(0,0,0,0.04); border-radius:50px; padding:4px 10px; font-size:11px; font-weight:700; color:var(--ink2); border:1px solid rgba(0,0,0,0.04); }
 
-    .input-group { margin-bottom: 12px; }
-    .input-lbl { font-size: 11px; font-weight: 800; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
-    .input-row { display: flex; gap: 8px; align-items: center; }
-    input[type="number"], input[type="text"], input[type="time"], select, textarea {
-      width: 100%; background: rgba(0,0,0,0.04);
-      border: 1.5px solid rgba(0,0,0,0.08); border-radius: var(--r-sm);
-      padding: 11px 14px; font-family: "Nunito", sans-serif;
-      font-size: 15px; font-weight: 700; color: var(--ink);
-      outline: none; transition: all 0.2s; -webkit-appearance: none; appearance: none;
-    }
-    input:focus, select:focus, textarea:focus { border-color: var(--accent); background: white; }
-    .input-unit { font-size: 12px; font-weight: 800; color: var(--ink3); white-space: nowrap; min-width: 28px; }
-    textarea { resize: none; height: 80px; line-height: 1.6; }
+/* PET */
+.pet-hero-page { background:linear-gradient(135deg,rgba(244,198,198,0.38),rgba(184,170,212,0.32)); border-radius:var(--r); border:1px solid rgba(255,255,255,0.55); box-shadow:var(--shadow); padding:24px 16px; margin-bottom:12px; text-align:center; position:relative; overflow:hidden; }
+.pet-hero-page::before { content:""; position:absolute; inset:0; background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(255,255,255,0.25) 0%,transparent 70%); pointer-events:none; }
+.pet-page-avatar { width:90px; height:90px; border-radius:50%; object-fit:cover; border:3px solid white; box-shadow:0 6px 24px rgba(0,0,0,0.14); margin-bottom:12px; display:block; margin-left:auto; margin-right:auto; cursor:pointer; transition:opacity 0.2s; position:relative; }
+.pet-page-avatar:active { opacity:0.85; }
+.pet-page-name { font-family:"Playfair Display",serif; font-size:28px; font-weight:700; color:var(--ink); position:relative; }
+.pet-page-sub { font-size:13px; color:var(--ink3); font-weight:600; margin-top:4px; position:relative; }
+.pet-info-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:12px; }
+.pet-info-item { background:var(--surface); border-radius:14px; padding:14px 12px; border:1px solid var(--border); box-shadow:var(--shadow); }
+.pet-info-item.wide { grid-column:1 / -1; }
+.pi-icon-wrap { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.04); margin-bottom:6px; }
+.pi-label { font-size:10px; font-weight:800; color:var(--ink3); text-transform:uppercase; letter-spacing:0.4px; }
+.pi-val { font-size:15px; font-weight:800; color:var(--ink); margin-top:3px; }
+.pi-val-blue { color:#3a6ab0; }
+.neuter-card { background:var(--surface); border-radius:var(--r); padding:16px 18px; margin-bottom:12px; border:1px solid var(--border); box-shadow:var(--shadow); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.ni-title { font-size:14px; font-weight:800; color:var(--ink); }
+.ni-sub { font-size:11px; color:var(--ink3); font-weight:600; margin-top:2px; }
+.toggle-row { display:flex; align-items:center; gap:8px; }
+.toggle-lbl { font-size:12px; font-weight:700; color:var(--ink3); }
+.ios-toggle { position:relative; width:48px; height:28px; flex-shrink:0; }
+.ios-toggle input { opacity:0; width:0; height:0; }
+.ios-slider { position:absolute; inset:0; border-radius:28px; background:#ddd; cursor:pointer; transition:background 0.25s; }
+.ios-slider::before { content:""; position:absolute; width:22px; height:22px; border-radius:50%; background:white; top:3px; left:3px; box-shadow:0 1px 4px rgba(0,0,0,0.2); transition:transform 0.25s; }
+.ios-toggle input:checked + .ios-slider { background:#7bc87b; }
+.ios-toggle input:checked + .ios-slider::before { transform:translateX(20px); }
+.ios-toggle.locked { opacity:0.5; pointer-events:none; }
+.weight-card { background:var(--surface); border-radius:var(--r); padding:16px 18px; margin-bottom:12px; border:1px solid var(--border); box-shadow:var(--shadow); display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; }
+.weight-card:active { opacity:0.85; }
+.weight-val-big { font-size:22px; font-weight:900; color:var(--ink); }
+.weight-val-unit { font-size:12px; font-weight:700; color:var(--ink3); }
 
-    .food-quick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-    .food-quick-btn {
-      background: rgba(232,168,85,0.08);
-      border: 1.5px solid rgba(232,168,85,0.2);
-      border-radius: 14px; padding: 12px 6px;
-      cursor: pointer; text-align: center; transition: all 0.15s;
-      font-family: "Nunito", sans-serif;
-    }
-    .food-quick-btn:active { transform: scale(0.95); }
-    .food-quick-btn.selected {
-      border-color: var(--amber); background: rgba(232,168,85,0.18);
-      box-shadow: 0 2px 10px rgba(232,168,85,0.2);
-    }
-    .fqb-grams { font-size: 18px; font-weight: 900; color: var(--ink); line-height: 1; }
-    .fqb-kcal { font-size: 10px; color: var(--amber); font-weight: 700; margin-top: 3px; }
+/* TOAST */
+.toast { position:fixed; bottom:calc(var(--nav-height) + env(safe-area-inset-bottom,0px) + 10px); left:50%; transform:translateX(-50%) translateY(20px); background:rgba(26,20,18,0.92); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); color:white; padding:12px 22px; border-radius:50px; font-size:13px; font-weight:700; box-shadow:0 4px 24px rgba(0,0,0,0.2); opacity:0; transition:all 0.3s; pointer-events:none; z-index:9998; white-space:nowrap; }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-    .water-quick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-    .water-quick-btn {
-      background: rgba(122,174,212,0.08);
-      border: 1.5px solid rgba(122,174,212,0.2);
-      border-radius: 14px; padding: 12px 6px;
-      cursor: pointer; text-align: center; transition: all 0.15s;
-      font-family: "Nunito", sans-serif;
-    }
-    .water-quick-btn:active { transform: scale(0.95); }
-    .water-quick-btn.selected {
-      border-color: var(--blue); background: rgba(122,174,212,0.18);
-      box-shadow: 0 2px 10px rgba(122,174,212,0.2);
-    }
-    .wqb-val { font-size: 18px; font-weight: 900; color: var(--ink); line-height: 1; }
-    .wqb-unit { font-size: 10px; color: var(--ink3); font-weight: 700; margin-top: 1px; }
+.empty-state { text-align:center; padding:48px 20px; color:var(--ink3); }
+.empty-icon { margin-bottom:12px; display:flex; align-items:center; justify-content:center; }
+.empty-state p { font-size:14px; font-weight:600; }
+.loader { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.35); border-top-color:white; border-radius:50%; animation:spin 0.6s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
 
-    .kcal-banner {
-      background: linear-gradient(135deg, rgba(232,168,85,0.12), rgba(244,198,198,0.1));
-      border: 1.5px solid rgba(232,168,85,0.25);
-      border-radius: 12px; padding: 10px 14px;
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 12px;
-    }
-    .kcal-banner-label { font-size: 11px; font-weight: 700; color: var(--ink3); }
-    .kcal-banner-val { font-size: 20px; font-weight: 900; color: var(--amber); }
-    .kcal-banner-unit { font-size: 11px; font-weight: 700; color: var(--ink3); margin-left: 4px; }
+/* MODALS */
+.modal-overlay { position:fixed; inset:0; z-index:9000; background:rgba(0,0,0,0.35); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.25s; }
+.modal-overlay.show { opacity:1; pointer-events:auto; }
+.modal-sheet { background:rgba(245,240,235,0.97); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-radius:24px 24px 0 0; padding:20px 20px calc(env(safe-area-inset-bottom,0px) + 20px); width:100%; max-width:480px; box-shadow:0 -8px 40px rgba(0,0,0,0.12); transform:translateY(30px); transition:transform 0.3s cubic-bezier(0.34,1.2,0.64,1); }
+.modal-overlay.show .modal-sheet { transform:translateY(0); }
+.modal-handle { width:36px; height:4px; border-radius:2px; background:rgba(0,0,0,0.15); margin:0 auto 16px; }
+.modal-title { font-family:"Playfair Display",serif; font-size:18px; font-weight:700; color:var(--ink); margin-bottom:16px; }
+.modal-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.modal-lbl { font-size:13px; font-weight:700; color:var(--ink2); min-width:80px; }
+.modal-input { flex:1; background:rgba(0,0,0,0.04); border:1.5px solid rgba(0,0,0,0.07); border-radius:12px; padding:10px 12px; font-family:"Nunito",sans-serif; font-size:16px; font-weight:700; color:var(--ink); outline:none; -webkit-appearance:none; appearance:none; }
+.modal-input:focus { border-color:var(--accent); background:white; }
+.modal-save-btn { width:100%; padding:14px; border-radius:50px; background:var(--ink); color:white; font-family:"Nunito",sans-serif; font-size:15px; font-weight:800; border:none; cursor:pointer; box-shadow:0 4px 18px rgba(0,0,0,0.15); transition:all 0.2s; margin-top:4px; }
+.modal-save-btn:active { transform:scale(0.97); }
+.modal-cancel-btn { width:100%; padding:12px; border-radius:50px; background:rgba(0,0,0,0.06); color:var(--ink2); font-family:"Nunito",sans-serif; font-size:14px; font-weight:800; border:none; cursor:pointer; transition:all 0.2s; margin-top:8px; }
+.modal-cancel-btn:active { transform:scale(0.97); }
+.confirm-modal-overlay { position:fixed; inset:0; z-index:9500; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.25s; padding:20px; }
+.confirm-modal-overlay.show { opacity:1; pointer-events:auto; }
+.confirm-modal { background:rgba(245,240,235,0.98); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-radius:20px; padding:24px 20px; width:100%; max-width:320px; box-shadow:0 12px 48px rgba(0,0,0,0.2); transform:scale(0.92); transition:transform 0.3s cubic-bezier(0.34,1.2,0.64,1); }
+.confirm-modal-overlay.show .confirm-modal { transform:scale(1); }
+.confirm-icon-wrap { width:52px; height:52px; border-radius:50%; background:rgba(123,200,123,0.15); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; }
+.confirm-title { font-family:"Playfair Display",serif; font-size:18px; font-weight:700; color:var(--ink); text-align:center; margin-bottom:8px; }
+.confirm-desc { font-size:13px; color:var(--ink2); font-weight:600; text-align:center; line-height:1.5; margin-bottom:20px; }
+.confirm-btn-row { display:flex; gap:10px; }
+.confirm-ok-btn { flex:1; padding:12px; border-radius:50px; background:var(--ink); color:white; font-family:"Nunito",sans-serif; font-size:14px; font-weight:800; border:none; cursor:pointer; }
+.confirm-ok-btn:active { transform:scale(0.97); }
+.confirm-no-btn { flex:1; padding:12px; border-radius:50px; background:rgba(0,0,0,0.06); color:var(--ink2); font-family:"Nunito",sans-serif; font-size:14px; font-weight:800; border:none; cursor:pointer; }
+.confirm-no-btn:active { transform:scale(0.97); }
+#hiddenFileInput { display:none; }
+```
 
-    .pee-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-    .pee-status-btn {
-      background: rgba(232,210,85,0.07);
-      border: 1.5px solid rgba(232,210,85,0.2);
-      border-radius: 14px; padding: 12px 6px;
-      cursor: pointer; text-align: center; transition: all 0.15s;
-      font-family: "Nunito", sans-serif;
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-    }
-    .pee-status-btn:active { transform: scale(0.95); }
-    .pee-status-btn.selected {
-      border-color: rgba(210,170,40,0.6); background: rgba(232,210,85,0.18);
-      box-shadow: 0 2px 10px rgba(210,170,40,0.15);
-    }
-    .pee-status-icon { font-size: 20px; line-height: 1; }
-    .pee-status-label { font-size: 11px; font-weight: 800; color: var(--ink2); }
-    .pee-status-btn.selected .pee-status-label { color: #7a5a10; }
-
-    .poop-status-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 14px; }
-    .poop-status-btn {
-      background: rgba(180,140,100,0.07);
-      border: 1.5px solid rgba(180,140,100,0.15);
-      border-radius: 14px; padding: 14px 10px;
-      cursor: pointer; text-align: center; transition: all 0.15s;
-      font-family: "Nunito", sans-serif;
-      display: flex; flex-direction: column; align-items: center; gap: 5px;
-    }
-    .poop-status-btn:active { transform: scale(0.95); }
-    .poop-status-btn.selected {
-      border-color: rgba(160,110,70,0.5); background: rgba(180,140,100,0.15);
-      box-shadow: 0 2px 10px rgba(160,110,70,0.15);
-    }
-    .poop-status-icon { font-size: 22px; line-height: 1; }
-    .poop-status-label { font-size: 13px; font-weight: 800; color: var(--ink2); }
-    .poop-status-btn.selected .poop-status-label { color: #6a4a10; }
-
-    .rec-action-btn {
-      width: 100%; padding: 14px 20px; border-radius: 50px;
-      font-family: "Nunito", sans-serif; font-size: 14px; font-weight: 800;
-      border: none; cursor: pointer; transition: all 0.2s;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .rec-action-btn.pee { background: rgba(232,210,85,0.15); color: #7a5a10; border: 1.5px solid rgba(210,170,40,0.3); }
-    .rec-action-btn.poop { background: rgba(180,140,100,0.12); color: #6a4a20; border: 1.5px solid rgba(160,110,70,0.25); }
-    .rec-action-btn:active { transform: scale(0.97); }
-
-    .rec-submit { padding: 14px 16px; border-top: 1px solid var(--border); }
-    .btn-confirm {
-      width: 100%; padding: 16px 24px; border-radius: 50px;
-      background: var(--ink); color: white;
-      font-family: "Nunito", sans-serif; font-size: 16px; font-weight: 800;
-      border: none; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.18);
-      transition: all 0.2s; position: relative; overflow: hidden;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .btn-confirm:active { transform: scale(0.97); }
-    .btn-confirm.loading { opacity: 0.7; }
-
-    .food-type-chips { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 12px; scrollbar-width: none; }
-    .food-type-chips::-webkit-scrollbar { display: none; }
-    .food-chip {
-      padding: 7px 14px; border-radius: 50px; font-size: 12px; font-weight: 800;
-      border: 1.5px solid rgba(0,0,0,0.08); background: rgba(0,0,0,0.04); color: var(--ink2);
-      cursor: pointer; transition: all 0.15s; user-select: none; white-space: nowrap; flex-shrink: 0;
-      font-family: "Nunito", sans-serif;
-    }
-    .food-chip.selected { background: rgba(232,168,85,0.15); border-color: rgba(232,168,85,0.5); color: #8a5a10; }
-    .food-chip:active { transform: scale(0.95); }
-
-    /* ── HISTORY ── */
-    .history-item {
-      background: var(--surface); border-radius: var(--r);
-      border: 1px solid var(--border); box-shadow: var(--shadow); padding: 14px 16px; margin-bottom: 10px;
-    }
-    .history-date { font-size: 12px; font-weight: 800; color: var(--accent); margin-bottom: 8px; }
-    .history-pills { display: flex; flex-wrap: wrap; gap: 5px; }
-    .h-pill { background: rgba(0,0,0,0.06); border-radius: 50px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: var(--ink2); }
-
-    /* ── PET PAGE ── */
-    .pet-hero-page {
-      background: linear-gradient(135deg, rgba(244,198,198,0.4), rgba(184,170,212,0.35));
-      border-radius: var(--r); border: 1px solid rgba(255,255,255,0.6);
-      box-shadow: var(--shadow); padding: 24px 16px; margin-bottom: 12px; text-align: center;
-    }
-    .pet-page-avatar {
-      width: 90px; height: 90px; border-radius: 50%; object-fit: cover;
-      border: 3px solid white; box-shadow: 0 6px 24px rgba(0,0,0,0.15);
-      margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;
-    }
-    .pet-page-name { font-family: "Playfair Display", serif; font-size: 28px; font-weight: 700; color: var(--ink); }
-    .pet-page-sub { font-size: 13px; color: var(--ink3); font-weight: 600; margin-top: 4px; }
-    .pet-info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
-    .pet-info-item { background: var(--surface); border-radius: var(--r-sm); padding: 14px 12px; border: 1px solid var(--border); box-shadow: var(--shadow); }
-    .pet-info-item.wide { grid-column: 1 / -1; }
-    .pi-icon { font-size: 20px; margin-bottom: 4px; }
-    .pi-label { font-size: 10px; font-weight: 800; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.4px; }
-    .pi-val { font-size: 15px; font-weight: 800; color: var(--ink); margin-top: 3px; }
-
-    .neuter-card {
-      background: var(--surface); border-radius: var(--r); padding: 16px 18px;
-      margin-bottom: 12px; border: 1px solid var(--border); box-shadow: var(--shadow);
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    }
-    .ni-title { font-size: 14px; font-weight: 800; color: var(--ink); }
-    .ni-sub { font-size: 11px; color: var(--ink3); font-weight: 600; margin-top: 2px; }
-    .toggle-row { display: flex; align-items: center; gap: 8px; }
-    .toggle-lbl { font-size: 12px; font-weight: 700; color: var(--ink3); }
-    .ios-toggle { position: relative; width: 48px; height: 28px; flex-shrink: 0; }
-    .ios-toggle input { opacity: 0; width: 0; height: 0; }
-    .ios-slider { position: absolute; inset: 0; border-radius: 28px; background: #ddd; cursor: pointer; transition: background 0.25s; }
-    .ios-slider::before { content: ""; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: white; top: 3px; left: 3px; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: transform 0.25s; }
-    .ios-toggle input:checked + .ios-slider { background: #7bc87b; }
-    .ios-toggle input:checked + .ios-slider::before { transform: translateX(20px); }
-
-    /* ── TOAST：固定在 nav-bar 上方 ── */
-    .toast {
-      position: fixed;
-      /* nav-bar 高度 + safe area + 8px 間距 */
-      bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 8px);
-      left: 50%; transform: translateX(-50%) translateY(20px);
-      background: var(--ink); color: white; padding: 12px 22px; border-radius: 50px;
-      font-size: 14px; font-weight: 700; box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-      opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 9998; white-space: nowrap;
-    }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-    .empty-state { text-align: center; padding: 48px 20px; color: var(--ink3); }
-    .empty-icon { font-size: 48px; margin-bottom: 12px; }
-    .empty-state p { font-size: 14px; font-weight: 600; }
-
-    .loader { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .info-tip {
-      background: rgba(123,200,123,0.08); border: 1px solid rgba(123,200,123,0.2);
-      border-radius: 10px; padding: 8px 12px; margin-bottom: 12px;
-      font-size: 11px; font-weight: 700; color: #3a6a3a;
-      display: flex; align-items: center; gap: 6px;
-    }
   </style>
 </head>
 <body>
 
-<!-- ══ SPLASH ══ -->
+<!-- SPLASH -->
+
 <div id="splash">
-  <img src="data:image/jpeg;base64,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" class="splash-avatar" alt="棉花糖"/>
+  <img id="splashAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Ccircle cx='44' cy='44' r='44' fill='%23f0e8e0'/%3E%3Ctext x='44' y='56' text-anchor='middle' font-size='44'%3E%F0%9F%90%B1%3C/text%3E%3C/svg%3E" class="splash-avatar" alt="棉花糖" id="splashAvatarImg"/>
   <div class="splash-question">你好，是誰來陪<br>棉花糖了？</div>
-  <div class="splash-sub2">請選擇你的身份，開始記錄今天 🐾</div>
+  <div class="splash-sub2">請選擇你的身份，開始記錄今天</div>
   <div class="role-cards">
-    <div class="role-card dad" id="card-dad" onclick="pickRole('dad')">
-      <div class="rc-avatar">🧑</div>
+    <div class="role-card" id="card-dad" onclick="pickRole('dad')">
+      <div class="rc-icon-wrap dad">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#3a6ab0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="16" cy="11" r="5"/>
+          <path d="M6 29c0-5.523 4.477-10 10-10s10 4.477 10 10"/>
+        </svg>
+      </div>
       <div class="rc-name">爸爸</div>
       <div class="rc-sub">棉花糖的爸比</div>
     </div>
-    <div class="role-card mom" id="card-mom" onclick="pickRole('mom')">
-      <div class="rc-avatar">👩</div>
+    <div class="role-card" id="card-mom" onclick="pickRole('mom')">
+      <div class="rc-icon-wrap mom">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#b04040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="16" cy="11" r="5"/>
+          <path d="M6 29c0-5.523 4.477-10 10-10s10 4.477 10 10"/>
+          <path d="M13 16c0 2 1 3 3 3s3-1 3-3"/>
+        </svg>
+      </div>
       <div class="rc-name">媽媽</div>
       <div class="rc-sub">棉花糖的媽咪</div>
     </div>
   </div>
-  <button class="splash-enter-btn" id="enterBtn" onclick="enterApp()" disabled>進入日記 →</button>
+  <button class="splash-enter-btn" id="enterBtn" onclick="enterApp()" disabled>進入日記</button>
   <div class="splash-save-note">記憶將保存在此裝置</div>
 </div>
 
-<!-- ══ APP ══ -->
-<div id="app" style="display:none">
+<input type="file" id="hiddenFileInput" accept="image/*"/>
 
+<!-- APP -->
+
+<div id="app" style="display:none">
   <header class="app-header">
     <div class="header-inner">
-      <div class="h-avatar-wrap">
-        <img src="data:image/jpeg;base64,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" class="h-avatar" alt="棉花糖"/>
-        <div class="h-edit-dot">✎</div>
+      <div class="h-avatar-wrap" onclick="document.getElementById('hiddenFileInput').click()">
+        <img id="headerAvatarImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='46' height='46' viewBox='0 0 46 46'%3E%3Ccircle cx='23' cy='23' r='23' fill='%23f0e8e0'/%3E%3Ctext x='23' y='30' text-anchor='middle' font-size='26'%3E%F0%9F%90%B1%3C/text%3E%3C/svg%3E" class="h-avatar" alt="棉花糖"/>
+        <div class="h-edit-dot">
+          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round"><path d="M1 9l2-0.5 5.5-5.5a1.4 1.4 0 0 0-2-2L1 6.5z"/></svg>
+        </div>
       </div>
       <div class="h-info">
         <div class="h-name-row">
           <span class="h-name">棉花糖</span>
-          <span class="mode-pill dad" id="modePill" onclick="switchRole()">🧑 爸爸</span>
+          <span class="mode-pill mode-pill-dad" id="modePill" onclick="switchRole()">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="4" r="2.5"/><path d="M1 11c0-2.761 2.239-5 5-5s5 2.239 5 5"/></svg>
+            <span id="modePillText">爸爸</span>
+          </span>
         </div>
         <div class="h-meta">
-          <span class="h-breed">海豹雙色布偶 · <span id="headerNeuter">尚未結紮</span></span>
+          <span class="h-breed">海豹雙色布偶</span>
         </div>
         <div class="h-meta" style="margin-top:4px">
-          <span class="h-tag" id="ageTag">🎂 — 個月</span>
+          <span class="h-tag">
+            <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="1" y="2" width="10" height="9" rx="2"/><path d="M4 1v2M8 1v2M1 6h10"/></svg>
+            <span id="ageTagText">— 個月</span>
+          </span>
           <span class="conn-badge loading" id="connBadge"><span class="conn-dot"></span><span>連線中</span></span>
         </div>
         <div class="h-meta" style="margin-top:4px">
-          <span class="days-pill" id="daysHomePill">🏠 來家 — 天</span>
+          <span class="days-pill" id="daysHomePill">來家 — 天</span>
         </div>
       </div>
       <div class="h-right">
@@ -628,577 +449,855 @@
     </div>
   </header>
 
-  <!-- 中間內容區：flex:1 + overflow-y:auto -->
   <div class="content-area" id="contentArea">
 
-    <!-- TODAY -->
-    <div class="page active" id="page-today">
-      <div id="alertsZone"></div>
-      <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-label">熱量 (BC34)</div>
-          <div class="stat-ring-wrap">
-            <div class="stat-ring">
-              <svg viewBox="0 0 56 56" width="56" height="56">
-                <circle class="stat-ring-bg" cx="28" cy="28" r="24"/>
-                <circle class="stat-ring-fill" id="ring-kcal" cx="28" cy="28" r="24" stroke="#e8a855" stroke-dasharray="150.8" stroke-dashoffset="150.8"/>
-              </svg>
-              <div class="stat-ring-val"><span id="ring-kcal-pct">0</span><span class="stat-ring-unit">%</span></div>
-            </div>
-            <div class="stat-right">
-              <div class="stat-val-big"><span id="stat-kcal">0</span></div>
-              <div class="stat-val-unit">/ 297 kcal</div>
-              <div id="stat-kcal-status" class="stat-status low"><span class="stat-dot"></span>還差 297 kcal</div>
-            </div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">飲水</div>
-          <div class="stat-ring-wrap">
-            <div class="stat-ring">
-              <svg viewBox="0 0 56 56" width="56" height="56">
-                <circle class="stat-ring-bg" cx="28" cy="28" r="24"/>
-                <circle class="stat-ring-fill" id="ring-water" cx="28" cy="28" r="24" stroke="#7aaed4" stroke-dasharray="150.8" stroke-dashoffset="150.8"/>
-              </svg>
-              <div class="stat-ring-val"><span id="ring-water-pct">0</span><span class="stat-ring-unit">%</span></div>
-            </div>
-            <div class="stat-right">
-              <div class="stat-val-big"><span id="stat-water">0</span></div>
-              <div class="stat-val-unit">/ 200 ml</div>
-              <div id="stat-water-status" class="stat-status low"><span class="stat-dot"></span>需要補充</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="activity-card">
-        <div class="activity-header">
-          <span class="activity-title">今日活動</span>
-          <span class="activity-count" id="activity-count">0 筆紀錄</span>
-        </div>
-        <div class="activity-grid">
-          <div class="act-item" id="act-meal"><div class="act-icon">🍽️</div><div class="act-val" id="act-meal-val">0</div><div class="act-unit">餐</div></div>
-          <div class="act-item" id="act-pee"><div class="act-icon">💧</div><div class="act-val" id="act-pee-val">0</div><div class="act-unit">小便</div></div>
-          <div class="act-item" id="act-poop"><div class="act-icon">💩</div><div class="act-val" id="act-poop-val">0</div><div class="act-unit">大便</div></div>
-        </div>
-      </div>
-      <div class="timeline-card" id="timelineCard" style="display:none">
-        <div class="timeline-header"><span class="timeline-title">今日紀錄</span></div>
-        <div id="timelineBody"></div>
+```
+<!-- TODAY PAGE -->
+<div class="page active" id="page-today">
+  <div id="skeletonLoader">
+    <div class="skeleton-card">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px"><div class="skeleton skeleton-circle"></div><div style="flex:1"><div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:40%"></div></div></div>
+        <div style="display:flex;align-items:center;gap:12px"><div class="skeleton skeleton-circle"></div><div style="flex:1"><div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:40%"></div></div></div>
       </div>
     </div>
-
-    <!-- RECORD -->
-    <div class="page" id="page-record">
-      <div class="page-title">新增紀錄</div>
-      <div class="page-sub" id="recSub">記錄棉花糖的每一刻</div>
-      <div class="rec-section">
-        <div class="rec-header">
-          <div class="rec-header-icon food">🍽️</div>
-          <div class="rec-header-text">
-            <div class="rec-header-title">餵食紀錄</div>
-            <div class="rec-header-sub">皇家 BC34 · 362 kcal / 100g</div>
+    <div class="skeleton-card"><div class="skeleton skeleton-line" style="width:50%;margin-bottom:16px"></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><div class="skeleton" style="height:70px;border-radius:14px"></div><div class="skeleton" style="height:70px;border-radius:14px"></div><div class="skeleton" style="height:70px;border-radius:14px"></div></div></div>
+  </div>
+  <div id="todayContent" style="display:none">
+    <div id="alertsZone"></div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">熱量 (BC34)</div>
+        <button class="stat-gear-btn" onclick="openGoalModal()" aria-label="編輯目標">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.22 3.22l1.41 1.41M11.36 11.36l1.42 1.42M3.22 12.78l1.41-1.41M11.36 4.64l1.42-1.42"/></svg>
+        </button>
+        <div class="stat-ring-wrap">
+          <div class="stat-ring">
+            <svg viewBox="0 0 56 56" width="56" height="56"><circle class="stat-ring-bg" cx="28" cy="28" r="24"/><circle class="stat-ring-fill" id="ring-kcal" cx="28" cy="28" r="24" stroke="#e8a855" stroke-dasharray="150.8" stroke-dashoffset="150.8"/></svg>
+            <div class="stat-ring-val"><span id="ring-kcal-pct">0</span><span class="stat-ring-unit">%</span></div>
           </div>
-          <span class="rec-badge" id="todayMealsCount">今日 0 餐</span>
-        </div>
-        <div class="rec-body">
-          <div class="info-tip">🐾 BC34 幼貓飼料 — 每克 3.62 kcal，自動換算熱量</div>
-          <div class="input-group">
-            <div class="input-lbl">⏰ 餵食時間</div>
-            <input type="time" id="feedTime"/>
-          </div>
-          <div class="input-lbl" style="margin-bottom:8px">🍖 食物種類</div>
-          <div class="food-type-chips" id="foodTypeChips">
-            <button class="food-chip selected" data-val="乾飼料" onclick="selectFoodType(this)">🌾 乾飼料</button>
-            <button class="food-chip" data-val="主食罐" onclick="selectFoodType(this)">🥫 主食罐</button>
-            <button class="food-chip" data-val="副食罐" onclick="selectFoodType(this)">🍱 副食罐</button>
-            <button class="food-chip" data-val="生食" onclick="selectFoodType(this)">🥩 生食</button>
-            <button class="food-chip" data-val="點心" onclick="selectFoodType(this)">🍬 點心</button>
-          </div>
-          <div class="input-lbl" style="margin-bottom:8px">⚡ 快速份量</div>
-          <div class="food-quick-grid" id="quickFoodBtns">
-            <div class="food-quick-btn" data-g="15" onclick="selectQuickGrams(this,15)"><div class="fqb-grams">15g</div><div class="fqb-kcal">≈ 54 kcal</div></div>
-            <div class="food-quick-btn" data-g="20" onclick="selectQuickGrams(this,20)"><div class="fqb-grams">20g</div><div class="fqb-kcal">≈ 72 kcal</div></div>
-            <div class="food-quick-btn" data-g="30" onclick="selectQuickGrams(this,30)"><div class="fqb-grams">30g</div><div class="fqb-kcal">≈ 109 kcal</div></div>
-            <div class="food-quick-btn" data-g="40" onclick="selectQuickGrams(this,40)"><div class="fqb-grams">40g</div><div class="fqb-kcal">≈ 145 kcal</div></div>
-            <div class="food-quick-btn" data-g="50" onclick="selectQuickGrams(this,50)"><div class="fqb-grams">50g</div><div class="fqb-kcal">≈ 181 kcal</div></div>
-            <div class="food-quick-btn" data-g="82" onclick="selectQuickGrams(this,82)"><div class="fqb-grams">82g</div><div class="fqb-kcal">≈ 297 kcal</div></div>
-          </div>
-          <div class="input-group">
-            <div class="input-lbl">⚖️ 自定克數</div>
-            <div class="input-row">
-              <input type="number" id="feedGrams" placeholder="輸入克數" min="0" max="500" oninput="updateKcalBanner()"/>
-              <span class="input-unit">g</span>
-            </div>
-          </div>
-          <div class="kcal-banner" id="kcalBanner">
-            <div>
-              <div class="kcal-banner-label">熱量換算 (BC34)</div>
-              <div style="font-size:11px;color:var(--ink3);font-weight:600;margin-top:2px">輸入克數後自動顯示</div>
-            </div>
-            <div style="display:flex;align-items:baseline;gap:3px">
-              <span class="kcal-banner-val" id="kcalBannerVal">—</span>
-              <span class="kcal-banner-unit">kcal</span>
-            </div>
+          <div class="stat-right">
+            <div class="stat-val-big"><span id="stat-kcal">0</span></div>
+            <div class="stat-val-unit">/ <span id="kcalTargetDisplay">297</span> kcal</div>
+            <div id="stat-kcal-status" class="stat-status low"><span class="stat-dot"></span><span id="kcalStatusText">還差 297 kcal</span></div>
           </div>
         </div>
       </div>
-      <div class="rec-section">
-        <div class="rec-header">
-          <div class="rec-header-icon water">💧</div>
-          <div class="rec-header-text">
-            <div class="rec-header-title">飲水紀錄</div>
-            <div class="rec-header-sub">今日目標 200 ml</div>
+      <div class="stat-card">
+        <div class="stat-label">飲水</div>
+        <button class="stat-gear-btn" onclick="openGoalModal()" aria-label="編輯目標">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.22 3.22l1.41 1.41M11.36 11.36l1.42 1.42M3.22 12.78l1.41-1.41M11.36 4.64l1.42-1.42"/></svg>
+        </button>
+        <div class="stat-ring-wrap">
+          <div class="stat-ring">
+            <svg viewBox="0 0 56 56" width="56" height="56"><circle class="stat-ring-bg" cx="28" cy="28" r="24"/><circle class="stat-ring-fill" id="ring-water" cx="28" cy="28" r="24" stroke="#7aaed4" stroke-dasharray="150.8" stroke-dashoffset="150.8"/></svg>
+            <div class="stat-ring-val"><span id="ring-water-pct">0</span><span class="stat-ring-unit">%</span></div>
           </div>
-          <span class="rec-badge" id="todayWaterCount">今日 0 ml</span>
-        </div>
-        <div class="rec-body">
-          <div class="input-lbl" style="margin-bottom:8px">💡 快速記錄</div>
-          <div class="water-quick-grid" id="quickWaterBtns">
-            <div class="water-quick-btn" data-ml="20" onclick="selectQuickWater(this,20)"><div class="wqb-val">20</div><div class="wqb-unit">ml</div></div>
-            <div class="water-quick-btn" data-ml="50" onclick="selectQuickWater(this,50)"><div class="wqb-val">50</div><div class="wqb-unit">ml</div></div>
-            <div class="water-quick-btn" data-ml="100" onclick="selectQuickWater(this,100)"><div class="wqb-val">100</div><div class="wqb-unit">ml</div></div>
+          <div class="stat-right">
+            <div class="stat-val-big"><span id="stat-water">0</span></div>
+            <div class="stat-val-unit">/ <span id="waterTargetDisplay">200</span> ml</div>
+            <div id="stat-water-status" class="stat-status low"><span class="stat-dot"></span>需要補充</div>
           </div>
-          <div class="input-group">
-            <div class="input-lbl">自定水量</div>
-            <div class="input-row">
-              <input type="number" id="waterMl" placeholder="0" min="0" max="1000"/>
-              <span class="input-unit">ml</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="rec-section">
-        <div class="rec-header">
-          <div class="rec-header-icon pee">🟡</div>
-          <div class="rec-header-text">
-            <div class="rec-header-title">小便紀錄</div>
-            <div class="rec-header-sub">量與顏色是健康重要指標</div>
-          </div>
-        </div>
-        <div class="rec-body">
-          <div class="pee-status-grid" id="peeGrid">
-            <button class="pee-status-btn" data-val="量多" onclick="selectPeeStatus(this)"><span class="pee-status-icon">⬆️</span><span class="pee-status-label">量多</span></button>
-            <button class="pee-status-btn" data-val="量少" onclick="selectPeeStatus(this)"><span class="pee-status-icon">⬇️</span><span class="pee-status-label">量少</span></button>
-            <button class="pee-status-btn" data-val="顏色深" onclick="selectPeeStatus(this)"><span class="pee-status-icon">🔶</span><span class="pee-status-label">顏色深</span></button>
-            <button class="pee-status-btn" data-val="顏色淡" onclick="selectPeeStatus(this)"><span class="pee-status-icon">🔹</span><span class="pee-status-label">顏色淡</span></button>
-            <button class="pee-status-btn" data-val="正常" onclick="selectPeeStatus(this)"><span class="pee-status-icon">✅</span><span class="pee-status-label">正常</span></button>
-            <button class="pee-status-btn" data-val="血尿" onclick="selectPeeStatus(this)"><span class="pee-status-icon">🔴</span><span class="pee-status-label">血尿</span></button>
-          </div>
-          <button class="rec-action-btn pee" onclick="quickAddPee()">🟡 記錄一次小便</button>
-        </div>
-      </div>
-      <div class="rec-section">
-        <div class="rec-header">
-          <div class="rec-header-icon toilet">💩</div>
-          <div class="rec-header-text">
-            <div class="rec-header-title">大便紀錄</div>
-            <div class="rec-header-sub">腸胃健康的晴雨表</div>
-          </div>
-        </div>
-        <div class="rec-body">
-          <div class="poop-status-grid" id="poopGrid">
-            <button class="poop-status-btn" data-val="正常" onclick="selectPoopStatus(this)"><span class="poop-status-icon">✅</span><span class="poop-status-label">正常</span></button>
-            <button class="poop-status-btn" data-val="軟便" onclick="selectPoopStatus(this)"><span class="poop-status-icon">〰️</span><span class="poop-status-label">軟便</span></button>
-            <button class="poop-status-btn" data-val="腹瀉" onclick="selectPoopStatus(this)"><span class="poop-status-icon">💦</span><span class="poop-status-label">腹瀉</span></button>
-            <button class="poop-status-btn" data-val="乾硬" onclick="selectPoopStatus(this)"><span class="poop-status-icon">🪨</span><span class="poop-status-label">乾硬</span></button>
-          </div>
-          <button class="rec-action-btn poop" onclick="quickAddPoop()">💩 記錄一次大便</button>
-        </div>
-      </div>
-      <div class="rec-section">
-        <div class="rec-header">
-          <div class="rec-header-icon memo">📝</div>
-          <div class="rec-header-text">
-            <div class="rec-header-title">備忘紀錄</div>
-            <div class="rec-header-sub">今天有特別的事嗎？</div>
-          </div>
-        </div>
-        <div class="rec-body">
-          <textarea id="memo" placeholder="棉花糖今天有什麼特別的表現呢？悄悄記下來 🐾"></textarea>
-        </div>
-      </div>
-      <div class="rec-section">
-        <div class="rec-submit">
-          <button class="btn-confirm" id="saveBtn" onclick="saveRecord()">
-            <span id="saveBtnIcon">✨</span><span id="saveBtnText">儲存這次紀錄</span>
-          </button>
         </div>
       </div>
     </div>
-
-    <!-- HISTORY -->
-    <div class="page" id="page-history">
-      <div class="page-title">歷史紀錄</div>
-      <div class="page-sub" id="historySub">過去的健康軌跡</div>
-      <div id="historyList"><div class="empty-state"><div class="empty-icon">🐱</div><p>載入中...</p></div></div>
-    </div>
-
-    <!-- PET -->
-    <div class="page" id="page-pet">
-      <div class="pet-hero-page">
-        <img src="data:image/jpeg;base64,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" class="pet-page-avatar" alt="棉花糖"/>
-        <div class="pet-page-name">棉花糖</div>
-        <div class="pet-page-sub" id="petAgeStr">布偶貓 · 計算中...</div>
+    <div class="activity-card">
+      <div class="activity-header">
+        <span class="activity-title">今日活動</span>
+        <span class="activity-count" id="activity-count">0 筆紀錄</span>
       </div>
-      <div class="pet-info-grid">
-        <div class="pet-info-item"><div class="pi-icon">🎂</div><div class="pi-label">生日</div><div class="pi-val">2025.12.13</div></div>
-        <div class="pet-info-item"><div class="pi-icon">🏠</div><div class="pi-label">到家日</div><div class="pi-val">2026.04.18</div></div>
-        <div class="pet-info-item"><div class="pi-icon">⚧</div><div class="pi-label">性別</div><div class="pi-val">公貓 ♂</div></div>
-        <div class="pet-info-item"><div class="pi-icon">🐾</div><div class="pi-label">品種</div><div class="pi-val">布偶貓</div></div>
-        <div class="pet-info-item wide"><div class="pi-icon">🏠</div><div class="pi-label">在家天數</div><div class="pi-val" id="petDaysHome">計算中...</div></div>
-      </div>
-      <div class="neuter-card">
-        <div><div class="ni-title">✂️ 結紮狀態</div><div class="ni-sub" id="neuterSub">尚未結紮 — 結紮後請開啟</div></div>
-        <div class="toggle-row">
-          <span class="toggle-lbl" id="neuterLbl">未結紮</span>
-          <label class="ios-toggle"><input type="checkbox" id="neuterToggle" onchange="saveNeuter()"/><span class="ios-slider"></span></label>
+      <div class="activity-grid">
+        <div class="act-item" id="act-meal">
+          <div class="act-icon-wrap"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-linecap="round"><path d="M3 2v7a4 4 0 0 0 8 0V2M7 2v16M14 2c0 0 3 2 3 7s-3 7-3 7"/></svg></div>
+          <div class="act-val" id="act-meal-val">0</div><div class="act-unit">餐</div>
+        </div>
+        <div class="act-item" id="act-pee">
+          <div class="act-icon-wrap"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#c8b040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2c0 0-6 6-6 10a6 6 0 0 0 12 0c0-4-6-10-6-10z"/></svg></div>
+          <div class="act-val" id="act-pee-val">0</div><div class="act-unit">小便</div>
+        </div>
+        <div class="act-item" id="act-poop">
+          <div class="act-icon-wrap"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#a07850" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16h10a2 2 0 0 0 0-4H14a3 3 0 1 0-8 0H5a2 2 0 0 0 0 4z"/></svg></div>
+          <div class="act-val" id="act-poop-val">0</div><div class="act-unit">大便</div>
         </div>
       </div>
     </div>
+    <div class="timeline-card" id="timelineCard" style="display:none">
+      <div class="timeline-header"><span class="timeline-title">今日紀錄</span></div>
+      <div id="timelineBody"></div>
+    </div>
+  </div>
+</div>
 
-  </div><!-- /content-area -->
+<!-- RECORD PAGE -->
+<div class="page" id="page-record">
+  <div class="page-title">新增紀錄</div>
+  <div class="page-sub" id="recSub">記錄棉花糖的每一刻</div>
 
-  <!-- 底部導覽列：position fixed 貼底 -->
+  <div class="rec-section">
+    <div class="rec-header">
+      <div class="rec-header-icon food"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#b07830" stroke-width="1.5" stroke-linecap="round"><path d="M3 2v7a4 4 0 0 0 8 0V2M7 2v16M14 2c0 0 3 2 3 7s-3 7-3 7"/></svg></div>
+      <div class="rec-header-text"><div class="rec-header-title">餵食紀錄</div><div class="rec-header-sub">BC34 3.62 kcal/g · K36 可切換</div></div>
+      <span class="rec-badge" id="todayMealsCount">今日 0 餐</span>
+    </div>
+    <div class="rec-body">
+      <div class="info-tip"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#3a6a3a" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="6"/><path d="M7 6v4M7 4.5v.5"/></svg>皇家幼貓飼料 — 自動換算熱量</div>
+      <div class="input-group">
+        <div class="input-lbl"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="5"/><path d="M6 4v2l1.5 1.5"/></svg>餵食時間</div>
+        <input type="time" id="feedTime"/>
+      </div>
+      <div class="input-lbl" style="margin-bottom:8px">食物種類</div>
+      <div class="seg-control-wrap" id="segControlWrap">
+        <div class="seg-slider" id="segSlider"></div>
+        <button class="seg-btn active" data-val="乾飼料" onclick="selectFoodTypeSeg(this)">乾飼料</button>
+        <button class="seg-btn" data-val="主食罐" onclick="selectFoodTypeSeg(this)">主食罐</button>
+        <button class="seg-btn" data-val="副食罐" onclick="selectFoodTypeSeg(this)">副食罐</button>
+        <button class="seg-btn" data-val="生食" onclick="selectFoodTypeSeg(this)">生食</button>
+        <button class="seg-btn" data-val="點心" onclick="selectFoodTypeSeg(this)">點心</button>
+      </div>
+      <div class="coeff-toggle-row">
+        <span class="coeff-lbl">熱量係數</span>
+        <div class="coeff-seg">
+          <button class="coeff-btn active" id="coeffBC34" onclick="switchCoeff('bc34')">BC34 · 3.62</button>
+          <button class="coeff-btn" id="coeffK36" onclick="switchCoeff('k36')">K36 · 4.05</button>
+        </div>
+      </div>
+      <div class="input-lbl" style="margin-bottom:8px">快速份量</div>
+      <div class="food-quick-grid" id="quickFoodBtns">
+        <div class="food-quick-btn" data-g="25" onclick="selectQuickGrams(this,25)"><div class="fqb-grams">25g</div><div class="fqb-kcal" id="fq-25">≈ 91 kcal</div></div>
+        <div class="food-quick-btn" data-g="30" onclick="selectQuickGrams(this,30)"><div class="fqb-grams">30g</div><div class="fqb-kcal" id="fq-30">≈ 109 kcal</div></div>
+        <div class="food-quick-btn" data-g="35" onclick="selectQuickGrams(this,35)"><div class="fqb-grams">35g</div><div class="fqb-kcal" id="fq-35">≈ 127 kcal</div></div>
+        <div class="food-quick-btn" data-g="40" onclick="selectQuickGrams(this,40)"><div class="fqb-grams">40g</div><div class="fqb-kcal" id="fq-40">≈ 145 kcal</div></div>
+        <div class="food-quick-btn" data-g="45" onclick="selectQuickGrams(this,45)"><div class="fqb-grams">45g</div><div class="fqb-kcal" id="fq-45">≈ 163 kcal</div></div>
+        <div class="food-quick-btn" data-g="50" onclick="selectQuickGrams(this,50)"><div class="fqb-grams">50g</div><div class="fqb-kcal" id="fq-50">≈ 181 kcal</div></div>
+      </div>
+      <div class="input-group">
+        <div class="input-lbl">自定克數</div>
+        <div class="stepper-row">
+          <button class="stepper-btn" onclick="stepGrams(-1)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M5 8h6"/></svg></button>
+          <input type="number" id="feedGrams" class="stepper-input" placeholder="25" min="0" max="500" oninput="updateKcalBanner()"/>
+          <button class="stepper-btn" onclick="stepGrams(1)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M8 5v6M5 8h6"/></svg></button>
+        </div>
+      </div>
+      <div class="kcal-banner">
+        <div><div class="kcal-banner-label">熱量換算 (<span id="coeffLabel">BC34</span>)</div><div style="font-size:11px;color:var(--ink3);font-weight:600;margin-top:2px">輸入克數後自動顯示</div></div>
+        <div style="display:flex;align-items:baseline;gap:3px"><span class="kcal-banner-val" id="kcalBannerVal">—</span><span class="kcal-banner-unit">kcal</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rec-section">
+    <div class="rec-header">
+      <div class="rec-header-icon water"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#4a7ab0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2c0 0-6 6-6 10a6 6 0 0 0 12 0c0-4-6-10-6-10z"/><path d="M7.5 14a3 3 0 0 0 4.5-1"/></svg></div>
+      <div class="rec-header-text"><div class="rec-header-title">飲水紀錄</div><div class="rec-header-sub">今日目標 <span id="waterTargetRec">200</span> ml</div></div>
+      <span class="rec-badge" id="todayWaterCount">今日 0 ml</span>
+    </div>
+    <div class="rec-body">
+      <div class="input-lbl" style="margin-bottom:8px">快速記錄</div>
+      <div class="water-quick-grid" id="quickWaterBtns">
+        <div class="water-quick-btn" data-ml="20" onclick="selectQuickWater(this,20)"><div class="wqb-val">20</div><div class="wqb-unit">ml</div></div>
+        <div class="water-quick-btn" data-ml="50" onclick="selectQuickWater(this,50)"><div class="wqb-val">50</div><div class="wqb-unit">ml</div></div>
+        <div class="water-quick-btn" data-ml="100" onclick="selectQuickWater(this,100)"><div class="wqb-val">100</div><div class="wqb-unit">ml</div></div>
+      </div>
+      <div class="input-group">
+        <div class="input-lbl">自定水量</div>
+        <div class="stepper-row">
+          <button class="stepper-btn" onclick="stepWater(-10)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M5 8h6"/></svg></button>
+          <input type="number" id="waterMl" class="stepper-input" placeholder="0" min="0" max="1000"/>
+          <button class="stepper-btn" onclick="stepWater(10)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M8 5v6M5 8h6"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rec-section">
+    <div class="rec-header">
+      <div class="rec-header-icon pee"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#b0900a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2c0 0-6 6-6 10a6 6 0 0 0 12 0c0-4-6-10-6-10z"/><path d="M8 14a3 2 0 0 0 3 0"/></svg></div>
+      <div class="rec-header-text"><div class="rec-header-title">小便紀錄</div><div class="rec-header-sub">量與顏色是健康重要指標</div></div>
+    </div>
+    <div class="rec-body">
+      <div class="pee-status-grid" id="peeGrid">
+        <button class="pee-status-btn" data-val="量多" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0900a" stroke-width="1.5" stroke-linecap="round"><path d="M12 4v16M6 10l6-6 6 6"/></svg></span><span class="pee-status-label">量多</span></button>
+        <button class="pee-status-btn" data-val="量少" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0900a" stroke-width="1.5" stroke-linecap="round"><path d="M12 20V4M6 14l6 6 6-6"/></svg></span><span class="pee-status-label">量少</span></button>
+        <button class="pee-status-btn" data-val="顏色深" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0900a" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="13" r="6"/><path d="M12 4v3"/></svg></span><span class="pee-status-label">顏色深</span></button>
+        <button class="pee-status-btn" data-val="顏色淡" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0900a" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="2 2"><circle cx="12" cy="13" r="6"/><path d="M12 4v3"/></svg></span><span class="pee-status-label">顏色淡</span></button>
+        <button class="pee-status-btn" data-val="正常" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3a7a3a" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/></svg></span><span class="pee-status-label">正常</span></button>
+        <button class="pee-status-btn" data-val="血尿" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b04040" stroke-width="1.5" stroke-linecap="round"><path d="M12 2c0 0-7 7-7 12a7 7 0 0 0 14 0c0-5-7-12-7-12z"/><path d="M12 22V12"/></svg></span><span class="pee-status-label">血尿</span></button>
+      </div>
+      <button class="rec-action-btn pee" onclick="quickAddPee()"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M8 5v6M5 8h6"/></svg>記錄一次小便</button>
+    </div>
+  </div>
+
+  <div class="rec-section">
+    <div class="rec-header">
+      <div class="rec-header-icon toilet"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#8a6040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16h10a2 2 0 0 0 0-4H14a3 3 0 1 0-8 0H5a2 2 0 0 0 0 4z"/><path d="M9 12a2 2 0 0 1 4 0"/><path d="M10 10c0-1 0.5-2 1-2.5"/></svg></div>
+      <div class="rec-header-text"><div class="rec-header-title">大便紀錄</div><div class="rec-header-sub">腸胃健康的晴雨表</div></div>
+    </div>
+    <div class="rec-body">
+      <div class="poop-status-grid" id="poopGrid">
+        <button class="poop-status-btn" data-val="正常" onclick="selectPoopStatus(this)"><span class="poop-status-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#3a7a3a" stroke-width="1.5" stroke-linecap="round"><circle cx="14" cy="14" r="10"/><path d="M10 14l3 3 6-6"/></svg></span><span class="poop-status-label">正常</span></button>
+        <button class="poop-status-btn" data-val="軟便" onclick="selectPoopStatus(this)"><span class="poop-status-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#a07050" stroke-width="1.5" stroke-linecap="round"><path d="M4 18c2-4 6-4 8-8s6-4 8-2"/><path d="M6 22c2-4 6-4 8-8s6-4 8-2"/></svg></span><span class="poop-status-label">軟便</span></button>
+        <button class="poop-status-btn" data-val="腹瀉" onclick="selectPoopStatus(this)"><span class="poop-status-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#7a9ab0" stroke-width="1.5" stroke-linecap="round"><path d="M8 8l12 12M8 20l12-12"/><path d="M6 4c0 4 4 8 8 8"/></svg></span><span class="poop-status-label">腹瀉</span></button>
+        <button class="poop-status-btn" data-val="乾硬" onclick="selectPoopStatus(this)"><span class="poop-status-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#a07050" stroke-width="1.5" stroke-linecap="round"><rect x="7" y="10" width="14" height="10" rx="4"/><path d="M11 10V8a3 3 0 0 1 6 0v2"/></svg></span><span class="poop-status-label">乾硬</span></button>
+      </div>
+      <button class="rec-action-btn poop" onclick="quickAddPoop()"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M8 5v6M5 8h6"/></svg>記錄一次大便</button>
+    </div>
+  </div>
+
+  <div class="rec-section">
+    <div class="rec-header">
+      <div class="rec-header-icon memo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#7060a0" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="14" height="14" rx="3"/><path d="M7 7h6M7 10h6M7 13h4"/></svg></div>
+      <div class="rec-header-text"><div class="rec-header-title">備忘紀錄</div><div class="rec-header-sub">今天有特別的事嗎？</div></div>
+    </div>
+    <div class="rec-body"><textarea id="memo" placeholder="棉花糖今天有什麼特別的表現呢？悄悄記下來"></textarea></div>
+  </div>
+  <div class="rec-section">
+    <div class="rec-submit">
+      <button class="btn-confirm" id="saveBtn" onclick="saveRecord()">
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" id="saveBtnSvg"><path d="M3 9l5 5 7-9"/></svg>
+        <span id="saveBtnText">儲存這次紀錄</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY PAGE -->
+<div class="page" id="page-history">
+  <div class="page-title">歷史紀錄</div>
+  <div class="page-sub" id="historySub">過去的健康軌跡</div>
+  <div id="historyList"><div class="empty-state"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--ink4)" stroke-width="1.5" stroke-linecap="round"><circle cx="20" cy="20" r="16"/><path d="M20 12v8l5 3"/></svg></div><p>載入中...</p></div></div>
+</div>
+
+<!-- PET PAGE -->
+<div class="page" id="page-pet">
+  <div class="pet-hero-page">
+    <img id="petPageAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'%3E%3Ccircle cx='45' cy='45' r='45' fill='%23f0e8e0'/%3E%3Ctext x='45' y='58' text-anchor='middle' font-size='52'%3E%F0%9F%90%B1%3C/text%3E%3C/svg%3E" class="pet-page-avatar" alt="棉花糖" onclick="document.getElementById('hiddenFileInput').click()"/>
+    <div class="pet-page-name">棉花糖</div>
+    <div class="pet-page-sub" id="petAgeStr">布偶貓 · 計算中...</div>
+  </div>
+  <div class="pet-info-grid">
+    <div class="pet-info-item"><div class="pi-icon-wrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"><rect x="1" y="3" width="14" height="12" rx="2"/><path d="M5 1v3M11 1v3M1 8h14"/></svg></div><div class="pi-label">生日</div><div class="pi-val">2025.12.13</div></div>
+    <div class="pet-info-item"><div class="pi-icon-wrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round"><path d="M2 14V8a6 6 0 0 1 12 0v6"/><path d="M2 11h12"/></svg></div><div class="pi-label">到家日</div><div class="pi-val">2026.04.18</div></div>
+    <div class="pet-info-item"><div class="pi-icon-wrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3a6ab0" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.314 2.686-6 6-6s6 2.686 6 6"/></svg></div><div class="pi-label">性別</div><div class="pi-val pi-val-blue">公貓 ♂</div></div>
+    <div class="pet-info-item"><div class="pi-icon-wrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--accent2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4c0-1 1-2 2-2s1 1 2 2 1 2 2 2 2-1 2-2"/><path d="M2 10c1-2 3-3 6-3s5 1 6 3v3H2v-3z"/></svg></div><div class="pi-label">品種</div><div class="pi-val">布偶貓</div></div>
+    <div class="pet-info-item wide"><div class="pi-icon-wrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg></div><div class="pi-label">在家天數</div><div class="pi-val" id="petDaysHome">計算中...</div></div>
+  </div>
+  <div class="weight-card" onclick="openWeightModal()">
+    <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="pi-icon-wrap" style="margin-bottom:0"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6060a0" stroke-width="1.6" stroke-linecap="round"><path d="M2 14l1-4h10l1 4H2z"/><path d="M6 10V7a2 2 0 0 1 4 0v3"/><path d="M3 6h10"/></svg></div><span style="font-size:14px;font-weight:800;color:var(--ink)">目前體重</span></div><div style="font-size:11px;color:var(--ink3);font-weight:600">點擊更新體重</div></div>
+    <div style="display:flex;align-items:baseline;gap:3px"><span class="weight-val-big" id="weightDisplay">—</span><span class="weight-val-unit">kg</span></div>
+  </div>
+  <div class="neuter-card">
+    <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="pi-icon-wrap" style="margin-bottom:0"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#60a060" stroke-width="1.6" stroke-linecap="round"><path d="M10 2l4 4-8 8H2v-4L10 2z"/><path d="M14 6l-4-4"/></svg></div><span class="ni-title">結紮狀態</span></div><div class="ni-sub" id="neuterSub">尚未結紮 — 結紮後請開啟</div></div>
+    <div class="toggle-row"><span class="toggle-lbl" id="neuterLbl">未結紮</span><label class="ios-toggle" id="neuterToggleLabel"><input type="checkbox" id="neuterToggle" onchange="handleNeuterChange()"/><span class="ios-slider"></span></label></div>
+  </div>
+</div>
+```
+
+  </div>
+
   <nav class="nav-bar">
     <button class="nav-item active" id="nav-today" onclick="switchPage('today')">
-      <span class="nav-icon">🏠</span><span class="nav-label">今日</span>
+      <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12L12 3l9 9"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-5h4v5h4a1 1 0 0 0 1-1v-9"/></svg></span>
+      <span class="nav-label">今日</span>
     </button>
     <button class="nav-item" id="nav-record" onclick="switchPage('record')">
-      <span class="nav-icon">＋</span><span class="nav-label">記錄</span>
+      <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span>
+      <span class="nav-label">記錄</span>
     </button>
     <button class="nav-item" id="nav-history" onclick="switchPage('history')">
-      <span class="nav-icon">🕐</span><span class="nav-label">歷史</span>
+      <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
+      <span class="nav-label">歷史</span>
     </button>
     <button class="nav-item" id="nav-pet" onclick="switchPage('pet')">
-      <span class="nav-icon"><img src="data:image/jpeg;base64,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" class="nav-cat-img" alt="棉花糖"/></span>
+      <span class="nav-icon"><img id="navCatImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='12' fill='%23f0e8e0'/%3E%3Ctext x='12' y='16' text-anchor='middle' font-size='14'%3E%F0%9F%90%B1%3C/text%3E%3C/svg%3E" class="nav-cat-img" alt="棉花糖"/></span>
       <span class="nav-label">棉花糖</span>
     </button>
   </nav>
+</div>
 
-</div><!-- /app -->
+<!-- GOAL MODAL -->
+
+<div class="modal-overlay" id="goalModal" onclick="closeModalOnBg(event,'goalModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">每日目標設定</div>
+    <div class="modal-row"><span class="modal-lbl">熱量目標</span><input type="number" class="modal-input" id="modalKcalTarget" placeholder="297"/><span style="font-size:12px;color:var(--ink3);font-weight:700;white-space:nowrap">kcal</span></div>
+    <div class="modal-row"><span class="modal-lbl">飲水目標</span><input type="number" class="modal-input" id="modalWaterTarget" placeholder="200"/><span style="font-size:12px;color:var(--ink3);font-weight:700;white-space:nowrap">ml</span></div>
+    <button class="modal-save-btn" onclick="saveGoals()">儲存目標</button>
+    <button class="modal-cancel-btn" onclick="closeModal('goalModal')">取消</button>
+  </div>
+</div>
+
+<!-- WEIGHT MODAL -->
+
+<div class="modal-overlay" id="weightModal" onclick="closeModalOnBg(event,'weightModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">更新體重</div>
+    <div class="modal-row"><span class="modal-lbl">目前體重</span><input type="number" class="modal-input" id="modalWeightInput" placeholder="2.5" step="0.1" min="0" max="20"/><span style="font-size:12px;color:var(--ink3);font-weight:700;white-space:nowrap">kg</span></div>
+    <button class="modal-save-btn" onclick="saveWeight()">儲存體重</button>
+    <button class="modal-cancel-btn" onclick="closeModal('weightModal')">取消</button>
+  </div>
+</div>
+
+<!-- NEUTER CONFIRM -->
+
+<div class="confirm-modal-overlay" id="neuterConfirmModal">
+  <div class="confirm-modal">
+    <div class="confirm-icon-wrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a060" stroke-width="1.8" stroke-linecap="round"><path d="M14 2l4 4-8 8H6v-4L14 2z"/><path d="M18 6l-4-4"/></svg></div>
+    <div class="confirm-title">確認結紮狀態</div>
+    <div class="confirm-desc">確認棉花糖已完成結紮手術嗎？<br>設定後將鎖定此狀態。</div>
+    <div class="confirm-btn-row"><button class="confirm-no-btn" onclick="cancelNeuter()">取消</button><button class="confirm-ok-btn" onclick="confirmNeuter()">確認已結紮</button></div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-const SUPABASE_URL="https://vmgwyvwkhqnjmbdbliia.supabase.co";
-const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZ3d5dndraHFuam1iZGJsaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MzU2MDYsImV4cCI6MjA5NDAxMTYwNn0.ZKaombHKVeoLk1RgzYn912tjlUSv4KE8CS5Wl_DunFs";
-const{createClient}=supabase;
-const db=createClient(SUPABASE_URL,SUPABASE_KEY);
+const SUPABASE_URL = "https://vmgwyvwkhqnjmbdbliia.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZ3d5dndraHFuam1iZGJsaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MzU2MDYsImV4cCI6MjA5NDAxMTYwNn0.ZKaombHKVeoLk1RgzYn912tjlUSv4KE8CS5Wl_DunFs";
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const BIRTHDAY=new Date("2025-12-13T00:00:00+08:00");
-const HOME_DATE=new Date("2026-04-18T00:00:00+08:00");
-const KCAL_TARGET=297,WATER_TARGET=200;
-const BC34_KCAL_PER_G=3.62;
+const BIRTHDAY = new Date("2025-12-13T00:00:00+08:00");
+const HOME_DATE = new Date("2026-04-18T00:00:00+08:00");
+const COEFFS = { bc34: 3.62, k36: 4.05 };
 
-let currentRole=null;
-let selectedPeeVal="",selectedPoopVal="";
-let selectedFoodType="乾飼料";
-const ROLES={dad:{icon:"🧑",label:"爸爸",cls:"dad"},mom:{icon:"👩",label:"媽媽",cls:"mom"}};
+let KCAL_TARGET = 297;
+let WATER_TARGET = 200;
+let currentRole = null;
+let selectedPeeVal = "";
+let selectedPoopVal = "";
+let selectedFoodType = "乾飼料";
+let currentCoeff = "bc34";
+let neuterConfirmed = false;
 
-function pickRole(r){
-  currentRole=r;
-  document.querySelectorAll(".role-card").forEach(c=>c.classList.remove("selected"));
-  document.getElementById("card-"+r).classList.add("selected");
-  document.getElementById("enterBtn").disabled=false;
+// ── SPLASH ──
+function pickRole(r) {
+  currentRole = r;
+  document.querySelectorAll(".role-card").forEach(c => c.classList.remove("sel-dad","sel-mom"));
+  document.getElementById("card-" + r).classList.add(r === "dad" ? "sel-dad" : "sel-mom");
+  document.getElementById("enterBtn").disabled = false;
 }
-function enterApp(){
-  if(!currentRole)return;
-  const sp=document.getElementById("splash");
+function enterApp() {
+  if (!currentRole) return;
+  const sp = document.getElementById("splash");
   sp.classList.add("hide");
-  setTimeout(()=>{sp.style.display="none";document.getElementById("app").style.display="flex";initApp();},500);
+  setTimeout(() => { sp.style.display = "none"; document.getElementById("app").style.display = "flex"; initApp(); }, 500);
 }
 
-function initApp(){
-  updateClock();setInterval(updateClock,1000);
-  applyRoleUI();loadNeuter();refreshPetPage();
-  testConnection();loadToday();
+// ── INIT ──
+function initApp() {
+  loadGoalsFromStorage();
+  updateClock();
+  setInterval(updateClock, 1000);
+  applyRoleUI();
+  loadNeuter();
+  loadWeight();
+  loadAvatar();
+  refreshPetPage();
+  testConnection();
+  loadToday();
   setFeedTimeNow();
-  document.getElementById("feedTime").addEventListener("change",e=>e.target.dataset.um="1");
+  initSegControl();
+  refreshQuickKcal();
+  document.getElementById("feedTime").addEventListener("change", e => { e.target.dataset.um = "1"; });
+  document.getElementById("hiddenFileInput").addEventListener("change", handleAvatarChange);
 }
 
-function setFeedTimeNow(){
-  const now=getTWNow(),ft=document.getElementById("feedTime");
-  if(!ft.dataset.um) ft.value=pad(now.getHours())+":"+pad(now.getMinutes());
+// ── GOALS ──
+function loadGoalsFromStorage() {
+  const k = parseFloat(localStorage.getItem("goal_kcal"));
+  const w = parseFloat(localStorage.getItem("goal_water"));
+  if (k > 0) KCAL_TARGET = k;
+  if (w > 0) WATER_TARGET = w;
+  const savedCoeff = localStorage.getItem("coeff_mode");
+  if (savedCoeff) currentCoeff = savedCoeff;
+  updateGoalDisplays();
+}
+function updateGoalDisplays() {
+  const ids = ["kcalTargetDisplay","waterTargetDisplay","waterTargetRec"];
+  const vals = [KCAL_TARGET, WATER_TARGET, WATER_TARGET];
+  ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.textContent = vals[i]; });
+}
+function openGoalModal() {
+  document.getElementById("modalKcalTarget").value = KCAL_TARGET;
+  document.getElementById("modalWaterTarget").value = WATER_TARGET;
+  document.getElementById("goalModal").classList.add("show");
+}
+function saveGoals() {
+  const k = parseFloat(document.getElementById("modalKcalTarget").value);
+  const w = parseFloat(document.getElementById("modalWaterTarget").value);
+  if (k > 0) { KCAL_TARGET = k; localStorage.setItem("goal_kcal", k); }
+  if (w > 0) { WATER_TARGET = w; localStorage.setItem("goal_water", w); }
+  updateGoalDisplays();
+  closeModal("goalModal");
+  showToast("目標已更新");
+  loadToday();
 }
 
-function applyRoleUI(){
-  if(!currentRole)return;
-  const r=ROLES[currentRole];
-  const p=document.getElementById("modePill");
-  p.textContent=r.icon+" "+r.label;p.className="mode-pill "+r.cls;
-  document.getElementById("historySub").textContent=r.label+"的紀錄";
-  document.getElementById("recSub").textContent=r.label+"幫棉花糖記錄每一刻";
+// ── COEFF SWITCH ──
+function switchCoeff(mode) {
+  currentCoeff = mode;
+  localStorage.setItem("coeff_mode", mode);
+  document.getElementById("coeffBC34").className = "coeff-btn" + (mode === "bc34" ? " active" : "");
+  document.getElementById("coeffK36").className = "coeff-btn" + (mode === "k36" ? " active" : "");
+  const lbl = document.getElementById("coeffLabel");
+  if (lbl) lbl.textContent = mode === "bc34" ? "BC34" : "K36";
+  refreshQuickKcal();
+  updateKcalBanner();
 }
-function switchRole(){
-  currentRole=currentRole==="dad"?"mom":"dad";
-  applyRoleUI();showToast(currentRole==="dad"?"🧑 切換成爸爸":"👩 切換成媽媽");loadToday();
-}
-
-function loadNeuter(){
-  const on=localStorage.getItem("cat_neutered")==="true";
-  document.getElementById("neuterToggle").checked=on;updateNeuterUI(on);
-}
-function saveNeuter(){
-  const on=document.getElementById("neuterToggle").checked;
-  localStorage.setItem("cat_neutered",on);updateNeuterUI(on);
-  showToast(on?"✂️ 已結紮 🎉":"已更新為未結紮");
-}
-function updateNeuterUI(on){
-  document.getElementById("neuterLbl").textContent=on?"已結紮":"未結紮";
-  document.getElementById("neuterSub").textContent=on?"棉花糖已完成結紮手術 ✂️":"尚未結紮 — 結紮後請開啟";
-  document.getElementById("headerNeuter").textContent=on?"已結紮":"尚未結紮";
+function getCoeffVal() { return COEFFS[currentCoeff]; }
+function refreshQuickKcal() {
+  const c = getCoeffVal();
+  [25,30,35,40,45,50].forEach(g => {
+    const el = document.getElementById("fq-" + g);
+    if (el) el.textContent = "≈ " + Math.round(g * c) + " kcal";
+  });
 }
 
-function getTWNow(){return new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Taipei"}))}
-function pad(n){return String(n).padStart(2,"0")}
-function formatDate(d){const w=["日","一","二","三","四","五","六"];return`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 (${w[d.getDay()]})`}
-function formatTime(d){return d.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true,timeZone:"Asia/Taipei"})}
-function getDateOnly(d){d=d||getTWNow();return d.toLocaleDateString("sv-SE",{timeZone:"Asia/Taipei"})}
-function daysSince(from){return Math.floor((getTWNow()-from)/86400000)}
-function calcAge(b){
-  const now=getTWNow();
-  let m=(now.getFullYear()-b.getFullYear())*12+(now.getMonth()-b.getMonth());
-  if(now.getDate()<b.getDate())m--;
-  if(m<12)return`${m} 個月大`;
-  const y=Math.floor(m/12),r=m%12;return r?`${y}歲${r}個月`:`${y}歲`;
+// ── AVATAR ──
+function handleAvatarChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { const d = ev.target.result; localStorage.setItem("cat_avatar", d); applyAvatar(d); };
+  reader.readAsDataURL(file);
+  e.target.value = "";
 }
-function updateClock(){
-  const now=getTWNow();
-  document.getElementById("hDate").textContent=formatDate(now);
-  document.getElementById("hTime").textContent=formatTime(now);
-  const d=daysSince(HOME_DATE);
-  document.getElementById("daysHomePill").textContent=`🏠 來家 ${d} 天`;
-  document.getElementById("ageTag").textContent=`🎂 ${calcAge(BIRTHDAY)}`;
+function loadAvatar() {
+  const stored = localStorage.getItem("cat_avatar");
+  if (stored) applyAvatar(stored);
+}
+function applyAvatar(src) {
+  ["headerAvatarImg","petPageAvatar","splashAvatarImg"].forEach(id => { const el = document.getElementById(id); if (el) el.src = src; });
+  const ni = document.getElementById("navCatImg");
+  if (ni) ni.src = src;
+}
+
+// ── SEGMENTED CONTROL ──
+function initSegControl() {
+  const wrap = document.getElementById("segControlWrap");
+  if (!wrap) return;
+  const slider = document.getElementById("segSlider");
+  const activeBtn = wrap.querySelector(".seg-btn.active");
+  if (activeBtn) moveSlider(slider, activeBtn, wrap);
+}
+function moveSlider(slider, btn, wrap) {
+  const wRect = wrap.getBoundingClientRect();
+  const bRect = btn.getBoundingClientRect();
+  slider.style.left = (bRect.left - wRect.left) + "px";
+  slider.style.width = bRect.width + "px";
+}
+function selectFoodTypeSeg(el) {
+  const wrap = document.getElementById("segControlWrap");
+  const slider = document.getElementById("segSlider");
+  wrap.querySelectorAll(".seg-btn").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+  selectedFoodType = el.dataset.val;
+  moveSlider(slider, el, wrap);
+}
+
+// ── ROLE ──
+function applyRoleUI() {
+  if (!currentRole) return;
+  const pill = document.getElementById("modePill");
+  const txt = document.getElementById("modePillText");
+  if (currentRole === "dad") { pill.className = "mode-pill mode-pill-dad"; if (txt) txt.textContent = "爸爸"; }
+  else { pill.className = "mode-pill mode-pill-mom"; if (txt) txt.textContent = "媽媽"; }
+  const sub = document.getElementById("historySub"); if (sub) sub.textContent = (currentRole === "dad" ? "爸爸" : "媽媽") + "的紀錄";
+  const rs = document.getElementById("recSub"); if (rs) rs.textContent = (currentRole === "dad" ? "爸爸" : "媽媽") + "幫棉花糖記錄每一刻";
+}
+function switchRole() {
+  currentRole = currentRole === "dad" ? "mom" : "dad";
+  applyRoleUI();
+  showToast(currentRole === "dad" ? "切換成爸爸" : "切換成媽媽");
+  loadToday();
+}
+
+// ── NEUTER ──
+function loadNeuter() {
+  neuterConfirmed = localStorage.getItem("cat_neutered") === "true";
+  const tog = document.getElementById("neuterToggle");
+  const label = document.getElementById("neuterToggleLabel");
+  tog.checked = neuterConfirmed;
+  if (neuterConfirmed) label.classList.add("locked"); else label.classList.remove("locked");
+  updateNeuterUI(neuterConfirmed);
+}
+function handleNeuterChange() {
+  const tog = document.getElementById("neuterToggle");
+  if (neuterConfirmed) { tog.checked = true; return; }
+  if (tog.checked) { tog.checked = false; document.getElementById("neuterConfirmModal").classList.add("show"); }
+}
+function cancelNeuter() { document.getElementById("neuterConfirmModal").classList.remove("show"); }
+function confirmNeuter() {
+  neuterConfirmed = true;
+  localStorage.setItem("cat_neutered", "true");
+  document.getElementById("neuterToggle").checked = true;
+  document.getElementById("neuterToggleLabel").classList.add("locked");
+  updateNeuterUI(true);
+  document.getElementById("neuterConfirmModal").classList.remove("show");
+  showToast("已完成結紮記錄");
+}
+function updateNeuterUI(on) {
+  const lbl = document.getElementById("neuterLbl"); if (lbl) lbl.textContent = on ? "已結紮" : "未結紮";
+  const sub = document.getElementById("neuterSub"); if (sub) sub.textContent = on ? "棉花糖已完成結紮手術" : "尚未結紮 — 結紮後請開啟";
+}
+
+// ── WEIGHT ──
+function loadWeight() {
+  const w = localStorage.getItem("cat_weight");
+  const el = document.getElementById("weightDisplay"); if (el) el.textContent = w || "—";
+}
+function openWeightModal() {
+  const w = localStorage.getItem("cat_weight");
+  document.getElementById("modalWeightInput").value = w || "";
+  document.getElementById("weightModal").classList.add("show");
+}
+function saveWeight() {
+  const v = parseFloat(document.getElementById("modalWeightInput").value);
+  if (!v || v <= 0) { showToast("請輸入正確體重"); return; }
+  localStorage.setItem("cat_weight", v.toFixed(1));
+  const el = document.getElementById("weightDisplay"); if (el) el.textContent = v.toFixed(1);
+  closeModal("weightModal");
+  showToast("體重已更新為 " + v.toFixed(1) + " kg");
+}
+
+// ── MODALS ──
+function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+function closeModalOnBg(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
+
+// ── CLOCK ──
+function getTWNow() { return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei" })); }
+function pad(n) { return String(n).padStart(2, "0"); }
+function formatDate(d) {
+  const w = ["日","一","二","三","四","五","六"];
+  return d.getFullYear() + "年" + (d.getMonth()+1) + "月" + d.getDate() + "日 (" + w[d.getDay()] + ")";
+}
+function formatTime(d) { return d.toLocaleTimeString("zh-TW", { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:true, timeZone:"Asia/Taipei" }); }
+function getDateOnly(d) { d = d || getTWNow(); return d.toLocaleDateString("sv-SE", { timeZone:"Asia/Taipei" }); }
+function daysSince(from) { return Math.floor((getTWNow() - from) / 86400000); }
+function calcAge(b) {
+  const now = getTWNow();
+  let m = (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
+  if (now.getDate() < b.getDate()) m--;
+  if (m < 12) return m + " 個月大";
+  const y = Math.floor(m / 12), r = m % 12;
+  return r ? y + "歲" + r + "個月" : y + "歲";
+}
+function setFeedTimeNow() {
+  const now = getTWNow(), ft = document.getElementById("feedTime");
+  if (ft && !ft.dataset.um) ft.value = pad(now.getHours()) + ":" + pad(now.getMinutes());
+}
+function updateClock() {
+  const now = getTWNow();
+  const hd = document.getElementById("hDate"); if (hd) hd.textContent = formatDate(now);
+  const ht = document.getElementById("hTime"); if (ht) ht.textContent = formatTime(now);
+  const dp = document.getElementById("daysHomePill"); if (dp) dp.textContent = "來家 " + daysSince(HOME_DATE) + " 天";
+  const at = document.getElementById("ageTagText"); if (at) at.textContent = calcAge(BIRTHDAY);
   setFeedTimeNow();
 }
 
-async function testConnection(){
-  try{
-    const{error}=await db.from("cat_records").select("id").limit(1);
-    if(error)throw error;
-    const b=document.getElementById("connBadge");
-    b.className="conn-badge";b.innerHTML='<span class="conn-dot"></span><span>已連線</span>';
-  }catch{
-    const b=document.getElementById("connBadge");
-    b.className="conn-badge err";b.innerHTML='<span class="conn-dot"></span><span>重連中</span>';
+// ── CONNECTION ──
+async function testConnection() {
+  try {
+    const { error } = await db.from("cat_records").select("id").limit(1);
+    if (error) throw error;
+    const b = document.getElementById("connBadge");
+    b.className = "conn-badge"; b.innerHTML = '<span class="conn-dot"></span><span>已連線</span>';
+  } catch {
+    const b = document.getElementById("connBadge");
+    b.className = "conn-badge err"; b.innerHTML = '<span class="conn-dot"></span><span>重連中</span>';
   }
 }
 
-function switchPage(n){
-  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-  document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
-  document.getElementById("page-"+n).classList.add("active");
-  document.getElementById("nav-"+n).classList.add("active");
-  document.getElementById("contentArea").scrollTo({top:0,behavior:"smooth"});
-  if(n==="today")loadToday();
-  if(n==="history")loadHistory();
-  if(n==="pet")refreshPetPage();
-  if(n==="record"){
-    document.getElementById("feedTime").dataset.um="";
-    setFeedTimeNow();resetQuickBtns();
+// ── PAGE SWITCH ──
+function switchPage(n) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(x => x.classList.remove("active"));
+  document.getElementById("page-" + n).classList.add("active");
+  document.getElementById("nav-" + n).classList.add("active");
+  document.getElementById("contentArea").scrollTo({ top:0, behavior:"smooth" });
+  if (n === "today") loadToday();
+  if (n === "history") loadHistory();
+  if (n === "pet") refreshPetPage();
+  if (n === "record") {
+    document.getElementById("feedTime").dataset.um = "";
+    setFeedTimeNow();
+    resetQuickBtns();
+    initSegControl();
   }
 }
 
-function selectFoodType(el){
-  document.querySelectorAll(".food-chip").forEach(b=>b.classList.remove("selected"));
-  el.classList.add("selected");selectedFoodType=el.dataset.val;
+// ── FOOD INPUT ──
+function stepGrams(delta) {
+  const inp = document.getElementById("feedGrams");
+  const cur = parseFloat(inp.value) || 25;
+  inp.value = Math.max(1, cur + delta);
+  updateKcalBanner();
+  document.querySelectorAll("#quickFoodBtns .food-quick-btn").forEach(b => b.classList.remove("selected"));
 }
-function updateKcalBanner(){
-  const g=parseFloat(document.getElementById("feedGrams").value)||null;
-  const bv=document.getElementById("kcalBannerVal");
-  if(g&&g>0){
-    bv.textContent=(g*BC34_KCAL_PER_G).toFixed(1);
-    document.querySelectorAll("#quickFoodBtns .food-quick-btn").forEach(b=>b.classList.remove("selected"));
-  }else{bv.textContent="—";}
+function stepWater(delta) {
+  const inp = document.getElementById("waterMl");
+  inp.value = Math.max(0, (parseFloat(inp.value) || 0) + delta);
 }
-function selectQuickGrams(el,g){
-  document.querySelectorAll("#quickFoodBtns .food-quick-btn").forEach(b=>b.classList.remove("selected"));
+function updateKcalBanner() {
+  const g = parseFloat(document.getElementById("feedGrams").value) || null;
+  const bv = document.getElementById("kcalBannerVal");
+  if (g && g > 0) {
+    bv.textContent = (g * getCoeffVal()).toFixed(1);
+    document.querySelectorAll("#quickFoodBtns .food-quick-btn").forEach(b => b.classList.remove("selected"));
+  } else { bv.textContent = "—"; }
+}
+function selectQuickGrams(el, g) {
+  document.querySelectorAll("#quickFoodBtns .food-quick-btn").forEach(b => b.classList.remove("selected"));
   el.classList.add("selected");
-  document.getElementById("feedGrams").value=g;
-  document.getElementById("kcalBannerVal").textContent=(g*BC34_KCAL_PER_G).toFixed(1);
+  document.getElementById("feedGrams").value = g;
+  document.getElementById("kcalBannerVal").textContent = (g * getCoeffVal()).toFixed(1);
 }
-function selectQuickWater(el,ml){
-  document.querySelectorAll("#quickWaterBtns .water-quick-btn").forEach(b=>b.classList.remove("selected"));
-  el.classList.add("selected");document.getElementById("waterMl").value=ml;
+function selectQuickWater(el, ml) {
+  document.querySelectorAll("#quickWaterBtns .water-quick-btn").forEach(b => b.classList.remove("selected"));
+  el.classList.add("selected");
+  document.getElementById("waterMl").value = ml;
 }
-function selectPeeStatus(el){
-  document.querySelectorAll("#peeGrid .pee-status-btn").forEach(b=>b.classList.remove("selected"));
-  selectedPeeVal=el.dataset.val;el.classList.add("selected");
+function selectPeeStatus(el) {
+  document.querySelectorAll("#peeGrid .pee-status-btn").forEach(b => b.classList.remove("selected"));
+  selectedPeeVal = el.dataset.val; el.classList.add("selected");
 }
-function selectPoopStatus(el){
-  document.querySelectorAll("#poopGrid .poop-status-btn").forEach(b=>b.classList.remove("selected"));
-  selectedPoopVal=el.dataset.val;el.classList.add("selected");
+function selectPoopStatus(el) {
+  document.querySelectorAll("#poopGrid .poop-status-btn").forEach(b => b.classList.remove("selected"));
+  selectedPoopVal = el.dataset.val; el.classList.add("selected");
 }
-function resetQuickBtns(){
-  selectedPeeVal="";selectedPoopVal="";
-  document.querySelectorAll(".food-quick-btn,.water-quick-btn").forEach(b=>b.classList.remove("selected"));
-  document.querySelectorAll(".pee-status-btn,.poop-status-btn").forEach(b=>b.classList.remove("selected"));
-  document.getElementById("kcalBannerVal").textContent="—";
+function resetQuickBtns() {
+  selectedPeeVal = ""; selectedPoopVal = "";
+  document.querySelectorAll(".food-quick-btn,.water-quick-btn,.pee-status-btn,.poop-status-btn").forEach(b => b.classList.remove("selected"));
+  const bv = document.getElementById("kcalBannerVal"); if (bv) bv.textContent = "—";
 }
 
-async function quickAddPee(){
-  if(!selectedPeeVal){showToast("⚠️ 請先選擇狀況");return}
-  const now=getTWNow();
-  const rec={record_date:getDateOnly(now),record_time:pad(now.getHours())+":"+pad(now.getMinutes()),pee_tags:[selectedPeeVal],food_type:"乾飼料",created_at_tw:now.toISOString()};
-  try{
-    const{error}=await db.from("cat_records").insert([rec]);
-    if(error)throw error;
-    showToast("✅ 小便紀錄已儲存！");selectedPeeVal="";
-    document.querySelectorAll("#peeGrid .pee-status-btn").forEach(b=>b.classList.remove("selected"));
+// ── QUICK ADD PEE ──
+async function quickAddPee() {
+  if (!selectedPeeVal) { showToast("請先選擇狀況"); return; }
+  const now = getTWNow();
+  const rec = { record_date: getDateOnly(now), record_time: pad(now.getHours())+":"+pad(now.getMinutes()), pee_tags: [selectedPeeVal], food_type: "乾飼料", created_at_tw: now.toISOString() };
+  try {
+    const { error } = await db.from("cat_records").insert([rec]);
+    if (error) throw error;
+    showToast("小便紀錄已儲存");
+    selectedPeeVal = "";
+    document.querySelectorAll("#peeGrid .pee-status-btn").forEach(b => b.classList.remove("selected"));
     loadToday();
-  }catch(e){showToast("❌ "+e.message)}
+  } catch(e) { showToast("儲存失敗：" + e.message); }
 }
-async function quickAddPoop(){
-  if(!selectedPoopVal){showToast("⚠️ 請先選擇狀況");return}
-  const now=getTWNow();
-  const rec={record_date:getDateOnly(now),record_time:pad(now.getHours())+":"+pad(now.getMinutes()),poop_state:selectedPoopVal,food_type:"乾飼料",created_at_tw:now.toISOString()};
-  try{
-    const{error}=await db.from("cat_records").insert([rec]);
-    if(error)throw error;
-    showToast("✅ 大便紀錄已儲存！");selectedPoopVal="";
-    document.querySelectorAll("#poopGrid .poop-status-btn").forEach(b=>b.classList.remove("selected"));
+
+// ── QUICK ADD POOP ──
+async function quickAddPoop() {
+  if (!selectedPoopVal) { showToast("請先選擇狀況"); return; }
+  const now = getTWNow();
+  const rec = { record_date: getDateOnly(now), record_time: pad(now.getHours())+":"+pad(now.getMinutes()), poop_state: selectedPoopVal, food_type: "乾飼料", created_at_tw: now.toISOString() };
+  try {
+    const { error } = await db.from("cat_records").insert([rec]);
+    if (error) throw error;
+    showToast("大便紀錄已儲存");
+    selectedPoopVal = "";
+    document.querySelectorAll("#poopGrid .poop-status-btn").forEach(b => b.classList.remove("selected"));
     loadToday();
-  }catch(e){showToast("❌ "+e.message)}
+  } catch(e) { showToast("儲存失敗：" + e.message); }
 }
 
-async function saveRecord(){
-  const btn=document.getElementById("saveBtn");
-  const icon=document.getElementById("saveBtnIcon");
-  const txt=document.getElementById("saveBtnText");
-  const now=getTWNow();
-  const ft=document.getElementById("feedTime");
-  const grams=parseFloat(document.getElementById("feedGrams").value)||null;
-  const water=parseFloat(document.getElementById("waterMl").value)||null;
-  const memo=document.getElementById("memo").value.trim()||null;
-  if(!grams&&!water&&!selectedPoopVal&&!selectedPeeVal&&!memo){showToast("⚠️ 請至少填寫一項資料");return;}
-  const kcal=grams?(grams*BC34_KCAL_PER_G):null;
-  const rec={record_date:getDateOnly(now),record_time:ft.value||pad(now.getHours())+":"+pad(now.getMinutes()),food_type:selectedFoodType,feed_grams:grams,calories_kcal:kcal,water_ml:water,pee_tags:selectedPeeVal?[selectedPeeVal]:null,poop_state:selectedPoopVal||null,memo,created_at_tw:now.toISOString()};
-  btn.classList.add("loading");icon.innerHTML='<span class="loader"></span>';txt.textContent="儲存中...";
-  try{
-    const{error}=await db.from("cat_records").insert([rec]);
-    if(error)throw error;
-    showToast("✅ 紀錄已儲存！");
-    ["feedGrams","waterMl","memo"].forEach(id=>document.getElementById(id).value="");
-    document.querySelectorAll(".food-chip").forEach(b=>b.classList.remove("selected"));
-    document.querySelector('.food-chip[data-val="乾飼料"]').classList.add("selected");
-    selectedFoodType="乾飼料";resetQuickBtns();ft.dataset.um="";setFeedTimeNow();
-    setTimeout(()=>switchPage("today"),600);
-  }catch(e){showToast("❌ "+e.message)}
-  finally{btn.classList.remove("loading");icon.textContent="✨";txt.textContent="儲存這次紀錄"}
+// ── SAVE RECORD ──
+async function saveRecord() {
+  const btn = document.getElementById("saveBtn");
+  const svgEl = document.getElementById("saveBtnSvg");
+  const txt = document.getElementById("saveBtnText");
+  const now = getTWNow();
+  const ft = document.getElementById("feedTime");
+  const grams = parseFloat(document.getElementById("feedGrams").value) || null;
+  const water = parseFloat(document.getElementById("waterMl").value) || null;
+  const memo = document.getElementById("memo").value.trim() || null;
+  if (!grams && !water && !selectedPoopVal && !selectedPeeVal && !memo) { showToast("請至少填寫一項資料"); return; }
+  const kcal = grams ? (grams * getCoeffVal()) : null;
+  const rec = {
+    record_date: getDateOnly(now),
+    record_time: ft.value || pad(now.getHours())+":"+pad(now.getMinutes()),
+    food_type: selectedFoodType, feed_grams: grams, calories_kcal: kcal,
+    water_ml: water, pee_tags: selectedPeeVal ? [selectedPeeVal] : null,
+    poop_state: selectedPoopVal || null, memo, created_at_tw: now.toISOString()
+  };
+  btn.classList.add("loading");
+  if (svgEl) svgEl.innerHTML = '<span class="loader"></span>';
+  txt.textContent = "儲存中...";
+  try {
+    const { error } = await db.from("cat_records").insert([rec]);
+    if (error) throw error;
+    showToast("棉花糖的紀錄儲存成功囉！");
+    ["feedGrams","waterMl","memo"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+    const wrap = document.getElementById("segControlWrap");
+    wrap.querySelectorAll(".seg-btn").forEach(b => b.classList.remove("active"));
+    const first = wrap.querySelector(".seg-btn");
+    if (first) { first.classList.add("active"); selectedFoodType = first.dataset.val; initSegControl(); }
+    resetQuickBtns();
+    ft.dataset.um = ""; setFeedTimeNow();
+    setTimeout(() => switchPage("today"), 700);
+  } catch(e) { showToast("儲存失敗：" + e.message); }
+  finally {
+    btn.classList.remove("loading");
+    if (svgEl) svgEl.innerHTML = '<path d="M3 9l5 5 7-9"/>';
+    txt.textContent = "儲存這次紀錄";
+  }
 }
 
-function buildAlerts(data){
-  const alerts=[];const now=getTWNow();const hourNow=now.getHours();
-  const totalW=data.reduce((s,r)=>s+(r.water_ml||0),0);
-  const totalK=data.reduce((s,r)=>s+(r.calories_kcal||0),0);
-  const hasPoop=data.some(r=>r.poop_state);
-  const hasMeal=data.some(r=>r.feed_grams);
-  if(!hasMeal&&hourNow>=8){alerts.push({type:"alert",icon:"🍽️",title:"棉花糖還沒吃飯喔！",desc:"今天還沒有餵食紀錄，記得準時開飯哦 😿",badge:"需要餵食",badgeType:"alert"});}
-  else if(totalK<KCAL_TARGET*0.5&&hourNow>=12){alerts.push({type:"warn",icon:"🔥",title:`熱量只達標 ${Math.round(totalK/KCAL_TARGET*100)}%`,desc:`今天只吃了 ${totalK.toFixed(0)} kcal，目標是 ${KCAL_TARGET} kcal`,badge:"攝取不足",badgeType:"warn"});}
-  if(totalW<50&&hourNow>=10){alerts.push({type:"warn",icon:"💧",title:"棉花糖有點渴了",desc:"今天飲水不足，腎臟會不健康的，記得多喝水 😅",badge:"需要補充",badgeType:"warn"});}
-  if(!hasPoop&&hourNow>=18){alerts.push({type:"alert",icon:"💩",title:"棉花糖好像還沒便便耶",desc:"距離上次超過 24 小時，記得多觀察一下",badge:"留意",badgeType:"alert"});}
-  if(totalW>=WATER_TARGET&&totalK>=KCAL_TARGET*0.8&&hasMeal){alerts.push({type:"ok",icon:"🎉",title:"今天狀況很棒！",desc:"飲食均衡，棉花糖今天過得很健康 ✨",badge:"良好",badgeType:"ok"});}
+// ── BUILD ALERTS ──
+function buildAlerts(data) {
+  const alerts = [];
+  const now = getTWNow(); const h = now.getHours();
+  const tK = data.reduce((s,r) => s+(r.calories_kcal||0), 0);
+  const tW = data.reduce((s,r) => s+(r.water_ml||0), 0);
+  const hasMeal = data.some(r => r.feed_grams);
+  const hasPoop = data.some(r => r.poop_state);
+  const svgFork = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#b07830" stroke-width="1.5" stroke-linecap="round"><path d="M3 2v7a4 4 0 0 0 8 0V2M7 2v16M14 2c0 0 3 2 3 7s-3 7-3 7"/></svg>';
+  const svgWarn = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#b07830" stroke-width="1.5" stroke-linecap="round"><path d="M10 2l8 16H2L10 2z"/><path d="M10 8v4M10 14v1"/></svg>';
+  const svgDrop = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#4a7ab0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2c0 0-6 6-6 10a6 6 0 0 0 12 0c0-4-6-10-6-10z"/></svg>';
+  const svgPoop = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#8a6040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16h10a2 2 0 0 0 0-4H14a3 3 0 1 0-8 0H5a2 2 0 0 0 0 4z"/></svg>';
+  const svgOk = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#3a7a3a" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M6 10l3 3 5-5"/></svg>';
+  if (!hasMeal && h >= 8) alerts.push({ type:"alert", svg:svgFork, title:"棉花糖還沒吃飯喔", desc:"今天還沒有餵食紀錄，記得準時開飯哦", badge:"需要餵食", bt:"alert" });
+  else if (tK < KCAL_TARGET * 0.5 && h >= 12) alerts.push({ type:"warn", svg:svgWarn, title:"熱量只達標 " + Math.round(tK/KCAL_TARGET*100) + "%", desc:"今天只吃了 " + tK.toFixed(0) + " kcal，目標是 " + KCAL_TARGET + " kcal", badge:"攝取不足", bt:"warn" });
+  if (tW < 50 && h >= 10) alerts.push({ type:"warn", svg:svgDrop, title:"棉花糖有點渴了", desc:"今天飲水不足，腎臟需要多補充水分", badge:"需要補充", bt:"warn" });
+  if (!hasPoop && h >= 18) alerts.push({ type:"alert", svg:svgPoop, title:"棉花糖好像還沒便便耶", desc:"今日尚無大便紀錄，記得多觀察一下", badge:"留意", bt:"alert" });
+  if (tW >= WATER_TARGET && tK >= KCAL_TARGET * 0.8 && hasMeal) alerts.push({ type:"ok", svg:svgOk, title:"今天狀況很棒！", desc:"飲食均衡，棉花糖今天過得很健康", badge:"良好", bt:"ok" });
   return alerts;
 }
-function renderAlerts(alerts){
-  const z=document.getElementById("alertsZone");
-  if(!alerts.length){z.innerHTML="";return}
-  z.innerHTML=alerts.map(a=>`<div class="alert-card ${a.type}"><div class="alert-icon">${a.icon}</div><div class="alert-body"><div class="alert-title">${a.title}</div><div class="alert-desc">${a.desc}</div></div><span class="alert-badge ${a.badgeType}">${a.badge}</span></div>`).join("");
+function renderAlerts(alerts) {
+  const z = document.getElementById("alertsZone"); if (!alerts.length) { z.innerHTML = ""; return; }
+  z.innerHTML = alerts.map(a =>
+    '<div class="alert-card ' + a.type + '">' +
+    '<div class="alert-icon-wrap">' + a.svg + '</div>' +
+    '<div class="alert-body"><div class="alert-title">' + a.title + '</div><div class="alert-desc">' + a.desc + '</div></div>' +
+    '<span class="alert-badge ' + a.bt + '">' + a.badge + '</span></div>'
+  ).join("");
 }
-function updateRing(id,val,target){
-  const pct=Math.min(1,val/target);
-  const offset=150.8-(150.8*pct);
-  const el=document.getElementById("ring-"+id);if(el)el.style.strokeDashoffset=offset;
-  const pEl=document.getElementById("ring-"+id+"-pct");if(pEl)pEl.textContent=Math.round(pct*100);
+function updateRing(id, val, target) {
+  const pct = Math.min(1, val / target);
+  const el = document.getElementById("ring-" + id); if (el) el.style.strokeDashoffset = 150.8 - (150.8 * pct);
+  const pEl = document.getElementById("ring-" + id + "-pct"); if (pEl) pEl.textContent = Math.round(pct * 100);
 }
 
-async function loadToday(){
-  try{
-    const{data:_r,error}=await db.from("cat_records").select("*").eq("record_date",getDateOnly()).order("record_time",{ascending:true});
-    if(error)throw error;
-    const data=currentRole?(_r||[]).filter(r=>!r.user_mode||r.user_mode===currentRole):(_r||[]);
-    const tK=data.reduce((s,r)=>s+(r.calories_kcal||0),0);
-    const tW=data.reduce((s,r)=>s+(r.water_ml||0),0);
-    const meals=data.filter(r=>r.feed_grams).length;
-    const pees=data.filter(r=>r.pee_tags&&r.pee_tags.length).length;
-    const poops=data.filter(r=>r.poop_state).length;
-    document.getElementById("stat-kcal").textContent=tK.toFixed(0);
-    document.getElementById("stat-water").textContent=tW.toFixed(0);
-    updateRing("kcal",tK,KCAL_TARGET);updateRing("water",tW,WATER_TARGET);
-    const ks=document.getElementById("stat-kcal-status");
-    if(tK>=KCAL_TARGET){ks.className="stat-status ok";ks.innerHTML='<span class="stat-dot"></span>達標 🎉';}
-    else{ks.className="stat-status low";ks.innerHTML=`<span class="stat-dot"></span>還差 ${(KCAL_TARGET-tK).toFixed(0)} kcal`;}
-    const ws=document.getElementById("stat-water-status");
-    if(tW>=WATER_TARGET){ws.className="stat-status ok";ws.innerHTML='<span class="stat-dot"></span>補水達標 🎉';}
-    else if(tW>=WATER_TARGET*0.5){ws.className="stat-status warn";ws.innerHTML='<span class="stat-dot"></span>再多喝一點';}
-    else{ws.className="stat-status low";ws.innerHTML='<span class="stat-dot"></span>需要補充';}
-    document.getElementById("activity-count").textContent=`${data.length} 筆紀錄`;
-    document.getElementById("act-meal-val").textContent=meals;
-    document.getElementById("act-pee-val").textContent=pees;
-    document.getElementById("act-poop-val").textContent=poops;
-    ["act-meal","act-pee","act-poop"].forEach((id,i)=>{
-      document.getElementById(id).className="act-item"+([meals,pees,poops][i]>0?" has-data":"");
+// ── LOAD TODAY ──
+async function loadToday() {
+  const sk = document.getElementById("skeletonLoader");
+  const ct = document.getElementById("todayContent");
+  if (sk) sk.classList.remove("hidden");
+  if (ct) ct.style.display = "none";
+  try {
+    const { data: _r, error } = await db.from("cat_records").select("*").eq("record_date", getDateOnly()).order("record_time", { ascending: true });
+    if (error) throw error;
+    const data = currentRole ? (_r||[]).filter(r => !r.user_mode || r.user_mode === currentRole) : (_r||[]);
+    const tK = data.reduce((s,r) => s+(r.calories_kcal||0), 0);
+    const tW = data.reduce((s,r) => s+(r.water_ml||0), 0);
+    const meals = data.filter(r => r.feed_grams).length;
+    const pees = data.filter(r => r.pee_tags && r.pee_tags.length).length;
+    const poops = data.filter(r => r.poop_state).length;
+
+    const sk2 = document.getElementById("stat-kcal"); if (sk2) sk2.textContent = tK.toFixed(0);
+    const sw = document.getElementById("stat-water"); if (sw) sw.textContent = tW.toFixed(0);
+    updateGoalDisplays();
+    updateRing("kcal", tK, KCAL_TARGET);
+    updateRing("water", tW, WATER_TARGET);
+
+    const ks = document.getElementById("stat-kcal-status");
+    const ksT = document.getElementById("kcalStatusText");
+    if (tK >= KCAL_TARGET) { ks.className = "stat-status ok"; if (ksT) ksT.textContent = "達標"; }
+    else { ks.className = "stat-status low"; if (ksT) ksT.textContent = "還差 " + (KCAL_TARGET - tK).toFixed(0) + " kcal"; }
+
+    const ws = document.getElementById("stat-water-status");
+    if (tW >= WATER_TARGET) { ws.className = "stat-status ok"; ws.innerHTML = '<span class="stat-dot"></span>補水達標'; }
+    else if (tW >= WATER_TARGET * 0.5) { ws.className = "stat-status warn"; ws.innerHTML = '<span class="stat-dot"></span>再多喝一點'; }
+    else { ws.className = "stat-status low"; ws.innerHTML = '<span class="stat-dot"></span>需要補充'; }
+
+    const ac = document.getElementById("activity-count"); if (ac) ac.textContent = data.length + " 筆紀錄";
+    const amv = document.getElementById("act-meal-val"); if (amv) amv.textContent = meals;
+    const apv = document.getElementById("act-pee-val"); if (apv) apv.textContent = pees;
+    const apov = document.getElementById("act-poop-val"); if (apov) apov.textContent = poops;
+    ["act-meal","act-pee","act-poop"].forEach((id,i) => {
+      const el = document.getElementById(id); if (el) el.className = "act-item" + ([meals,pees,poops][i] > 0 ? " has-data" : "");
     });
-    const tmc=document.getElementById("todayMealsCount");if(tmc)tmc.textContent=`今日 ${meals} 餐`;
-    const twc=document.getElementById("todayWaterCount");if(twc)twc.textContent=`今日 ${tW} ml`;
+
+    const tmc = document.getElementById("todayMealsCount"); if (tmc) tmc.textContent = "今日 " + meals + " 餐";
+    const twc = document.getElementById("todayWaterCount"); if (twc) twc.textContent = "今日 " + tW + " ml";
+
     renderAlerts(buildAlerts(data));
-    const tl=document.getElementById("timelineCard");
-    const tlBody=document.getElementById("timelineBody");
-    if(data.length===0){tl.style.display="none";}
-    else{
-      tl.style.display="";
-      const colors=["#e8a855","#7aaed4","#7bc87b","#c97c7c","#b8aad4"];
-      tlBody.innerHTML=[...data].reverse().map((r,i)=>{
-        const pills=[];
-        if(r.feed_grams){const k=(r.calories_kcal||r.feed_grams*BC34_KCAL_PER_G).toFixed(0);pills.push(`<span class="tl-pill food">🍽️ ${r.food_type} ${r.feed_grams}g · ${k}kcal</span>`);}
-        if(r.water_ml)pills.push(`<span class="tl-pill water">💧 ${r.water_ml}ml</span>`);
-        if(r.poop_state)pills.push(`<span class="tl-pill poop">💩 ${r.poop_state}</span>`);
-        if(r.pee_tags&&r.pee_tags.length)r.pee_tags.forEach(t=>pills.push(`<span class="tl-pill pee">🟡 ${t}</span>`));
-        if(r.memo)pills.push(`<span class="tl-pill memo">📝 ${r.memo.substring(0,15)}${r.memo.length>15?"…":""}</span>`);
-        const timeStr=(r.record_time||"--").substring(0,5);
-        return`<div class="timeline-item"><span class="tl-time">${timeStr}</span><span class="tl-dot" style="background:${colors[i%colors.length]}"></span><div class="tl-body"><div class="tl-main">${r.feed_grams?(r.food_type||"餵食"):r.poop_state?"如廁":r.pee_tags&&r.pee_tags.length?"如廁":r.water_ml?"補水":"備忘"}</div><div class="tl-pills">${pills.join("")}</div></div></div>`;
+
+    const tl = document.getElementById("timelineCard");
+    const tlB = document.getElementById("timelineBody");
+    if (data.length === 0) { tl.style.display = "none"; }
+    else {
+      tl.style.display = "";
+      const dotColors = ["#e8a855","#7aaed4","#7bc87b","#c97c7c","#b8aad4"];
+      tlB.innerHTML = [...data].reverse().map((r,i) => {
+        const pills = [];
+        if (r.feed_grams) { const k = (r.calories_kcal || r.feed_grams * getCoeffVal()).toFixed(0); pills.push('<span class="tl-pill food">' + (r.food_type||"餵食") + " " + r.feed_grams + "g · " + k + "kcal</span>"); }
+        if (r.water_ml) pills.push('<span class="tl-pill water">飲水 ' + r.water_ml + "ml</span>");
+        if (r.poop_state) pills.push('<span class="tl-pill poop">大便 ' + r.poop_state + "</span>");
+        if (r.pee_tags && r.pee_tags.length) r.pee_tags.forEach(t => pills.push('<span class="tl-pill pee">小便 ' + t + "</span>"));
+        if (r.memo) pills.push('<span class="tl-pill memo">' + r.memo.substring(0,15) + (r.memo.length > 15 ? "…" : "") + "</span>");
+        const ts = (r.record_time||"--").substring(0,5);
+        const ml = r.feed_grams ? "餵食" : r.poop_state ? "如廁" : (r.pee_tags && r.pee_tags.length) ? "如廁" : r.water_ml ? "補水" : "備忘";
+        return '<div class="timeline-item"><span class="tl-time">' + ts + '</span><span class="tl-dot" style="background:' + dotColors[i % dotColors.length] + '"></span><div class="tl-body"><div class="tl-main">' + ml + '</div><div class="tl-pills">' + pills.join("") + '</div></div></div>';
       }).join("");
     }
-  }catch(e){
-    document.getElementById("alertsZone").innerHTML=`<div class="alert-card warn"><div class="alert-icon">⚠️</div><div class="alert-body"><div class="alert-title">無法載入</div><div class="alert-desc">${e.message}</div></div></div>`;
+    if (sk) sk.classList.add("hidden");
+    if (ct) ct.style.display = "block";
+  } catch(e) {
+    if (sk) sk.classList.add("hidden");
+    if (ct) ct.style.display = "block";
+    const az = document.getElementById("alertsZone");
+    if (az) az.innerHTML = '<div class="alert-card warn"><div class="alert-icon-wrap"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#b07830" stroke-width="1.5" stroke-linecap="round"><path d="M10 2l8 16H2L10 2z"/><path d="M10 8v4M10 14v1"/></svg></div><div class="alert-body"><div class="alert-title">無法載入</div><div class="alert-desc">' + e.message + '</div></div></div>';
   }
 }
 
-async function loadHistory(){
-  const el=document.getElementById("historyList");
-  el.innerHTML='<div class="empty-state"><div class="empty-icon">🐱</div><p>載入中...</p></div>';
-  try{
-    const{data:_h,error}=await db.from("cat_records").select("*").order("record_date",{ascending:false}).order("record_time",{ascending:false}).limit(200);
-    if(error)throw error;
-    const data=currentRole?(_h||[]).filter(r=>!r.user_mode||r.user_mode===currentRole):(_h||[]);
-    if(!data.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📭</div><p>還沒有任何紀錄</p></div>';return}
-    const grouped={};
-    data.forEach(r=>{if(!grouped[r.record_date])grouped[r.record_date]=[];grouped[r.record_date].push(r)});
-    el.innerHTML=Object.keys(grouped).map(date=>{
-      const recs=grouped[date];
-      const tG=recs.reduce((s,r)=>s+(r.feed_grams||0),0);
-      const tW=recs.reduce((s,r)=>s+(r.water_ml||0),0);
-      const tC=recs.reduce((s,r)=>s+(r.calories_kcal||r.feed_grams*BC34_KCAL_PER_G||0),0);
-      const poops=[...new Set(recs.map(r=>r.poop_state).filter(Boolean))];
-      const pees=[...new Set(recs.flatMap(r=>r.pee_tags||[]))];
-      const[y,m,d]=date.split("-");
-      const w=["日","一","二","三","四","五","六"];
-      return`<div class="history-item"><div class="history-date">📅 ${+m}月${+d}日 (${w[new Date(+y,+m-1,+d).getDay()]}) · ${recs.length} 筆</div><div class="history-pills">${tG?`<span class="h-pill">🍽️ ${tG.toFixed(0)}g</span>`:""}${tC?`<span class="h-pill">🔥 ${tC.toFixed(0)}kcal</span>`:""}${tW?`<span class="h-pill">💧 ${tW.toFixed(0)}ml</span>`:""}${poops.map(p=>`<span class="h-pill">💩 ${p}</span>`).join("")}${pees.slice(0,2).map(p=>`<span class="h-pill">🟡 ${p}</span>`).join("")}</div></div>`;
+// ── LOAD HISTORY ──
+async function loadHistory() {
+  const el = document.getElementById("historyList");
+  el.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--ink4)" stroke-width="1.5" stroke-linecap="round"><circle cx="20" cy="20" r="16"/><path d="M20 12v8l5 3"/></svg></div><p>載入中...</p></div>';
+  try {
+    const { data: _h, error } = await db.from("cat_records").select("*").order("record_date", { ascending:false }).order("record_time", { ascending:false }).limit(200);
+    if (error) throw error;
+    const data = currentRole ? (_h||[]).filter(r => !r.user_mode || r.user_mode === currentRole) : (_h||[]);
+    if (!data.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--ink4)" stroke-width="1.5" stroke-linecap="round"><rect x="8" y="6" width="24" height="28" rx="4"/><path d="M14 16h12M14 22h8"/></svg></div><p>還沒有任何紀錄</p></div>'; return; }
+    const grouped = {};
+    data.forEach(r => { if (!grouped[r.record_date]) grouped[r.record_date] = []; grouped[r.record_date].push(r); });
+    const w = ["日","一","二","三","四","五","六"];
+    el.innerHTML = Object.keys(grouped).map(date => {
+      const recs = grouped[date];
+      const tG = recs.reduce((s,r) => s+(r.feed_grams||0), 0);
+      const tW2 = recs.reduce((s,r) => s+(r.water_ml||0), 0);
+      const tC = recs.reduce((s,r) => s+(r.calories_kcal || (r.feed_grams ? r.feed_grams * getCoeffVal() : 0)), 0);
+      const poops = [...new Set(recs.map(r => r.poop_state).filter(Boolean))];
+      const pees = [...new Set(recs.flatMap(r => r.pee_tags||[]))];
+      const [y,m,d] = date.split("-");
+      return '<div class="history-item"><div class="history-date">' + (+m) + "月" + (+d) + "日 (" + w[new Date(+y,+m-1,+d).getDay()] + ") · " + recs.length + " 筆</div><div class=\"history-pills\">" +
+        (tG ? '<span class="h-pill">食 ' + tG.toFixed(0) + 'g</span>' : "") +
+        (tC ? '<span class="h-pill">熱 ' + tC.toFixed(0) + 'kcal</span>' : "") +
+        (tW2 ? '<span class="h-pill">水 ' + tW2.toFixed(0) + 'ml</span>' : "") +
+        poops.map(p => '<span class="h-pill">大便 ' + p + "</span>").join("") +
+        pees.slice(0,2).map(p => '<span class="h-pill">小便 ' + p + "</span>").join("") +
+        "</div></div>";
     }).join("");
-  }catch(e){el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`}
+  } catch(e) { el.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--ink4)" stroke-width="1.5" stroke-linecap="round"><circle cx="20" cy="20" r="16"/><path d="M14 14l12 12M26 14L14 26"/></svg></div><p>' + e.message + '</p></div>'; }
 }
 
-function refreshPetPage(){
-  document.getElementById("petAgeStr").textContent=`布偶貓 · ${calcAge(BIRTHDAY)}`;
-  document.getElementById("petDaysHome").textContent=`${daysSince(HOME_DATE)} 天 🎉`;
-  loadNeuter();
+// ── PET PAGE ──
+function refreshPetPage() {
+  const pa = document.getElementById("petAgeStr"); if (pa) pa.textContent = "布偶貓 · " + calcAge(BIRTHDAY);
+  const pd = document.getElementById("petDaysHome"); if (pd) pd.textContent = daysSince(HOME_DATE) + " 天";
+  loadNeuter(); loadWeight();
 }
 
-function showToast(msg){
-  const el=document.getElementById("toast");
-  el.textContent=msg;el.classList.add("show");
-  setTimeout(()=>el.classList.remove("show"),2800);
+// ── TOAST ──
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 2800);
 }
 </script>
+
 </body>
 </html>
