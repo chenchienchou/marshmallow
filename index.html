@@ -86,12 +86,17 @@
   align-items: center;
   width: 100%;
   max-width: 400px;
-  padding-top: env(safe-area-inset-top, 20px);
-  padding-bottom: env(safe-area-inset-bottom, 20px);
   box-sizing: border-box;
 }
 #splash.hide { opacity:0; transform:scale(1.03); pointer-events:none; }
-.splash-avatar { width:88px; height:88px; border-radius:50%; object-fit:cover; display:block; margin:0 auto 20px; box-shadow:0 6px 28px rgba(0,0,0,0.14); border:3px solid white; flex-shrink:0; }
+.splash-avatar { 
+  width:88px; height:88px; border-radius:50%; 
+  object-fit:cover; display:block; 
+  margin-top: env(safe-area-inset-top, 44px);
+  margin-left: auto; margin-right: auto; margin-bottom: 20px;
+  box-shadow:0 6px 28px rgba(0,0,0,0.14); 
+  border:3px solid white; flex-shrink:0; 
+}
 .splash-question { font-family:"Playfair Display",serif; font-size:26px; font-weight:700; color:var(--ink); text-align:center; line-height:1.35; margin-bottom:6px; }
 .splash-sub2 { font-size:13px; color:var(--ink3); font-weight:600; margin-bottom:32px; text-align:center; }
 .role-cards { display:flex; gap:14px; width:100%; max-width:340px; margin-bottom:24px; }
@@ -142,14 +147,14 @@
 ```
 .content-area { 
   flex: 1 1 0; 
-  overflow-y: scroll; 
+  overflow-y: auto; 
   overflow-x: hidden; 
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none; 
-  overscroll-behavior-y: none;
+  overscroll-behavior: contain;
 }
 .content-area::-webkit-scrollbar { display:none; }
-.page { display:none; padding:16px 14px 20px; animation:fadeUp 0.3s ease; }
+.page { display:none; padding:16px 14px 20px; animation:fadeUp 0.3s ease; min-height: 100%; }
 .page.active { display:block; }
 @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 
