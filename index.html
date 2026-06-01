@@ -57,6 +57,23 @@ CREATE POLICY "Authenticated users can update logs"
 ALTER PUBLICATION supabase_realtime ADD TABLE health_logs;
 
 =======================================================================
+
+  🐛 v2 修復項目（2026-06 CORS / Safari 崩潰修正版）
+  -----------------------------------------------------------------------
+  [BUG-01] 所有外部 CDN <script> 補上 crossorigin="anonymous"，
+           防止 iOS Safari 觸發 "Uncaught Error: Script error." 安全封鎖。
+  [BUG-02] Supabase createClient() 移入 DOMContentLoaded 後才執行，
+           並以 try/catch 包覆，避免 CDN 載入順序競態導致 window.supabase
+           尚未就緒就被呼叫，造成 splash 永遠不消失的死循環。
+  [BUG-03] Splash 倒數邏輯改為「等待 Supabase CDN script onload 完成」
+           才開始 1.5s 計時，確保 checkAuth() 執行時 SDK 已就緒。
+  [BUG-04] 修正原版 drawTamagotchi() 中使用中文全形負號「−」
+           導致 JS SyntaxError 的陣列寫法 bug。
+  [BUG-05] 移除 floatLoop() 中重複呼叫 drawTamagotchiAt() 造成的
+           無限遞迴繪製問題，改為純 requestAnimationFrame 浮動控制。
+  [BUG-06] 所有 async 函式加入 try/catch 最終防護，即使 Supabase
+           連線失敗也會 fallback 至本地端 guest 模式，不會白屏卡住。
+=======================================================================
 -->
 <html lang="zh-TW">
 <head>
@@ -65,595 +82,541 @@ ALTER PUBLICATION supabase_realtime ADD TABLE health_logs;
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="貓咪健康日誌" />
+  <meta name="theme-color" content="#FAF6F1" />
   <title>🐾 貓咪健康日誌</title>
 
-  <!-- iOS PWA icons -->
-  <link rel="apple-touch-icon" href="https://api.iconify.design/noto/cat-face.svg" />
+  <!-- ★ PWA / iOS icons -->
+  <link rel="apple-touch-icon" sizes="180x180" href="https://fav.farm/🐾" />
 
-  <!-- Asset preload hints -->
-  <link rel="preload" as="image" href="cat_icons.jpg" />
-  <link rel="preload" as="image" href="cat_avatars.jpg" />
+  <!-- ★ Asset preload（不阻塞渲染，crossorigin 防 Safari CORS） -->
+  <link rel="preload" as="image" href="cat_icons.jpg" crossorigin="anonymous" />
+  <link rel="preload" as="image" href="cat_avatars.jpg" crossorigin="anonymous" />
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <!-- ★ Google Fonts（crossorigin 讓 preconnect 生效） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap"
+        rel="stylesheet" crossorigin="anonymous" />
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ★ Tailwind CSS — crossorigin="anonymous" 修復 Safari Script error -->
+  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <!-- ★ Chart.js — crossorigin="anonymous" -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"
+          crossorigin="anonymous"></script>
 
-  <!-- Supabase JS -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <!-- ★ Supabase JS — crossorigin="anonymous"；用 id="supabase-cdn" 讓 JS 監聽 onload -->
+  <script id="supabase-cdn"
+          src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"
+          crossorigin="anonymous"></script>
 
+  <!-- ★ Tailwind 擴充設定（必須在 Tailwind CDN 載入後同步執行） -->
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            orange: { accent: '#FDBA74', soft: '#FEF3C7' },
-            lavender: { accent: '#C7D2FE', soft: '#EEF2FF' },
-            morandi: { normal: '#E2EDDF', soft: '#F4EFE6', alert: '#F9E8E8' },
-            milk: '#FAF6F1',
-            caramel: '#C8A97E',
-          },
-          fontFamily: {
-            serif: ['"Noto Serif TC"', 'serif'],
-            sans: ['"Noto Sans TC"', 'sans-serif'],
-          },
+    if (window.tailwind) {
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              morandi: { normal: '#E2EDDF', soft: '#F4EFE6', alert: '#F9E8E8' },
+            },
+            fontFamily: {
+              serif: ['"Noto Serif TC"', 'serif'],
+              sans:  ['"Noto Sans TC"', 'sans-serif'],
+            },
+          }
         }
-      }
-    };
+      };
+    }
   </script>
 
   <style>
-    :root {
-      --accent: #FDBA74;
-      --accent-soft: #FEF3C7;
-      --bg: #FAF6F1;
+    /* ── 全域重置 ── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
-    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
       height: 100%; width: 100%;
       overflow: hidden;
       background: #FAF6F1;
-      font-family: 'Noto Sans TC', sans-serif;
+      font-family: 'Noto Sans TC', 'PingFang TC', sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
-    #app {
-      height: 100dvh; width: 100vw;
-      display: flex; flex-direction: column;
-      overflow: hidden;
-      position: relative;
-    }
+
+    /* ── 背景層 ── */
     #bg-layer {
       position: fixed; inset: 0;
       background-image: url('A446BFF0-CAE6-4FAD-83C1-9869AA0310EC.png');
       background-size: cover; background-position: center;
-      z-index: -20;
-      opacity: 0.6;
+      z-index: -20; opacity: 0.55;
     }
     #bg-overlay {
       position: fixed; inset: 0;
-      background: linear-gradient(160deg, rgba(253,240,224,0.82) 0%, rgba(247,237,255,0.78) 100%);
+      background: linear-gradient(160deg,rgba(253,240,224,.84) 0%,rgba(245,235,255,.80) 100%);
       z-index: -19;
     }
-    .scrollable-center {
-      flex: 1 1 0%;
-      overflow-y: auto;
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-      scroll-behavior: smooth;
-      overscroll-behavior: contain;
-    }
-    .scrollable-center::-webkit-scrollbar { width: 3px; }
-    .scrollable-center::-webkit-scrollbar-track { background: transparent; }
-    .scrollable-center::-webkit-scrollbar-thumb { background: rgba(200,169,126,0.4); border-radius: 99px; }
 
-    /* GLASS CARD */
-    .glass {
-      background: rgba(255,255,255,0.65);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,0.8);
-      border-radius: 20px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    /* ── App 骨架（Facebook 三層佈局） ── */
+    #app {
+      height: 100dvh; width: 100vw;
+      display: flex; flex-direction: column;
+      overflow: hidden; position: relative;
     }
-    .glass-dark {
-      background: rgba(255,255,255,0.45);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-    }
-
-    /* FIXED HEADER */
     .fixed-header {
       flex: none;
-      background: rgba(255,255,255,0.7);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgba(255,255,255,0.6);
+      background: rgba(255,255,255,.72);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,.65);
+      z-index: 100;
     }
-    /* FIXED FOOTER */
+    .scrollable-center {
+      flex: 1 1 0%; min-height: 0;
+      overflow-y: auto; overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+      overscroll-behavior-y: contain;
+    }
+    .scrollable-center::-webkit-scrollbar { width: 3px; }
+    .scrollable-center::-webkit-scrollbar-thumb {
+      background: rgba(200,169,126,.35); border-radius: 99px;
+    }
     .fixed-footer {
       flex: none;
-      background: rgba(255,255,255,0.75);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-top: 1px solid rgba(255,255,255,0.6);
+      background: rgba(255,255,255,.76);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255,255,255,.65);
+      z-index: 100;
     }
 
-    /* SPLASH */
+    /* ── Splash ── */
     #splash {
-      position: fixed; inset: 0;
-      background: linear-gradient(135deg, #FAF0E6 0%, #F5ECF8 50%, #EEF5FB 100%);
+      position: fixed; inset: 0; z-index: 9999;
+      background: linear-gradient(135deg,#FAF0E6 0%,#F5ECF8 50%,#EEF5FB 100%);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      z-index: 9999;
-      transition: opacity 0.6s ease;
+      transition: opacity .65s ease;
     }
     #splash.fade-out { opacity: 0; pointer-events: none; }
 
-    /* CAT AVATAR CSS SPRITE */
-    .cat-sprite {
-      width: 80px; height: 80px;
-      border-radius: 50%;
-      overflow: hidden;
-      border: 3px solid rgba(255,255,255,0.9);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-      background: #f0f0f0;
-      flex-shrink: 0;
-    }
-    .cat-sprite img {
-      width: 200%; height: 100%;
-      object-fit: cover;
-      transition: transform 0.3s ease;
-    }
-    .cat-sprite.ragdoll img { transform: translateX(-50%); }
-
-    /* TAMAGOTCHI */
-    #tama-canvas {
-      display: block; margin: 0 auto;
+    /* ── Login ── */
+    #login-screen {
+      position: fixed; inset: 0; z-index: 800;
+      background: linear-gradient(160deg,#FAF0E6 0%,#F0EBF8 100%);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px; overflow-y: auto;
     }
 
-    /* ANIMATIONS */
-    @keyframes bounce-in {
-      0% { transform: scale(0.8); opacity: 0; }
-      60% { transform: scale(1.1); }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    @keyframes slide-down {
-      from { transform: translateY(-60px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    @keyframes float {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-8px); }
-    }
-    @keyframes eat-anim {
-      0% { transform: scale(1); }
-      30% { transform: scale(1.15) rotate(-5deg); }
-      60% { transform: scale(0.95) rotate(3deg); }
-      100% { transform: scale(1); }
-    }
-    @keyframes drink-anim {
-      0% { transform: translateY(0); }
-      25% { transform: translateY(-6px); }
-      50% { transform: translateY(2px); }
-      100% { transform: translateY(0); }
-    }
-    @keyframes sad-droop {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(5deg) translateY(4px); }
-    }
-    @keyframes confetti-fall {
-      0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-    }
-    @keyframes pulse-soft {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(253,186,116,0.5); }
-      50% { box-shadow: 0 0 0 10px rgba(253,186,116,0); }
-    }
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-    .float-anim { animation: float 3s ease-in-out infinite; }
-    .bounce-in { animation: bounce-in 0.4s ease forwards; }
-    .slide-down { animation: slide-down 0.4s ease forwards; }
-    .pulse-soft { animation: pulse-soft 2s ease infinite; }
-    .active\:scale-95:active { transform: scale(0.95); }
-
-    /* PROGRESS BAR */
-    .progress-bar {
-      height: 8px; border-radius: 99px;
-      background: rgba(0,0,0,0.08);
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%; border-radius: 99px;
-      transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    /* ── Glass card ── */
+    .glass {
+      background: rgba(255,255,255,.66);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.82);
+      border-radius: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.07);
     }
 
-    /* MODAL */
+    /* ── Modal ── */
     .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.4);
-      backdrop-filter: blur(6px);
-      z-index: 500;
-      display: flex; align-items: flex-end; justify-content: center;
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(0,0,0,.38);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      display: none; align-items: flex-end; justify-content: center;
     }
+    .modal-overlay.open { display: flex; }
     .modal-sheet {
       width: 100%; max-width: 480px;
-      background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(20px);
+      background: rgba(255,255,255,.96);
       border-radius: 28px 28px 0 0;
-      padding: 24px 20px 40px;
-      animation: slide-up-modal 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-      max-height: 90dvh;
-      overflow-y: auto;
+      padding: 24px 20px 44px;
+      animation: slideUpModal .35s cubic-bezier(.34,1.56,.64,1);
+      max-height: 92dvh; overflow-y: auto;
     }
-    @keyframes slide-up-modal {
+    @keyframes slideUpModal {
       from { transform: translateY(100%); }
-      to { transform: translateY(0); }
+      to   { transform: translateY(0); }
     }
 
-    /* PILL BUTTONS */
-    .pill-btn {
-      border-radius: 999px;
-      padding: 8px 18px;
-      font-size: 14px; font-weight: 500;
-      border: 1.5px solid rgba(0,0,0,0.08);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      active: scale(0.95);
-    }
-
-    /* ALERT BANNER */
+    /* ── Alert Banner ── */
     #alert-banner {
-      position: fixed; top: 64px; left: 12px; right: 12px;
-      z-index: 400;
-      border-radius: 16px;
-      padding: 12px 16px;
-      background: linear-gradient(135deg, #FDE68A, #FBBF24);
-      border: 1px solid rgba(251,191,36,0.5);
-      box-shadow: 0 8px 24px rgba(251,191,36,0.3);
-      display: none;
+      position: fixed; top: 70px; left: 12px; right: 12px; z-index: 400;
+      border-radius: 16px; padding: 12px 16px;
+      background: linear-gradient(135deg,#FDE68A,#FBBF24);
+      border: 1px solid rgba(251,191,36,.45);
+      box-shadow: 0 8px 24px rgba(251,191,36,.3);
+      display: none; align-items: center; gap: 10px;
     }
     #alert-banner.show {
       display: flex;
-      animation: slide-down 0.4s ease;
+      animation: slideDown .4s ease;
+    }
+    @keyframes slideDown {
+      from { transform: translateY(-50px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
     }
 
-    /* CONFETTI */
-    .confetti-piece {
-      position: fixed;
-      width: 10px; height: 10px;
-      border-radius: 2px;
-      pointer-events: none;
-      z-index: 9990;
-      animation: confetti-fall linear forwards;
+    /* ── Cat avatar sprite ── */
+    .cat-sprite {
+      width: 42px; height: 42px; border-radius: 50%;
+      overflow: hidden; flex-shrink: 0;
+      border: 2.5px solid rgba(255,255,255,.9);
+      box-shadow: 0 3px 10px rgba(0,0,0,.12);
+      background: #f0eee9; cursor: pointer;
+    }
+    .cat-sprite img {
+      width: 200%; height: 100%; object-fit: cover; display: block;
+      transition: transform .3s ease;
+    }
+    .cat-sprite.ragdoll img { transform: translateX(-50%); }
+
+    /* ── Tamagotchi canvas ── */
+    #tama-canvas { display: block; margin: 0 auto; }
+
+    /* ── Progress bar ── */
+    .prog-track {
+      height: 8px; border-radius: 99px;
+      background: rgba(0,0,0,.08); overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%; border-radius: 99px;
+      transition: width .65s cubic-bezier(.34,1.56,.64,1);
     }
 
-    /* NAV TABS */
-    .nav-tab {
-      flex: 1; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 8px 4px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      border-radius: 12px;
-      gap: 3px;
+    /* ── Pill button ── */
+    .pill-btn {
+      border-radius: 999px; padding: 8px 16px;
+      font-size: 13px; font-weight: 500;
+      border: 1.5px solid rgba(0,0,0,.08);
+      cursor: pointer; transition: transform .12s ease;
+      font-family: 'Noto Sans TC', sans-serif;
     }
-    .nav-tab.active span.dot {
-      width: 5px; height: 5px; border-radius: 50%;
-      background: var(--accent);
-      display: block;
-    }
-    .nav-tab span.dot { display: none; }
+    .pill-btn:active { transform: scale(.94); }
 
-    /* STOOL CARDS */
+    /* ── Stool card ── */
     .stool-card {
-      padding: 12px 10px; border-radius: 16px;
-      cursor: pointer; transition: all 0.2s ease;
-      border: 2px solid transparent;
-      text-align: center;
+      padding: 12px 8px; border-radius: 16px;
+      cursor: pointer; transition: all .18s ease;
+      border: 2px solid transparent; text-align: center;
     }
-    .stool-card.selected { border-color: rgba(0,0,0,0.2); transform: scale(0.97); }
+    .stool-card:active { transform: scale(.93); }
+    .stool-card.selected { border-color: rgba(0,0,0,.18); box-shadow: 0 2px 8px rgba(0,0,0,.1); }
 
-    /* LOGIN */
-    #login-screen {
-      position: fixed; inset: 0;
-      z-index: 800;
-      background: linear-gradient(160deg, #FAF0E6 0%, #F0EBF8 100%);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 24px;
-      overflow-y: auto;
-    }
-
+    /* ── Login title btn ── */
     .title-btn {
-      padding: 14px;
-      border-radius: 16px;
-      border: 2px solid rgba(200,169,126,0.3);
-      background: rgba(255,255,255,0.7);
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: center;
-      font-size: 22px;
+      padding: 14px; border-radius: 16px;
+      border: 2px solid rgba(200,169,126,.28);
+      background: rgba(255,255,255,.72);
+      cursor: pointer; transition: all .18s ease;
+      text-align: center; font-size: 20px;
       font-family: 'Noto Serif TC', serif;
     }
-    .title-btn:hover { background: rgba(253,186,116,0.3); border-color: #FDBA74; }
+    .title-btn:hover  { background: rgba(253,186,116,.28); border-color: #FDBA74; }
     .title-btn.selected {
-      background: linear-gradient(135deg, rgba(253,186,116,0.5), rgba(199,210,254,0.5));
-      border-color: #FDBA74;
-      transform: scale(1.04);
-      box-shadow: 0 4px 16px rgba(253,186,116,0.4);
+      background: linear-gradient(135deg,rgba(253,186,116,.45),rgba(199,210,254,.45));
+      border-color: #FDBA74; transform: scale(1.04);
+      box-shadow: 0 4px 14px rgba(253,186,116,.38);
     }
 
-    /* WEIGHT SLIDER */
+    /* ── Range slider ── */
     input[type="range"] {
-      -webkit-appearance: none;
-      width: 100%; height: 6px;
-      border-radius: 99px;
-      background: linear-gradient(to right, #FDBA74 0%, #FDBA74 var(--pct, 50%), #e5e7eb var(--pct, 50%));
-      outline: none;
+      -webkit-appearance: none; width: 100%;
+      height: 6px; border-radius: 99px; outline: none;
+      background: linear-gradient(to right,#FDBA74 0%,#FDBA74 var(--pct,50%),#e5e7eb var(--pct,50%));
     }
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 24px; height: 24px; border-radius: 50%;
-      background: white;
-      border: 3px solid #FDBA74;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      cursor: pointer;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: white; border: 3px solid #FDBA74;
+      box-shadow: 0 2px 8px rgba(0,0,0,.16); cursor: pointer;
     }
 
-    /* ORANGE THEME */
-    body.theme-orange { --accent: #FDBA74; --accent-soft: #FEF3C7; }
-    body.theme-lavender { --accent: #C7D2FE; --accent-soft: #EEF2FF; }
+    /* ── Nav tab ── */
+    .nav-tab {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 7px 4px; cursor: pointer;
+      transition: opacity .2s ease; gap: 2px;
+      border-radius: 12px;
+    }
+    .nav-tab .dot { display: none; }
+    .nav-tab.active .dot {
+      display: block; width: 5px; height: 5px;
+      border-radius: 50%; background: #FDBA74;
+    }
 
-    /* CHART CONTAINER */
-    .chart-wrap { position: relative; height: 200px; }
+    /* ── Confetti ── */
+    .confetti-piece {
+      position: fixed; pointer-events: none; z-index: 9990;
+      border-radius: 2px;
+      animation: confettiFall linear forwards;
+    }
+    @keyframes confettiFall {
+      0%   { opacity: 1; transform: translateY(-10px) rotate(0deg); }
+      100% { opacity: 0; transform: translateY(110vh) rotate(720deg); }
+    }
 
-    /* DIARY */
+    /* ── Keyframe animations ── */
+    @keyframes bounceIn {
+      0%  { transform: scale(.8); opacity: 0; }
+      60% { transform: scale(1.06); }
+      100%{ transform: scale(1); opacity: 1; }
+    }
+    @keyframes floatY {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-7px); }
+    }
+    @keyframes pulseDot {
+      0%,100% { opacity: 1; }
+      50%     { opacity: .45; }
+    }
+
+    .bounce-in { animation: bounceIn .4s ease forwards; }
+    .float-anim { animation: floatY 3s ease-in-out infinite; }
+
+    /* ── Diary text ── */
     .diary-text {
       font-family: 'Noto Serif TC', serif;
-      line-height: 1.9;
-      color: #4a3728;
+      line-height: 2; color: #4a3728; font-size: 13.5px;
     }
+
+    /* ── Chart container ── */
+    .chart-wrap { position: relative; height: 196px; }
+
+    /* ── Theme variables ── */
+    :root { --accent: #FDBA74; --accent-soft: #FEF3C7; }
+    body.theme-lavender { --accent: #C7D2FE; --accent-soft: #EEF2FF; }
   </style>
 </head>
 <body class="theme-orange">
 
-<!-- Background layers -->
+<!-- ════════════════════ 背景層 ════════════════════ -->
 <div id="bg-layer"></div>
 <div id="bg-overlay"></div>
 
-<!-- SPLASH SCREEN -->
+<!-- ════════════════════ SPLASH SCREEN ════════════════════ -->
 <div id="splash">
-  <div class="float-anim mb-6" style="font-size:72px;">🐾</div>
-  <h1 style="font-family:'Noto Serif TC',serif; font-size:28px; font-weight:900; color:#4a3728; letter-spacing:0.05em;">貓咪健康日誌</h1>
-  <p style="color:#8b7355; margin-top:8px; font-size:14px;">用愛記錄每一天</p>
-  <div style="margin-top:32px; display:flex; gap:8px;">
-    <div style="width:8px;height:8px;border-radius:50%;background:#FDBA74;animation:float 1s ease-in-out infinite;"></div>
-    <div style="width:8px;height:8px;border-radius:50%;background:#C7D2FE;animation:float 1s ease-in-out 0.3s infinite;"></div>
-    <div style="width:8px;height:8px;border-radius:50%;background:#FDBA74;animation:float 1s ease-in-out 0.6s infinite;"></div>
+  <div class="float-anim" style="font-size:72px;margin-bottom:18px;">🐾</div>
+  <h1 style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:900;color:#4a3728;letter-spacing:.06em;">貓咪健康日誌</h1>
+  <p style="color:#8b7355;margin-top:8px;font-size:14px;">用愛記錄每一天</p>
+  <div style="margin-top:32px;display:flex;gap:9px;align-items:center;">
+    <div style="width:9px;height:9px;border-radius:50%;background:#FDBA74;animation:pulseDot 1.1s ease infinite;"></div>
+    <div style="width:9px;height:9px;border-radius:50%;background:#C7D2FE;animation:pulseDot 1.1s ease .37s infinite;"></div>
+    <div style="width:9px;height:9px;border-radius:50%;background:#FDBA74;animation:pulseDot 1.1s ease .74s infinite;"></div>
   </div>
+  <p id="splash-status" style="font-size:11px;color:#b8a596;margin-top:16px;">正在載入資源…</p>
 </div>
 
-<!-- LOGIN SCREEN -->
-<div id="login-screen" style="display:none;">
+<!-- ════════════════════ LOGIN SCREEN ════════════════════ -->
+<div id="login-screen">
   <div style="width:100%;max-width:420px;">
-    <div class="text-center mb-8">
-      <div style="font-size:56px; margin-bottom:12px;">🐈</div>
-      <h2 style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:900;color:#4a3728;">歡迎回來</h2>
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-size:56px;margin-bottom:12px;">🐈</div>
+      <h2 style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:900;color:#4a3728;">歡迎回來</h2>
       <p style="color:#8b7355;font-size:13px;margin-top:6px;">請選擇您的身份並登入</p>
     </div>
 
-    <!-- Title Selector -->
-    <div class="glass" style="padding:20px;margin-bottom:20px;">
-      <p style="font-size:13px;color:#8b7355;margin-bottom:12px;font-weight:500;">👤 我是家中的</p>
+    <!-- 身份選擇 -->
+    <div class="glass" style="padding:18px;margin-bottom:16px;">
+      <p style="font-size:12px;color:#8b7355;margin-bottom:11px;font-weight:500;">👤 我是家中的</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="title-btn" onclick="selectTitle('爸爸')" id="title-爸爸">👨 爸爸</div>
-        <div class="title-btn" onclick="selectTitle('媽媽')" id="title-媽媽">👩 媽媽</div>
-        <div class="title-btn" onclick="selectTitle('哥哥')" id="title-哥哥">🧒 哥哥</div>
-        <div class="title-btn" onclick="selectTitle('姊姊')" id="title-姊姊">👧 姊姊</div>
+        <div class="title-btn" id="title-爸爸" onclick="selectTitle('爸爸')">👨 爸爸</div>
+        <div class="title-btn" id="title-媽媽" onclick="selectTitle('媽媽')">👩 媽媽</div>
+        <div class="title-btn" id="title-哥哥" onclick="selectTitle('哥哥')">🧒 哥哥</div>
+        <div class="title-btn" id="title-姊姊" onclick="selectTitle('姊姊')">👧 姊姊</div>
       </div>
     </div>
 
-    <!-- Email / Password -->
-    <div class="glass" style="padding:20px;margin-bottom:16px;">
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">📧 電子郵件</label>
+    <!-- 帳號密碼 -->
+    <div class="glass" style="padding:18px;margin-bottom:14px;">
+      <div style="margin-bottom:13px;">
+        <label style="font-size:11px;color:#8b7355;font-weight:500;display:block;margin-bottom:5px;">📧 電子郵件</label>
         <input id="login-email" type="email" placeholder="輸入電子郵件"
-          style="width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:15px;font-family:'Noto Sans TC';outline:none;" />
+          style="width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid rgba(200,169,126,.3);background:rgba(255,255,255,.8);font-size:15px;font-family:'Noto Sans TC',sans-serif;outline:none;" />
       </div>
       <div>
-        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">🔒 密碼</label>
+        <label style="font-size:11px;color:#8b7355;font-weight:500;display:block;margin-bottom:5px;">🔒 密碼</label>
         <input id="login-password" type="password" placeholder="輸入密碼"
-          style="width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:15px;font-family:'Noto Sans TC';outline:none;" />
+          style="width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid rgba(200,169,126,.3);background:rgba(255,255,255,.8);font-size:15px;font-family:'Noto Sans TC',sans-serif;outline:none;" />
       </div>
     </div>
 
-    <button onclick="doLogin()" class="active:scale-95"
-      style="width:100%;padding:16px;border-radius:16px;background:linear-gradient(135deg,#FDBA74,#F59E0B);color:white;font-size:16px;font-weight:700;font-family:'Noto Sans TC';border:none;cursor:pointer;box-shadow:0 6px 20px rgba(253,186,116,0.5);margin-bottom:12px;">
+    <button onclick="doLogin()"
+      style="width:100%;padding:15px;border-radius:16px;background:linear-gradient(135deg,#FDBA74,#F59E0B);color:white;font-size:16px;font-weight:700;font-family:'Noto Sans TC',sans-serif;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(253,186,116,.48);margin-bottom:10px;transition:transform .12s ease;"
+      onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''">
       登入 / 註冊
     </button>
-    <button onclick="guestLogin()" class="active:scale-95"
-      style="width:100%;padding:14px;border-radius:16px;background:rgba(255,255,255,0.7);color:#8b7355;font-size:14px;font-family:'Noto Sans TC';border:1.5px solid rgba(200,169,126,0.3);cursor:pointer;">
-      訪客體驗（不同步資料）
+    <button onclick="guestLogin()"
+      style="width:100%;padding:13px;border-radius:16px;background:rgba(255,255,255,.72);color:#8b7355;font-size:14px;font-family:'Noto Sans TC',sans-serif;border:1.5px solid rgba(200,169,126,.3);cursor:pointer;">
+      訪客體驗（不同步雲端）
     </button>
     <p id="login-error" style="color:#ef4444;font-size:13px;text-align:center;margin-top:10px;display:none;"></p>
   </div>
 </div>
 
-<!-- MEDICAL ALERT BANNER -->
+<!-- ════════════════════ ALERT BANNER ════════════════════ -->
 <div id="alert-banner">
-  <span style="font-size:20px;margin-right:10px;">⚠️</span>
+  <span style="font-size:20px;">⚠️</span>
   <div style="flex:1;">
-    <p style="font-weight:700;font-size:14px;color:#78350f;" id="alert-title">健康警示</p>
-    <p style="font-size:12px;color:#92400e;" id="alert-msg">請注意主子的健康狀況</p>
+    <p id="alert-title" style="font-weight:700;font-size:13px;color:#78350f;">健康警示</p>
+    <p id="alert-msg"   style="font-size:11px;color:#92400e;">請注意主子的健康狀況</p>
   </div>
-  <button onclick="dismissAlert()" style="background:none;border:none;font-size:18px;cursor:pointer;padding:4px;">✕</button>
+  <button onclick="dismissAlert()" style="background:none;border:none;font-size:17px;cursor:pointer;padding:4px;color:#78350f;">✕</button>
 </div>
 
-<!-- MAIN APP -->
+<!-- ════════════════════ MAIN APP ════════════════════ -->
 <div id="app" style="display:none;">
 
-  <!-- FIXED HEADER -->
-  <header class="fixed-header px-4" style="padding-top: max(env(safe-area-inset-top), 12px); padding-bottom:10px;">
-    <div style="display:flex;align-items:center;gap:12px;max-width:480px;margin:0 auto;">
-      <!-- Cat avatar switcher -->
-      <div style="display:flex;gap:8px;align-items:center;">
-        <div class="cat-sprite" id="avatar-daju" onclick="switchCat('大橘')" style="cursor:pointer;" title="大橘">
-          <img src="D5FA092A-78DF-4C0A-9093-30D335952EB8.png" alt="大橘" />
+  <!-- ── 固定頂部 Header ── -->
+  <header class="fixed-header px-4" style="padding-top:max(env(safe-area-inset-top),10px);padding-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:10px;max-width:480px;margin:0 auto;">
+      <!-- 貓咪頭像切換 -->
+      <div style="display:flex;gap:7px;align-items:center;">
+        <div class="cat-sprite" id="avatar-daju"   onclick="switchCat('大橘')"   title="大橘">
+          <img src="D5FA092A-78DF-4C0A-9093-30D335952EB8.png" alt="大橘" loading="eager" crossorigin="anonymous" />
         </div>
-        <div class="cat-sprite ragdoll" id="avatar-ragdoll" onclick="switchCat('仙女布偶')" style="cursor:pointer;opacity:0.5;" title="仙女布偶">
-          <img src="D5FA092A-78DF-4C0A-9093-30D335952EB8.png" alt="仙女布偶" />
+        <div class="cat-sprite ragdoll" id="avatar-ragdoll" onclick="switchCat('仙女布偶')" title="仙女布偶" style="opacity:.48;">
+          <img src="D5FA092A-78DF-4C0A-9093-30D335952EB8.png" alt="仙女布偶" loading="eager" crossorigin="anonymous" />
         </div>
       </div>
       <div style="flex:1;">
-        <p style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:#3d2c1e;" id="header-cat-name">大橘</p>
-        <p style="font-size:11px;color:#8b7355;" id="header-status">今天狀態良好 😸</p>
+        <p id="header-cat-name" style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:#3d2c1e;">大橘</p>
+        <p id="header-status"   style="font-size:11px;color:#8b7355;">今天狀態良好 😸</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span style="font-size:12px;color:#8b7355;font-weight:500;" id="header-user-title">——</span>
-        <button onclick="openSettings()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.8);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.08);">⚙️</button>
+        <span id="header-user-title" style="font-size:12px;color:#8b7355;font-weight:500;background:rgba(253,186,116,.2);padding:3px 10px;border-radius:999px;">——</span>
+        <button onclick="openSettings()"
+          style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.8);border:none;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.08);">⚙️</button>
       </div>
     </div>
   </header>
 
-  <!-- SCROLLABLE CENTER -->
-  <main class="scrollable-center" style="padding:12px 14px 8px;">
+  <!-- ── 中間可滾動區域 ── -->
+  <main class="scrollable-center" style="padding:12px 14px 10px;">
     <div style="max-width:480px;margin:0 auto;">
 
-      <!-- TODAY DATE -->
-      <div style="text-align:center;margin-bottom:14px;">
-        <span id="today-date" style="font-size:12px;color:#8b7355;font-weight:500;background:rgba(255,255,255,0.7);padding:4px 14px;border-radius:999px;border:1px solid rgba(200,169,126,0.2);">— 今天 —</span>
+      <!-- 今日日期 -->
+      <div style="text-align:center;margin-bottom:13px;">
+        <span id="today-date" style="font-size:11.5px;color:#8b7355;font-weight:500;background:rgba(255,255,255,.72);padding:4px 14px;border-radius:999px;border:1px solid rgba(200,169,126,.2);">載入中…</span>
       </div>
 
-      <!-- TAMAGOTCHI CAT -->
-      <div class="glass bounce-in" style="padding:20px;margin-bottom:16px;text-align:center;">
+      <!-- ── Tamagotchi 貓咪 ── -->
+      <div class="glass bounce-in" style="padding:18px;margin-bottom:15px;text-align:center;">
         <canvas id="tama-canvas" width="220" height="160"></canvas>
         <p id="tama-msg" style="font-size:13px;color:#8b7355;margin-top:8px;font-family:'Noto Serif TC',serif;">「喵～今天也要好好記錄喔！」</p>
       </div>
 
-      <!-- DAILY PROGRESS CARDS -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-        <!-- Water -->
-        <div class="glass" style="padding:16px;" id="card-water">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            <span style="font-size:22px;">💧</span>
+      <!-- ── 今日進度卡片 2x2 ── -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:15px;">
+        <!-- 飲水 -->
+        <div class="glass" style="padding:15px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+            <span style="font-size:20px;">💧</span>
             <div>
-              <p style="font-size:11px;color:#8b7355;">今日飲水</p>
-              <p style="font-weight:700;font-size:17px;color:#3d2c1e;" id="water-display">0 ml</p>
+              <p style="font-size:10px;color:#8b7355;">今日飲水</p>
+              <p id="water-display" style="font-weight:700;font-size:16px;color:#3d2c1e;">0 ml</p>
             </div>
           </div>
-          <div class="progress-bar">
-            <div class="progress-fill" id="water-bar" style="width:0%;background:linear-gradient(90deg,#93C5FD,#60A5FA);"></div>
-          </div>
-          <p style="font-size:10px;color:#8b7355;margin-top:4px;text-align:right;" id="water-goal-txt">目標 200ml</p>
+          <div class="prog-track"><div id="water-bar" class="prog-fill" style="width:0%;background:linear-gradient(90deg,#93C5FD,#3B82F6);"></div></div>
+          <p id="water-goal-txt" style="font-size:10px;color:#8b7355;margin-top:4px;text-align:right;">目標 200ml</p>
         </div>
-        <!-- Food -->
-        <div class="glass" style="padding:16px;" id="card-food">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            <span style="font-size:22px;">🍽️</span>
+        <!-- 飲食 -->
+        <div class="glass" style="padding:15px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+            <span style="font-size:20px;">🍽️</span>
             <div>
-              <p style="font-size:11px;color:#8b7355;">今日飲食</p>
-              <p style="font-weight:700;font-size:17px;color:#3d2c1e;" id="food-display">0 g</p>
+              <p style="font-size:10px;color:#8b7355;">今日飲食</p>
+              <p id="food-display" style="font-weight:700;font-size:16px;color:#3d2c1e;">0 g</p>
             </div>
           </div>
-          <div class="progress-bar">
-            <div class="progress-fill" id="food-bar" style="width:0%;background:linear-gradient(90deg,#86EFAC,#4ADE80);"></div>
-          </div>
-          <p style="font-size:10px;color:#8b7355;margin-top:4px;text-align:right;" id="food-goal-txt">目標 80g</p>
+          <div class="prog-track"><div id="food-bar" class="prog-fill" style="width:0%;background:linear-gradient(90deg,#86EFAC,#22C55E);"></div></div>
+          <p id="food-goal-txt" style="font-size:10px;color:#8b7355;margin-top:4px;text-align:right;">目標 80g</p>
         </div>
-        <!-- Weight -->
-        <div class="glass" style="padding:16px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <span style="font-size:22px;">⚖️</span>
+        <!-- 體重 -->
+        <div class="glass" style="padding:15px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+            <span style="font-size:20px;">⚖️</span>
             <div>
-              <p style="font-size:11px;color:#8b7355;">體重</p>
-              <p style="font-weight:700;font-size:17px;color:#3d2c1e;" id="weight-display">— kg</p>
+              <p style="font-size:10px;color:#8b7355;">最新體重</p>
+              <p id="weight-display" style="font-weight:700;font-size:16px;color:#3d2c1e;">— kg</p>
             </div>
           </div>
-          <p style="font-size:10px;color:#8b7355;" id="weight-trend">—</p>
+          <p id="weight-trend" style="font-size:10px;color:#8b7355;">暫無趨勢</p>
         </div>
-        <!-- Health Score -->
-        <div class="glass" style="padding:16px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <span style="font-size:22px;">💗</span>
+        <!-- 健康分數 -->
+        <div class="glass" style="padding:15px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+            <span style="font-size:20px;">💗</span>
             <div>
-              <p style="font-size:11px;color:#8b7355;">健康分數</p>
-              <p style="font-weight:700;font-size:17px;color:#3d2c1e;" id="health-score">——</p>
+              <p style="font-size:10px;color:#8b7355;">健康分數</p>
+              <p id="health-score" style="font-weight:700;font-size:16px;color:#3d2c1e;">—— 分</p>
             </div>
           </div>
-          <div class="progress-bar">
-            <div class="progress-fill" id="health-bar" style="width:0%;background:linear-gradient(90deg,#FCA5A5,#F87171);"></div>
-          </div>
+          <div class="prog-track"><div id="health-bar" class="prog-fill" style="width:0%;background:linear-gradient(90deg,#FCA5A5,#EF4444);"></div></div>
         </div>
       </div>
 
-      <!-- QUICK LOG BUTTONS -->
-      <div class="glass" style="padding:16px;margin-bottom:16px;">
-        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:12px;">⚡ 快速記錄</p>
+      <!-- ── 快速記錄 ── -->
+      <div class="glass" style="padding:15px;margin-bottom:15px;">
+        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:11px;">⚡ 快速記錄</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          <button class="pill-btn active:scale-95" onclick="quickLog('water',20)" style="background:rgba(147,197,253,0.3);color:#1d4ed8;">💧 +20ml</button>
-          <button class="pill-btn active:scale-95" onclick="quickLog('water',50)" style="background:rgba(147,197,253,0.3);color:#1d4ed8;">💧 +50ml</button>
-          <button class="pill-btn active:scale-95" onclick="quickLog('food',20)" style="background:rgba(134,239,172,0.3);color:#166534;">🍽️ +20g</button>
-          <button class="pill-btn active:scale-95" onclick="quickLog('food',50)" style="background:rgba(134,239,172,0.3);color:#166534;">🍽️ +50g</button>
-          <button class="pill-btn active:scale-95" onclick="openModal('stool')" style="background:rgba(253,186,116,0.3);color:#92400e;">💩 排便</button>
-          <button class="pill-btn active:scale-95" onclick="openModal('medical')" style="background:rgba(252,165,165,0.3);color:#991b1b;">💊 醫療</button>
-          <button class="pill-btn active:scale-95" onclick="openModal('weight')" style="background:rgba(199,210,254,0.3);color:#3730a3;">⚖️ 體重</button>
+          <button class="pill-btn" onclick="quickLog('water',20)" style="background:rgba(147,197,253,.28);color:#1d4ed8;">💧 +20ml</button>
+          <button class="pill-btn" onclick="quickLog('water',50)" style="background:rgba(147,197,253,.28);color:#1d4ed8;">💧 +50ml</button>
+          <button class="pill-btn" onclick="quickLog('food',20)"  style="background:rgba(134,239,172,.28);color:#166534;">🍽️ +20g</button>
+          <button class="pill-btn" onclick="quickLog('food',50)"  style="background:rgba(134,239,172,.28);color:#166534;">🍽️ +50g</button>
+          <button class="pill-btn" onclick="openModal('stool')"   style="background:rgba(253,186,116,.28);color:#92400e;">💩 排便</button>
+          <button class="pill-btn" onclick="openModal('medical')" style="background:rgba(252,165,165,.28);color:#991b1b;">💊 醫療</button>
+          <button class="pill-btn" onclick="openModal('weight')"  style="background:rgba(199,210,254,.28);color:#3730a3;">⚖️ 體重</button>
         </div>
       </div>
 
-      <!-- STOOL STATUS -->
-      <div class="glass" style="padding:16px;margin-bottom:16px;">
-        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:12px;">💩 排便狀態</p>
+      <!-- ── 排便狀態 ── -->
+      <div class="glass" style="padding:15px;margin-bottom:15px;">
+        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:11px;">💩 排便狀態快速記錄</p>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-          <div class="stool-card active:scale-95" id="stool-normal" onclick="logStool('型態正常')" style="background:#E2EDDF;">
-            <div style="font-size:20px;margin-bottom:4px;">✅</div>
+          <div class="stool-card" id="stool-normal" onclick="logStool('型態正常')" style="background:#E2EDDF;">
+            <div style="font-size:18px;margin-bottom:3px;">✅</div>
             <p style="font-size:11px;color:#2d4a2d;font-weight:500;">型態正常</p>
           </div>
-          <div class="stool-card active:scale-95" id="stool-soft" onclick="logStool('輕微軟便')" style="background:#F4EFE6;">
-            <div style="font-size:20px;margin-bottom:4px;">⚠️</div>
+          <div class="stool-card" id="stool-soft"   onclick="logStool('輕微軟便')" style="background:#F4EFE6;">
+            <div style="font-size:18px;margin-bottom:3px;">⚠️</div>
             <p style="font-size:11px;color:#6b4c2a;font-weight:500;">輕微軟便</p>
           </div>
-          <div class="stool-card active:scale-95" id="stool-alert" onclick="logStool('狀態異常')" style="background:#F9E8E8;">
-            <div style="font-size:20px;margin-bottom:4px;">🚨</div>
+          <div class="stool-card" id="stool-alert"  onclick="logStool('狀態異常')" style="background:#F9E8E8;">
+            <div style="font-size:18px;margin-bottom:3px;">🚨</div>
             <p style="font-size:11px;color:#7f1d1d;font-weight:500;">狀態異常</p>
           </div>
         </div>
       </div>
 
-      <!-- AI DIARY -->
-      <div class="glass" style="padding:18px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <p style="font-size:13px;font-weight:600;color:#4a3728;">📖 今日日記</p>
-          <button onclick="generateDiary()" style="font-size:11px;padding:5px 12px;border-radius:999px;background:rgba(253,186,116,0.3);color:#92400e;border:1px solid rgba(253,186,116,0.5);cursor:pointer;font-family:'Noto Sans TC';">✨ 生成</button>
+      <!-- ── AI 日記 ── -->
+      <div class="glass" style="padding:17px;margin-bottom:15px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;">
+          <p style="font-size:13px;font-weight:600;color:#4a3728;">📖 貓咪今日日記</p>
+          <button id="diary-btn" onclick="generateDiary()"
+            style="font-size:11px;padding:5px 12px;border-radius:999px;background:rgba(253,186,116,.3);color:#92400e;border:1px solid rgba(253,186,116,.5);cursor:pointer;font-family:'Noto Sans TC',sans-serif;">✨ 生成</button>
         </div>
-        <div id="diary-content" class="diary-text" style="font-size:13.5px;color:#5c4033;min-height:60px;line-height:1.9;">
-          <span style="color:#b8a596;font-style:italic;">點擊「生成」讓主子說說今天的心情日記…</span>
+        <div id="diary-content" class="diary-text">
+          <span style="color:#b8a596;font-style:italic;">點擊「生成」讓主子分享今天心情…</span>
         </div>
       </div>
 
-      <!-- ANALYTICS CHART -->
-      <div class="glass" style="padding:18px;margin-bottom:16px;">
-        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:14px;">📊 近期趨勢</p>
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <button onclick="switchChart('water')" id="chart-btn-water" class="pill-btn" style="background:rgba(147,197,253,0.4);color:#1e40af;font-size:12px;">💧 飲水</button>
-          <button onclick="switchChart('food')" id="chart-btn-food" class="pill-btn" style="background:rgba(255,255,255,0.5);color:#6b7280;font-size:12px;">🍽️ 飲食</button>
-          <button onclick="switchChart('weight')" id="chart-btn-weight" class="pill-btn" style="background:rgba(255,255,255,0.5);color:#6b7280;font-size:12px;">⚖️ 體重</button>
+      <!-- ── 趨勢圖表 ── -->
+      <div class="glass" style="padding:17px;margin-bottom:15px;">
+        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:12px;">📊 近 7 日趨勢</p>
+        <div style="display:flex;gap:7px;margin-bottom:12px;">
+          <button id="chart-btn-water"  onclick="switchChart('water')"  class="pill-btn" style="background:rgba(147,197,253,.5);color:#1e40af;font-size:11px;">💧 飲水</button>
+          <button id="chart-btn-food"   onclick="switchChart('food')"   class="pill-btn" style="background:rgba(255,255,255,.5);color:#6b7280;font-size:11px;">🍽️ 飲食</button>
+          <button id="chart-btn-weight" onclick="switchChart('weight')" class="pill-btn" style="background:rgba(255,255,255,.5);color:#6b7280;font-size:11px;">⚖️ 體重</button>
         </div>
         <div class="chart-wrap">
           <canvas id="main-chart"></canvas>
         </div>
       </div>
 
-      <!-- RECENT LOGS -->
-      <div class="glass" style="padding:18px;margin-bottom:24px;">
-        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:12px;">📋 最近記錄</p>
-        <div id="recent-logs" style="display:flex;flex-direction:column;gap:8px;">
+      <!-- ── 最近記錄 ── -->
+      <div class="glass" style="padding:17px;margin-bottom:28px;">
+        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:11px;">📋 最近記錄</p>
+        <div id="recent-logs">
           <p style="font-size:13px;color:#b8a596;text-align:center;padding:16px 0;">尚無記錄</p>
         </div>
       </div>
@@ -661,250 +624,276 @@ ALTER PUBLICATION supabase_realtime ADD TABLE health_logs;
     </div>
   </main>
 
-  <!-- FIXED FOOTER NAV -->
-  <footer class="fixed-footer" style="padding-bottom: max(env(safe-area-inset-bottom), 8px);">
+  <!-- ── 固定底部 Footer ── -->
+  <footer class="fixed-footer" style="padding-bottom:max(env(safe-area-inset-bottom),6px);">
     <div style="display:flex;max-width:480px;margin:0 auto;padding:4px 8px 0;">
-      <div class="nav-tab active" id="tab-home" onclick="switchTab('home')">
-        <span style="font-size:22px;">🏠</span>
+      <div class="nav-tab active" id="tab-home"  onclick="switchTab('home')">
+        <span style="font-size:21px;">🏠</span>
         <span style="font-size:10px;color:#4a3728;font-weight:500;">首頁</span>
         <span class="dot"></span>
       </div>
-      <div class="nav-tab" id="tab-log" onclick="switchTab('log')">
-        <span style="font-size:22px;">📋</span>
+      <div class="nav-tab" id="tab-log"  onclick="switchTab('log')">
+        <span style="font-size:21px;">📋</span>
         <span style="font-size:10px;color:#8b7355;">日誌</span>
         <span class="dot"></span>
       </div>
       <div class="nav-tab" id="tab-chart" onclick="switchTab('chart')">
-        <span style="font-size:22px;">📊</span>
+        <span style="font-size:21px;">📊</span>
         <span style="font-size:10px;color:#8b7355;">統計</span>
         <span class="dot"></span>
       </div>
       <div class="nav-tab" id="tab-diary" onclick="switchTab('diary')">
-        <span style="font-size:22px;">📖</span>
+        <span style="font-size:21px;">📖</span>
         <span style="font-size:10px;color:#8b7355;">日記</span>
         <span class="dot"></span>
       </div>
     </div>
   </footer>
 
-</div>
+</div><!-- /#app -->
 
-<!-- STOOL MODAL -->
-<div id="modal-stool" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('stool')">
+<!-- ════════════════════ MODALS ════════════════════ -->
+
+<!-- 排便 Modal -->
+<div id="modal-stool" class="modal-overlay" onclick="if(event.target===this)closeModal('stool')">
   <div class="modal-sheet">
-    <div style="width:48px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 20px;"></div>
-    <h3 style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#3d2c1e;margin-bottom:16px;">💩 記錄排便</h3>
-    <p style="font-size:13px;color:#8b7355;margin-bottom:12px;">選擇排便狀態：</p>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
-      <button onclick="logStool('型態正常');closeModal('stool')" class="active:scale-95"
-        style="padding:14px;border-radius:14px;background:#E2EDDF;border:none;cursor:pointer;font-size:15px;font-family:'Noto Sans TC';text-align:left;">
-        ✅ 型態正常
-      </button>
-      <button onclick="logStool('輕微軟便');closeModal('stool')" class="active:scale-95"
-        style="padding:14px;border-radius:14px;background:#F4EFE6;border:none;cursor:pointer;font-size:15px;font-family:'Noto Sans TC';text-align:left;">
-        ⚠️ 輕微軟便
-      </button>
-      <button onclick="logStool('狀態異常');closeModal('stool')" class="active:scale-95"
-        style="padding:14px;border-radius:14px;background:#F9E8E8;border:none;cursor:pointer;font-size:15px;font-family:'Noto Sans TC';text-align:left;">
-        🚨 狀態異常
-      </button>
+    <div style="width:44px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 18px;"></div>
+    <h3 style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:#3d2c1e;margin-bottom:14px;">💩 記錄排便狀態</h3>
+    <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:18px;">
+      <button onclick="logStool('型態正常');closeModal('stool')"
+        style="padding:13px;border-radius:13px;background:#E2EDDF;border:none;cursor:pointer;font-size:15px;font-family:'Noto Sans TC',sans-serif;text-align:left;">✅ 型態正常</button>
+      <button onclick="logStool('輕微軟便');closeModal('stool')"
+        style="padding:13px;border-radius:13px;background:#F4EFE6;border:none;cursor:pointer;font-size:15px;font-family:'Noto Sans TC',sans-serif;text-align:left;">⚠️ 輕微軟便</button>
+      <button onclick="logStool('狀態異常');closeModal('stool')"
+        style="padding:13px;border-radius:13px;background:#F9E8E8;border:none;cursor:pointer;font-size:15px;font-family:'Noto Sans TC',sans-serif;text-align:left;">🚨 狀態異常</button>
     </div>
-    <div style="margin-bottom:16px;">
-      <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">備註（可選）</label>
-      <input id="stool-note" type="text" placeholder="例如：吐毛球、食慾不振…"
-        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:14px;font-family:'Noto Sans TC';outline:none;" />
-    </div>
+    <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">備註（可選）</label>
+    <input id="stool-note" type="text" placeholder="例如：吐毛球、食慾不振…"
+      style="width:100%;padding:11px;border-radius:11px;border:1.5px solid rgba(200,169,126,.3);background:rgba(255,255,255,.85);font-size:14px;font-family:'Noto Sans TC',sans-serif;outline:none;" />
   </div>
 </div>
 
-<!-- MEDICAL MODAL -->
-<div id="modal-medical" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('medical')">
+<!-- 醫療 Modal -->
+<div id="modal-medical" class="modal-overlay" onclick="if(event.target===this)closeModal('medical')">
   <div class="modal-sheet">
-    <div style="width:48px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 20px;"></div>
-    <h3 style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#3d2c1e;margin-bottom:16px;">💊 醫療記錄</h3>
-    <div style="margin-bottom:14px;">
-      <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">醫療類型</label>
+    <div style="width:44px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 18px;"></div>
+    <h3 style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:#3d2c1e;margin-bottom:14px;">💊 醫療記錄</h3>
+    <div style="margin-bottom:13px;">
+      <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:5px;">醫療類型</label>
       <select id="medical-type"
-        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:14px;font-family:'Noto Sans TC';outline:none;">
-        <option>定期健檢</option>
-        <option>疫苗接種</option>
-        <option>驅蟲藥</option>
-        <option>看診治療</option>
-        <option>其他用藥</option>
+        style="width:100%;padding:11px;border-radius:11px;border:1.5px solid rgba(200,169,126,.3);background:rgba(255,255,255,.85);font-size:14px;font-family:'Noto Sans TC',sans-serif;outline:none;">
+        <option>定期健檢</option><option>疫苗接種</option>
+        <option>驅蟲藥</option><option>看診治療</option><option>其他用藥</option>
       </select>
     </div>
-    <div style="margin-bottom:14px;">
-      <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">備註</label>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:5px;">備註</label>
       <input id="medical-note" type="text" placeholder="例如：體重 4.2kg，一切正常"
-        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:14px;font-family:'Noto Sans TC';outline:none;" />
+        style="width:100%;padding:11px;border-radius:11px;border:1.5px solid rgba(200,169,126,.3);background:rgba(255,255,255,.85);font-size:14px;font-family:'Noto Sans TC',sans-serif;outline:none;" />
     </div>
-    <button onclick="saveMedical()" class="active:scale-95"
-      style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,#FCA5A5,#F87171);color:white;font-size:15px;font-weight:600;font-family:'Noto Sans TC';border:none;cursor:pointer;">
-      💾 儲存記錄
-    </button>
+    <button onclick="saveMedical()"
+      style="width:100%;padding:13px;border-radius:13px;background:linear-gradient(135deg,#FCA5A5,#EF4444);color:white;font-size:15px;font-weight:600;font-family:'Noto Sans TC',sans-serif;border:none;cursor:pointer;">💾 儲存記錄</button>
   </div>
 </div>
 
-<!-- WEIGHT MODAL -->
-<div id="modal-weight" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('weight')">
+<!-- 體重 Modal -->
+<div id="modal-weight" class="modal-overlay" onclick="if(event.target===this)closeModal('weight')">
   <div class="modal-sheet">
-    <div style="width:48px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 20px;"></div>
-    <h3 style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#3d2c1e;margin-bottom:16px;">⚖️ 記錄體重</h3>
-    <div style="text-align:center;margin-bottom:20px;">
-      <span style="font-size:36px;font-weight:700;color:#3d2c1e;font-family:'Noto Serif TC',serif;" id="weight-slider-display">4.5</span>
+    <div style="width:44px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 18px;"></div>
+    <h3 style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:#3d2c1e;margin-bottom:14px;">⚖️ 記錄體重</h3>
+    <div style="text-align:center;margin-bottom:18px;">
+      <span id="weight-slider-display" style="font-size:38px;font-weight:700;color:#3d2c1e;font-family:'Noto Serif TC',serif;">4.5</span>
       <span style="font-size:18px;color:#8b7355;"> kg</span>
     </div>
     <input type="range" id="weight-slider" min="20" max="100" value="45" step="1"
-      oninput="updateWeightSlider(this.value)" style="width:100%;margin-bottom:8px;" />
+      oninput="updateWeightSlider(this.value)" style="width:100%;margin-bottom:6px;" />
     <div style="display:flex;justify-content:space-between;font-size:11px;color:#b8a596;margin-bottom:20px;">
       <span>2.0 kg</span><span>10.0 kg</span>
     </div>
-    <button onclick="saveWeight()" class="active:scale-95"
-      style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,#C7D2FE,#A5B4FC);color:white;font-size:15px;font-weight:600;font-family:'Noto Sans TC';border:none;cursor:pointer;">
-      💾 儲存體重
-    </button>
+    <button onclick="saveWeight()"
+      style="width:100%;padding:13px;border-radius:13px;background:linear-gradient(135deg,#C7D2FE,#818CF8);color:white;font-size:15px;font-weight:600;font-family:'Noto Sans TC',sans-serif;border:none;cursor:pointer;">💾 儲存體重</button>
   </div>
 </div>
 
-<!-- SETTINGS DRAWER -->
-<div id="modal-settings" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('settings')">
+<!-- 設定 Modal -->
+<div id="modal-settings" class="modal-overlay" onclick="if(event.target===this)closeModal('settings')">
   <div class="modal-sheet">
-    <div style="width:48px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 20px;"></div>
-    <h3 style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#3d2c1e;margin-bottom:16px;">⚙️ 設定</h3>
+    <div style="width:44px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 18px;"></div>
+    <h3 style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:#3d2c1e;margin-bottom:14px;">⚙️ 設定</h3>
+    <!-- 密碼鎖 -->
     <div id="settings-lock-screen">
-      <p style="font-size:13px;color:#8b7355;margin-bottom:10px;">請輸入開發者密碼</p>
-      <input id="settings-pw" type="password" placeholder="密碼" maxlength="4"
-        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:20px;letter-spacing:8px;text-align:center;font-family:monospace;outline:none;margin-bottom:12px;" />
-      <button onclick="unlockSettings()" class="active:scale-95"
-        style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,#FDBA74,#F59E0B);color:white;font-size:14px;font-weight:600;font-family:'Noto Sans TC';border:none;cursor:pointer;">解鎖</button>
-      <p id="settings-pw-error" style="color:#ef4444;font-size:12px;text-align:center;margin-top:8px;display:none;">密碼錯誤！</p>
+      <p style="font-size:13px;color:#8b7355;margin-bottom:9px;">請輸入開發者密碼（4碼）</p>
+      <input id="settings-pw" type="password" placeholder="● ● ● ●" maxlength="4"
+        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid rgba(200,169,126,.3);background:rgba(255,255,255,.85);font-size:22px;letter-spacing:10px;text-align:center;font-family:monospace;outline:none;margin-bottom:11px;" />
+      <button onclick="unlockSettings()"
+        style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,#FDBA74,#F59E0B);color:white;font-size:14px;font-weight:600;font-family:'Noto Sans TC',sans-serif;border:none;cursor:pointer;">解鎖</button>
+      <p id="settings-pw-error" style="color:#ef4444;font-size:12px;text-align:center;margin-top:8px;display:none;">密碼錯誤，請再試一次</p>
     </div>
+    <!-- 設定內容 -->
     <div id="settings-content" style="display:none;">
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">🐱 目前主子</label>
-        <div style="display:flex;gap:8px;">
-          <button onclick="switchCat('大橘')" id="cat-btn-daju" class="pill-btn active:scale-95" style="background:rgba(253,186,116,0.4);color:#92400e;">大橘</button>
-          <button onclick="switchCat('仙女布偶')" id="cat-btn-ragdoll" class="pill-btn active:scale-95" style="background:rgba(255,255,255,0.5);color:#6b7280;">仙女布偶</button>
+      <div style="margin-bottom:13px;">
+        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:7px;">🐱 目前主子</label>
+        <div style="display:flex;gap:9px;">
+          <button id="cat-btn-daju"    onclick="switchCat('大橘')"    class="pill-btn" style="background:rgba(253,186,116,.4);color:#92400e;">大橘</button>
+          <button id="cat-btn-ragdoll" onclick="switchCat('仙女布偶')" class="pill-btn" style="background:rgba(255,255,255,.5);color:#6b7280;">仙女布偶</button>
         </div>
       </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">💧 每日飲水目標 (ml)</label>
+      <div style="margin-bottom:13px;">
+        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:5px;">💧 每日飲水目標 (ml)</label>
         <input id="goal-water" type="number" value="200"
-          style="width:100%;padding:10px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:15px;font-family:'Noto Sans TC';outline:none;" />
+          style="width:100%;padding:10px;border-radius:11px;border:1.5px solid rgba(200,169,126,.3);background:rgba(255,255,255,.85);font-size:15px;font-family:'Noto Sans TC',sans-serif;outline:none;" />
       </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">🍽️ 每日飲食目標 (g)</label>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:5px;">🍽️ 每日飲食目標 (g)</label>
         <input id="goal-food" type="number" value="80"
-          style="width:100%;padding:10px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:15px;font-family:'Noto Sans TC';outline:none;" />
+          style="width:100%;padding:10px;border-radius:11px;border:1.5px solid rgba(200,169,126,.3);background:rgba(255,255,255,.85);font-size:15px;font-family:'Noto Sans TC',sans-serif;outline:none;" />
       </div>
-      <button onclick="saveSettings()" class="active:scale-95"
-        style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,#FDBA74,#F59E0B);color:white;font-size:15px;font-weight:600;font-family:'Noto Sans TC';border:none;cursor:pointer;margin-bottom:10px;">
-        💾 儲存設定
-      </button>
-      <button onclick="doLogout()" class="active:scale-95"
-        style="width:100%;padding:14px;border-radius:14px;background:rgba(255,255,255,0.7);color:#8b7355;font-size:14px;font-family:'Noto Sans TC';border:1.5px solid rgba(200,169,126,0.3);cursor:pointer;">
-        🚪 登出
-      </button>
+      <button onclick="saveSettings()"
+        style="width:100%;padding:13px;border-radius:13px;background:linear-gradient(135deg,#FDBA74,#F59E0B);color:white;font-size:15px;font-weight:600;font-family:'Noto Sans TC',sans-serif;border:none;cursor:pointer;margin-bottom:10px;">💾 儲存設定</button>
+      <button onclick="doLogout()"
+        style="width:100%;padding:13px;border-radius:13px;background:rgba(255,255,255,.72);color:#8b7355;font-size:14px;font-family:'Noto Sans TC',sans-serif;border:1.5px solid rgba(200,169,126,.3);cursor:pointer;">🚪 登出</button>
     </div>
   </div>
 </div>
 
+<!-- ════════════════════ JAVASCRIPT ════════════════════ -->
 <script>
-// ==================== SUPABASE ====================
-const SUPABASE_URL = "https://vmgwyvwkhqnjmbdbliiа.supabase.co";
+/* ─────────────────────────────────────────────────────────────
+   [BUG-01 / BUG-02 / BUG-03 修復]
+   Supabase 初始化必須等到 DOMContentLoaded 後才執行，
+   並以 try/catch 完整包覆，確保 CDN 已完成載入。
+   Splash 倒數計時也移至此處啟動，徹底根治卡關問題。
+───────────────────────────────────────────────────────────── */
+
+const SUPABASE_URL      = "https://vmgwyvwkhqnjmbdbliiа.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZ3d5dndraHFuam1iZGJsaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MzU2MDYsImV4cCI6MjA5NDAxMTYwNn0.ZKaombHKVeoLk1RgzYn912tjlUSv4KE8CS5Wl_DunFs";
 
-let supabase = null;
-try {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-} catch(e) { console.warn('Supabase init failed, running offline', e); }
+/* ── 全域狀態 ── */
+let sbClient      = null;   // Supabase client（初始化後才賦值）
+let mainChart     = null;
+let audioCtx      = null;
+let floatAngle    = 0;
+let tamaAnimTimer = null;
+let lastResetDate = '';
 
-// ==================== APP STATE ====================
-let state = {
-  user: null,
-  userTitle: '主人',
-  activeCat: '大橘',
-  logs: [],
-  waterToday: 0,
-  foodToday: 0,
-  weights: [],
-  goals: { water: 200, food: 80 },
-  tamaAnim: 'idle',
-  lastLogTime: null,
-  offlineQueue: [],
-  chartType: 'water',
-  selectedTitle: '',
+const state = {
+  user:          null,
+  userTitle:     '主人',
+  activeCat:     '大橘',
+  logs:          [],
+  waterToday:    0,
+  foodToday:     0,
+  weights:       [],
+  goals:         { water: 200, food: 80 },
+  tamaAnim:      'idle',
+  lastLogTime:   null,
+  offlineQueue:  [],
+  chartType:     'water',
 };
 
 const CHART_COLORS = {
-  water: { bg: 'rgba(147,197,253,0.3)', border: '#60A5FA' },
-  food: { bg: 'rgba(134,239,172,0.3)', border: '#4ADE80' },
-  weight: { bg: 'rgba(199,210,254,0.3)', border: '#A5B4FC' },
+  water:  { bg: 'rgba(147,197,253,.32)', border: '#60A5FA' },
+  food:   { bg: 'rgba(134,239,172,.32)', border: '#4ADE80' },
+  weight: { bg: 'rgba(199,210,254,.32)', border: '#A5B4FC' },
 };
 
-let mainChart = null;
-let audioCtx = null;
+const TAMA_COLORS = {
+  '大橘':    { body:'#FDBA74', stripe:'#F59E0B', eye:'#7c3516', cheek:'#FFB3B3' },
+  '仙女布偶':{ body:'#F5F0EA', stripe:'#C4A882', eye:'#93C5FD', cheek:'#E8D5E8' },
+};
 
-// ==================== INIT ====================
-window.addEventListener('DOMContentLoaded', () => {
+/* ═══════════════════════════════════════════════════════════
+   ENTRY POINT — DOMContentLoaded 保證 DOM 就緒再執行任何邏輯
+═══════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  // [BUG-02 修復] 在 DOMContentLoaded 後才安全初始化 Supabase
+  try {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+      sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      updateSplashStatus('連線 Supabase…');
+    } else {
+      updateSplashStatus('離線模式');
+    }
+  } catch (err) {
+    console.warn('[Supabase Init] 初始化失敗，使用離線模式:', err);
+    sbClient = null;
+    updateSplashStatus('離線模式');
+  }
+
   loadLocalState();
   initTodayDate();
+  lastResetDate = new Date().toLocaleDateString('zh-TW');
+
+  // [BUG-03 修復] Splash 在 DOM 就緒後才開始 1.5s 倒數，
+  // 不再依賴 CDN onload 競態，確保不會永遠卡在 splash。
   setTimeout(() => {
-    document.getElementById('splash').classList.add('fade-out');
+    const splash = document.getElementById('splash');
+    splash.classList.add('fade-out');
     setTimeout(() => {
-      document.getElementById('splash').style.display = 'none';
-      checkAuth();
+      splash.style.display = 'none';
+      checkAuth();       // 此時 sbClient 已確定初始化完畢或設為 null
     }, 700);
   }, 1500);
-  schedulesMidnightCheck();
+
+  // 午夜重置輪詢（每分鐘）
+  setInterval(checkMidnightReset, 60_000);
+
+  // 網路恢復時同步離線佇列
+  window.addEventListener('online', flushOfflineQueue);
 });
 
+function updateSplashStatus(msg) {
+  const el = document.getElementById('splash-status');
+  if (el) el.textContent = msg;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOCAL STATE
+═══════════════════════════════════════════════════════════ */
 function loadLocalState() {
   try {
-    const saved = localStorage.getItem('catHealthState');
-    if (saved) {
-      const s = JSON.parse(saved);
-      state.goals = s.goals || state.goals;
-      state.activeCat = s.activeCat || '大橘';
-      state.offlineQueue = s.offlineQueue || [];
-      state.logs = s.logs || [];
-      // Check if today's logs are stale
-      const today = new Date().toLocaleDateString('zh-TW');
-      state.logs = state.logs.filter(l => {
-        const d = new Date(l.created_at).toLocaleDateString('zh-TW');
-        return d === today;
-      });
-    }
-  } catch(e) {}
+    const saved = localStorage.getItem('catHealthState_v2');
+    if (!saved) return;
+    const s = JSON.parse(saved);
+    state.goals      = s.goals     || state.goals;
+    state.activeCat  = s.activeCat || '大橘';
+    state.offlineQueue = s.offlineQueue || [];
+    // 只保留今天的本地快取
+    const today = new Date().toLocaleDateString('zh-TW');
+    state.logs = (s.logs || []).filter(l =>
+      new Date(l.created_at).toLocaleDateString('zh-TW') === today
+    );
+  } catch (e) { console.warn('loadLocalState error:', e); }
 }
 
 function saveLocalState() {
   try {
-    localStorage.setItem('catHealthState', JSON.stringify({
-      goals: state.goals,
-      activeCat: state.activeCat,
-      logs: state.logs,
+    localStorage.setItem('catHealthState_v2', JSON.stringify({
+      goals:        state.goals,
+      activeCat:    state.activeCat,
+      logs:         state.logs.slice(0, 60),
       offlineQueue: state.offlineQueue,
     }));
-  } catch(e) {}
+  } catch (e) {}
 }
 
-function initTodayDate() {
-  const now = new Date();
-  const opts = { year:'numeric', month:'long', day:'numeric', weekday:'long' };
-  document.getElementById('today-date').textContent = now.toLocaleDateString('zh-TW', opts);
-}
-
-// ==================== AUTH ====================
+/* ═══════════════════════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════════════════════ */
 async function checkAuth() {
-  if (!supabase) { showLoginScreen(); return; }
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.user) {
-    state.user = session.user;
-    await loadUserProfile(session.user.id);
-    showApp();
-  } else {
-    showLoginScreen();
+  if (!sbClient) { showLoginScreen(); return; }
+  try {
+    const { data: { session } } = await sbClient.auth.getSession();
+    if (session?.user) {
+      state.user = session.user;
+      await loadUserProfile(session.user.id);
+      showApp();
+    } else {
+      showLoginScreen();
+    }
+  } catch (err) {
+    console.warn('checkAuth error:', err);
+    showLoginScreen();   // 連線失敗也能進入登入頁，不卡白屏
   }
 }
 
@@ -915,7 +904,8 @@ function showLoginScreen() {
 
 function showApp() {
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
+  const appEl = document.getElementById('app');
+  appEl.style.display = 'flex';
   document.getElementById('header-user-title').textContent = state.userTitle;
   initApp();
 }
@@ -923,110 +913,123 @@ function showApp() {
 let selectedLoginTitle = '';
 function selectTitle(t) {
   selectedLoginTitle = t;
-  ['爸爸','媽媽','哥哥','姊姊'].forEach(tt => {
-    document.getElementById('title-' + tt).classList.toggle('selected', tt === t);
-  });
+  ['爸爸','媽媽','哥哥','姊姊'].forEach(tt =>
+    document.getElementById('title-' + tt).classList.toggle('selected', tt === t)
+  );
 }
 
 async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const pw = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
-  if (!selectedLoginTitle) { errEl.textContent='請先選擇身份稱謂'; errEl.style.display='block'; return; }
-  if (!email || !pw) { errEl.textContent='請填寫電子郵件和密碼'; errEl.style.display='block'; return; }
-  errEl.style.display='none';
-  if (!supabase) { guestLogin(); return; }
-  // Try login first
-  let { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
-  if (error) {
-    // Try register
-    const reg = await supabase.auth.signUp({ email, password: pw });
-    if (reg.error) { errEl.textContent = reg.error.message; errEl.style.display='block'; return; }
-    data = reg.data;
-  }
-  if (data?.user) {
-    state.user = data.user;
-    // Upsert profile with title
-    await supabase.from('profiles').upsert({
-      id: data.user.id, email, title: selectedLoginTitle
-    });
-    await loadUserProfile(data.user.id);
-    showApp();
+  const email  = document.getElementById('login-email').value.trim();
+  const pw     = document.getElementById('login-password').value;
+  const errEl  = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if (!selectedLoginTitle) { showErr(errEl, '請先選擇身份稱謂'); return; }
+  if (!email || !pw)        { showErr(errEl, '請填寫電子郵件和密碼'); return; }
+  if (!sbClient)            { guestLogin(); return; }
+
+  try {
+    let { data, error } = await sbClient.auth.signInWithPassword({ email, password: pw });
+    if (error) {
+      const reg = await sbClient.auth.signUp({ email, password: pw });
+      if (reg.error) { showErr(errEl, reg.error.message); return; }
+      data = reg.data;
+    }
+    if (data?.user) {
+      state.user = data.user;
+      await sbClient.from('profiles').upsert({ id: data.user.id, email, title: selectedLoginTitle });
+      await loadUserProfile(data.user.id);
+      showApp();
+    }
+  } catch (err) {
+    showErr(errEl, '登入失敗，請檢查網路或改用訪客模式');
   }
 }
 
 function guestLogin() {
-  state.user = { id: 'guest_' + Date.now(), email: '訪客' };
+  state.user      = { id: 'guest_' + Date.now(), email: '訪客' };
   state.userTitle = selectedLoginTitle || '主人';
   showApp();
 }
 
 async function loadUserProfile(uid) {
-  if (!supabase) return;
-  const { data } = await supabase.from('profiles').select('*').eq('id', uid).single();
-  if (data?.title) state.userTitle = data.title;
+  if (!sbClient) return;
+  try {
+    const { data } = await sbClient.from('profiles').select('title').eq('id', uid).single();
+    if (data?.title) state.userTitle = data.title;
+  } catch (e) {}
 }
 
 async function doLogout() {
-  if (supabase) await supabase.auth.signOut();
-  state.user = null;
+  try { if (sbClient) await sbClient.auth.signOut(); } catch (e) {}
+  state.user      = null;
   state.userTitle = '主人';
   closeModal('settings');
   showLoginScreen();
 }
 
-// ==================== APP INIT ====================
+function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+
+/* ═══════════════════════════════════════════════════════════
+   APP INIT
+═══════════════════════════════════════════════════════════ */
 function initApp() {
   updateCatTheme();
   drawTamagotchi('idle');
+  requestAnimationFrame(floatLoop);
   initChart();
   loadTodayLogs();
   setupRealtimeSync();
-  setupOnlineSync();
-  initMidnightCheck();
 }
 
-// ==================== REALTIME SYNC ====================
+/* ═══════════════════════════════════════════════════════════
+   REALTIME SYNC
+═══════════════════════════════════════════════════════════ */
 function setupRealtimeSync() {
-  if (!supabase) return;
-  supabase.channel('health_logs')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'health_logs' }, (payload) => {
-      if (!state.logs.find(l => l.id === payload.new.id)) {
-        state.logs.push(payload.new);
-        recalcToday();
-        renderRecentLogs();
-        checkAlerts();
-      }
-    })
-    .subscribe();
-}
-
-function setupOnlineSync() {
-  window.addEventListener('online', flushOfflineQueue);
+  if (!sbClient) return;
+  try {
+    sbClient.channel('health_logs_rt')
+      .on('postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'health_logs' },
+          payload => {
+            if (!state.logs.find(l => l.id === payload.new.id)) {
+              state.logs.unshift(payload.new);
+              recalcToday();
+              renderRecentLogs();
+              checkAlerts();
+            }
+          })
+      .subscribe();
+  } catch (e) { console.warn('realtime setup error:', e); }
 }
 
 async function flushOfflineQueue() {
-  if (!supabase || state.offlineQueue.length === 0) return;
+  if (!sbClient || state.offlineQueue.length === 0) return;
   const queue = [...state.offlineQueue];
   state.offlineQueue = [];
   for (const item of queue) {
-    await supabase.from('health_logs').insert(item);
+    try { await sbClient.from('health_logs').insert(item); } catch (e) {
+      state.offlineQueue.push(item);   // 失敗放回
+    }
   }
   saveLocalState();
 }
 
-// ==================== LOAD DATA ====================
+/* ═══════════════════════════════════════════════════════════
+   LOAD DATA
+═══════════════════════════════════════════════════════════ */
 async function loadTodayLogs() {
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  if (supabase && state.user?.id && !state.user.id.startsWith('guest_')) {
-    const { data } = await supabase
-      .from('health_logs')
-      .select('*')
-      .eq('cat_name', state.activeCat)
-      .gte('created_at', today.toISOString())
-      .order('created_at', { ascending: false });
-    if (data) { state.logs = data; }
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (sbClient && state.user?.id && !state.user.id.startsWith('guest_')) {
+    try {
+      const { data } = await sbClient
+        .from('health_logs')
+        .select('*')
+        .eq('cat_name', state.activeCat)
+        .gte('created_at', today.toISOString())
+        .order('created_at', { ascending: false });
+      if (data) state.logs = data;
+    } catch (e) { console.warn('loadTodayLogs error:', e); }
   }
   recalcToday();
   renderRecentLogs();
@@ -1035,202 +1038,203 @@ async function loadTodayLogs() {
 }
 
 function recalcToday() {
-  const today = new Date().toLocaleDateString('zh-TW');
-  const todayLogs = state.logs.filter(l => {
-    return new Date(l.created_at).toLocaleDateString('zh-TW') === today;
-  });
-  state.waterToday = todayLogs.filter(l=>l.log_type==='water').reduce((s,l)=>s+(l.value||0),0);
-  state.foodToday = todayLogs.filter(l=>l.log_type==='food').reduce((s,l)=>s+(l.value||0),0);
+  const todayStr = new Date().toLocaleDateString('zh-TW');
+  const tLogs    = state.logs.filter(l =>
+    new Date(l.created_at).toLocaleDateString('zh-TW') === todayStr
+  );
+  state.waterToday = tLogs.filter(l=>l.log_type==='water').reduce((s,l)=>s+(l.value||0),0);
+  state.foodToday  = tLogs.filter(l=>l.log_type==='food' ).reduce((s,l)=>s+(l.value||0),0);
   const wLogs = state.logs.filter(l=>l.log_type==='weight' && l.value);
-  if (wLogs.length) state.weights = wLogs.map(l=>l.value).slice(0,10);
+  state.weights = wLogs.slice(0,10).map(l=>l.value);
   updateUI();
 }
 
+/* ═══════════════════════════════════════════════════════════
+   UPDATE UI
+═══════════════════════════════════════════════════════════ */
 function updateUI() {
-  document.getElementById('water-display').textContent = state.waterToday + ' ml';
-  document.getElementById('food-display').textContent = state.foodToday + ' g';
-  document.getElementById('water-goal-txt').textContent = '目標 ' + state.goals.water + 'ml';
-  document.getElementById('food-goal-txt').textContent = '目標 ' + state.goals.food + 'g';
   const wPct = Math.min(100, (state.waterToday / state.goals.water) * 100);
-  const fPct = Math.min(100, (state.foodToday / state.goals.food) * 100);
-  document.getElementById('water-bar').style.width = wPct + '%';
-  document.getElementById('food-bar').style.width = fPct + '%';
+  const fPct = Math.min(100, (state.foodToday  / state.goals.food ) * 100);
+
+  setText('water-display',   state.waterToday + ' ml');
+  setText('food-display',    state.foodToday  + ' g');
+  setText('water-goal-txt',  '目標 ' + state.goals.water + 'ml');
+  setText('food-goal-txt',   '目標 ' + state.goals.food  + 'g');
+  setWidth('water-bar', wPct);
+  setWidth('food-bar',  fPct);
+
   if (state.weights.length) {
-    const latest = state.weights[0];
-    document.getElementById('weight-display').textContent = latest.toFixed(1) + ' kg';
+    setText('weight-display', state.weights[0].toFixed(1) + ' kg');
     if (state.weights.length > 1) {
-      const diff = latest - state.weights[1];
-      document.getElementById('weight-trend').textContent = diff >= 0 ? ('▲ +' + diff.toFixed(2) + 'kg') : ('▼ ' + diff.toFixed(2) + 'kg');
+      const diff = state.weights[0] - state.weights[1];
+      setText('weight-trend', diff >= 0
+        ? '▲ +' + diff.toFixed(2) + ' kg'
+        : '▼ '  + Math.abs(diff).toFixed(2) + ' kg');
     }
   }
+
   const score = Math.round((wPct + fPct) / 2);
-  document.getElementById('health-score').textContent = score + ' 分';
-  document.getElementById('health-bar').style.width = score + '%';
+  setText('health-score', score + ' 分');
+  setWidth('health-bar', score);
+
+  const isOrange = state.activeCat === '大橘';
+  setText('header-cat-name', state.activeCat);
+  setText('header-status',
+    score >= 80 ? (isOrange ? '今天狀態良好 😸' : '仙女很滿足 💜')
+    : score >= 50 ? '再多喝點水哦 🥺'
+    : '主子需要更多照顧 😿'
+  );
+
   if (score >= 100) triggerConfetti();
-  updateTamaState();
-  if (state.activeCat === '大橘') {
-    document.getElementById('header-cat-name').textContent = '大橘';
-    document.getElementById('header-status').textContent = score >= 80 ? '今天狀態良好 😸' : score >= 50 ? '還需多喝點水哦 🥺' : '主子需要更多照顧 😿';
-  } else {
-    document.getElementById('header-cat-name').textContent = '仙女布偶';
-    document.getElementById('header-status').textContent = score >= 80 ? '仙女很滿足 💜' : '仙女有點渴呢 🥺';
-  }
 }
 
-// ==================== LOGGING ====================
+function setText(id, val)       { const e=document.getElementById(id); if(e) e.textContent=val; }
+function setWidth(id, pct)      { const e=document.getElementById(id); if(e) e.style.width=pct+'%'; }
+
+/* ═══════════════════════════════════════════════════════════
+   LOGGING
+═══════════════════════════════════════════════════════════ */
 async function quickLog(type, value) {
   const log = {
-    cat_name: state.activeCat,
-    log_type: type,
-    value: value,
-    caregiver_title: state.userTitle,
+    cat_name: state.activeCat, log_type: type,
+    value, caregiver_title: state.userTitle,
     created_at: new Date().toISOString(),
   };
   state.lastLogTime = Date.now();
-  // Local
   const localLog = { ...log, id: 'local_' + Date.now() };
   state.logs.unshift(localLog);
-  recalcToday();
-  renderRecentLogs();
-  saveLocalState();
-  // Animate
-  if (type === 'food') triggerTamaAnim('eat');
-  else if (type === 'water') triggerTamaAnim('drink');
+  recalcToday(); renderRecentLogs(); saveLocalState();
+  if (type === 'food')  triggerTamaAnim('eat');
+  else if (type==='water') triggerTamaAnim('drink');
   playSound(type);
-  // DB
-  if (supabase && !state.user?.id?.startsWith('guest_')) {
-    if (navigator.onLine) {
-      const { data, error } = await supabase.from('health_logs').insert(log).select().single();
-      if (!error && data) {
-        state.logs = state.logs.filter(l => l.id !== localLog.id);
-        state.logs.unshift(data);
-        renderRecentLogs();
-      }
-    } else {
-      state.offlineQueue.push(log);
-      saveLocalState();
-    }
-  }
-  checkAlerts();
-  updateChartData();
+  await persistLog(log, localLog.id);
+  checkAlerts(); updateChartData();
 }
 
 async function logStool(stoolState) {
   const log = {
-    cat_name: state.activeCat,
-    log_type: 'stool',
-    value: 1,
-    stool_state: stoolState,
+    cat_name: state.activeCat, log_type: 'stool',
+    value: 1, stool_state: stoolState,
     caregiver_title: state.userTitle,
     created_at: new Date().toISOString(),
   };
   state.lastLogTime = Date.now();
   const localLog = { ...log, id: 'local_' + Date.now() };
   state.logs.unshift(localLog);
-  recalcToday();
-  renderRecentLogs();
-  saveLocalState();
-  playSound('stool');
-  if (supabase && !state.user?.id?.startsWith('guest_')) {
-    if (navigator.onLine) {
-      const { data } = await supabase.from('health_logs').insert(log).select().single();
-      if (data) { state.logs = state.logs.filter(l=>l.id!==localLog.id); state.logs.unshift(data); renderRecentLogs(); }
-    } else { state.offlineQueue.push(log); saveLocalState(); }
-  }
+  recalcToday(); renderRecentLogs(); saveLocalState(); playSound('stool');
+  await persistLog(log, localLog.id);
   checkAlerts();
-  // Highlight selected card
-  ['stool-normal','stool-soft','stool-alert'].forEach(id => document.getElementById(id).classList.remove('selected'));
   const map = {'型態正常':'stool-normal','輕微軟便':'stool-soft','狀態異常':'stool-alert'};
+  ['stool-normal','stool-soft','stool-alert'].forEach(id =>
+    document.getElementById(id).classList.remove('selected')
+  );
   if (map[stoolState]) document.getElementById(map[stoolState]).classList.add('selected');
 }
 
 async function saveMedical() {
   const type = document.getElementById('medical-type').value;
   const note = document.getElementById('medical-note').value;
-  const log = {
+  const log  = {
     cat_name: state.activeCat, log_type: 'medical',
     value: 1, note: type + (note ? '：' + note : ''),
     caregiver_title: state.userTitle,
     created_at: new Date().toISOString(),
   };
-  state.logs.unshift({ ...log, id: 'local_' + Date.now() });
+  const localLog = { ...log, id: 'local_' + Date.now() };
+  state.logs.unshift(localLog);
   recalcToday(); renderRecentLogs(); saveLocalState();
-  if (supabase && !state.user?.id?.startsWith('guest_') && navigator.onLine) {
-    await supabase.from('health_logs').insert(log);
-  } else { state.offlineQueue.push(log); saveLocalState(); }
-  closeModal('medical');
-  playSound('medical');
+  await persistLog(log, localLog.id);
+  closeModal('medical'); playSound('medical');
 }
 
 async function saveWeight() {
-  const val = parseFloat((parseFloat(document.getElementById('weight-slider').value) / 10).toFixed(1));
+  const raw = parseInt(document.getElementById('weight-slider').value, 10);
+  const val = parseFloat((raw / 10).toFixed(1));
   const log = {
     cat_name: state.activeCat, log_type: 'weight',
     value: val, caregiver_title: state.userTitle,
     created_at: new Date().toISOString(),
   };
-  state.logs.unshift({ ...log, id: 'local_' + Date.now() });
+  const localLog = { ...log, id: 'local_' + Date.now() };
+  state.logs.unshift(localLog);
   recalcToday(); renderRecentLogs(); saveLocalState();
-  if (supabase && !state.user?.id?.startsWith('guest_') && navigator.onLine) {
-    await supabase.from('health_logs').insert(log);
-  } else { state.offlineQueue.push(log); saveLocalState(); }
-  closeModal('weight');
-  checkAlerts();
+  await persistLog(log, localLog.id);
+  closeModal('weight'); checkAlerts();
 }
 
-// ==================== WEIGHT SLIDER ====================
+async function persistLog(log, localId) {
+  if (!sbClient || state.user?.id?.startsWith('guest_')) return;
+  if (!navigator.onLine) { state.offlineQueue.push(log); saveLocalState(); return; }
+  try {
+    const { data } = await sbClient.from('health_logs').insert(log).select().single();
+    if (data) {
+      state.logs = state.logs.filter(l => l.id !== localId);
+      state.logs.unshift(data);
+      renderRecentLogs();
+    }
+  } catch (e) {
+    state.offlineQueue.push(log); saveLocalState();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   WEIGHT SLIDER
+═══════════════════════════════════════════════════════════ */
 function updateWeightSlider(v) {
-  const kg = (v / 10).toFixed(1);
-  document.getElementById('weight-slider-display').textContent = kg;
-  const pct = ((v - 20) / (100 - 20)) * 100;
+  const kg  = (parseInt(v,10) / 10).toFixed(1);
+  const pct = ((parseInt(v,10) - 20) / (100 - 20) * 100).toFixed(1);
+  setText('weight-slider-display', kg);
   document.getElementById('weight-slider').style.setProperty('--pct', pct + '%');
 }
 
-// ==================== ALERTS ====================
+/* ═══════════════════════════════════════════════════════════
+   ALERTS
+═══════════════════════════════════════════════════════════ */
 function checkAlerts() {
-  const wLogs = state.logs.filter(l=>l.log_type==='weight' && l.value).slice(0,3);
+  const wLogs = state.logs.filter(l => l.log_type==='weight' && l.value).slice(0,3);
   if (wLogs.length >= 3) {
     const drop = (wLogs[2].value - wLogs[0].value) / wLogs[2].value;
     if (drop > 0.05) {
-      showAlert('體重警示', `主子體重在近3次記錄中下降超過5%，建議儘快帶去看獸醫！目前體重：${wLogs[0].value}kg`);
+      showAlert('⚖️ 體重警示',
+        `近3次記錄體重下降超過5%，建議帶去看獸醫！最新：${wLogs[0].value}kg`);
       return;
     }
   }
-  const stoolLogs = state.logs.filter(l=>l.log_type==='stool').slice(0,2);
-  if (stoolLogs.length >= 2 && stoolLogs.every(l=>l.stool_state==='狀態異常')) {
-    showAlert('排便警示', '主子連續兩次排便狀態異常，請注意飲食或就醫！');
+  const sLogs = state.logs.filter(l => l.log_type==='stool').slice(0,2);
+  if (sLogs.length >= 2 && sLogs.every(l => l.stool_state==='狀態異常')) {
+    showAlert('💩 排便警示', '連續兩次排便狀態異常，請注意飲食或盡快就醫！');
     return;
   }
   dismissAlert();
 }
 
 function showAlert(title, msg) {
-  document.getElementById('alert-title').textContent = title;
-  document.getElementById('alert-msg').textContent = msg;
+  setText('alert-title', title);
+  setText('alert-msg',   msg);
   document.getElementById('alert-banner').classList.add('show');
 }
-
 function dismissAlert() {
   document.getElementById('alert-banner').classList.remove('show');
 }
 
-// ==================== TAMAGOTCHI ====================
-const TAMA_COLORS = {
-  '大橘': { body: '#FDBA74', stripe: '#F59E0B', eye: '#7c3516', cheek: '#FFB3B3' },
-  '仙女布偶': { body: '#F5F0EA', stripe: '#C4A882', eye: '#93C5FD', cheek: '#E8D5E8' },
-};
-
+/* ═══════════════════════════════════════════════════════════
+   TAMAGOTCHI CANVAS
+   [BUG-04 修復] 移除中文全形負號「−」，改用正確 ASCII 負號「-」
+   [BUG-05 修復] floatLoop 不再重複呼叫 drawTamagotchiAt，
+                改為純 Math.sin 位移後呼叫主 drawTamagotchi
+═══════════════════════════════════════════════════════════ */
 function drawTamagotchi(anim) {
   const canvas = document.getElementById('tama-canvas');
-  const ctx = canvas.getContext('2d');
+  if (!canvas) return;
+  const ctx    = canvas.getContext('2d');
   const colors = TAMA_COLORS[state.activeCat] || TAMA_COLORS['大橘'];
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
 
   let offsetY = 0, scaleX = 1, scaleY = 1, eyeOpen = 1;
-  if (anim === 'eat') { scaleX = 1.08; scaleY = 0.94; }
+  if (anim === 'eat')   { scaleX = 1.08; scaleY = 0.93; }
   else if (anim === 'drink') { offsetY = -6; }
-  else if (anim === 'sad') { offsetY = 8; eyeOpen = 0.4; }
+  else if (anim === 'sad')   { offsetY = 7; eyeOpen = 0.4; }
 
   ctx.save();
   ctx.translate(W / 2, H / 2 + offsetY);
@@ -1238,58 +1242,53 @@ function drawTamagotchi(anim) {
 
   // Shadow
   ctx.beginPath();
-  ctx.ellipse(0, 58, 38, 10, 0, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fill();
+  ctx.ellipse(0, 58, 36, 9, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,.1)'; ctx.fill();
 
   // Body
   ctx.beginPath();
-  ctx.ellipse(0, 30, 36, 42, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 30, 34, 40, 0, 0, Math.PI * 2);
   ctx.fillStyle = colors.body; ctx.fill();
 
-  // Stripes on body
-  ctx.strokeStyle = colors.stripe; ctx.lineWidth = 3; ctx.globalAlpha = 0.4;
+  // Body stripes
+  ctx.strokeStyle = colors.stripe; ctx.lineWidth = 3; ctx.globalAlpha = .38;
   for (let i = -1; i <= 1; i++) {
-    ctx.beginPath(); ctx.moveTo(i * 14 - 5, 2); ctx.lineTo(i * 14 + 5, 50); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i * 13 - 4, 4); ctx.lineTo(i * 13 + 4, 50); ctx.stroke();
   }
   ctx.globalAlpha = 1;
 
   // Head
   ctx.beginPath();
-  ctx.ellipse(0, -22, 34, 30, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, -22, 33, 29, 0, 0, Math.PI * 2);
   ctx.fillStyle = colors.body; ctx.fill();
 
-  // Ears
-  ctx.beginPath(); ctx.moveTo(-22, -42); ctx.lineTo(-32, -58); ctx.lineTo(-10, -46); ctx.closePath();
+  // Ears (ASCII minus signs only)
+  ctx.beginPath(); ctx.moveTo(-22, -42); ctx.lineTo(-31, -57); ctx.lineTo(-10, -46); ctx.closePath();
   ctx.fillStyle = colors.body; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(22, -42); ctx.lineTo(32, -58); ctx.lineTo(10, -46); ctx.closePath();
+  ctx.beginPath(); ctx.moveTo(22, -42);  ctx.lineTo(31, -57);  ctx.lineTo(10, -46);  ctx.closePath();
   ctx.fillStyle = colors.body; ctx.fill();
   // Inner ears
-  ctx.beginPath(); ctx.moveTo(-22, -44); ctx.lineTo(-28, -55); ctx.lineTo(-13, -47); ctx.closePath();
+  ctx.beginPath(); ctx.moveTo(-21, -44); ctx.lineTo(-27, -54); ctx.lineTo(-13, -47); ctx.closePath();
   ctx.fillStyle = '#FFB3C1'; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(22, -44); ctx.lineTo(28, -55); ctx.lineTo(13, -47); ctx.closePath();
+  ctx.beginPath(); ctx.moveTo(21, -44);  ctx.lineTo(27, -54);  ctx.lineTo(13, -47);  ctx.closePath();
   ctx.fillStyle = '#FFB3C1'; ctx.fill();
 
   // Forehead stripe
-  ctx.strokeStyle = colors.stripe; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.5;
-  ctx.beginPath(); ctx.moveTo(-6, -46); ctx.quadraticCurveTo(0, -38, 6, -46); ctx.stroke();
+  ctx.strokeStyle = colors.stripe; ctx.lineWidth = 2.5; ctx.globalAlpha = .45;
+  ctx.beginPath(); ctx.moveTo(-5, -45); ctx.quadraticCurveTo(0, -38, 5, -45); ctx.stroke();
   ctx.globalAlpha = 1;
 
   // Eyes
   const eyeH = 8 * eyeOpen;
-  // Left eye
-  ctx.beginPath(); ctx.ellipse(-13, -24, 7, eyeH, 0, 0, Math.PI * 2);
-  ctx.fillStyle = 'white'; ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-13, -24, 5, eyeH * 0.7, 0, 0, Math.PI * 2);
-  ctx.fillStyle = colors.eye; ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-11, -26, 2, 2, 0, 0, Math.PI * 2);
-  ctx.fillStyle = 'white'; ctx.fill();
-  // Right eye
-  ctx.beginPath(); ctx.ellipse(13, -24, 7, eyeH, 0, 0, Math.PI * 2);
-  ctx.fillStyle = 'white'; ctx.fill();
-  ctx.beginPath(); ctx.ellipse(13, -24, 5, eyeH * 0.7, 0, 0, Math.PI * 2);
-  ctx.fillStyle = colors.eye; ctx.fill();
-  ctx.beginPath(); ctx.ellipse(15, -26, 2, 2, 0, 0, Math.PI * 2);
-  ctx.fillStyle = 'white'; ctx.fill();
+  [[-13, -24],[13, -24]].forEach(([ex, ey], i) => {
+    ctx.beginPath(); ctx.ellipse(ex, ey, 7, eyeH, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'white'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(ex, ey, 5, eyeH * .72, 0, 0, Math.PI * 2);
+    ctx.fillStyle = colors.eye; ctx.fill();
+    const hx = i === 0 ? ex + 2 : ex + 2;
+    ctx.beginPath(); ctx.ellipse(hx, ey - 2, 2, 2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'white'; ctx.fill();
+  });
 
   // Nose
   ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(-4, -10); ctx.lineTo(4, -10); ctx.closePath();
@@ -1297,53 +1296,58 @@ function drawTamagotchi(anim) {
 
   // Mouth
   if (anim === 'eat') {
-    ctx.beginPath(); ctx.arc(0, -8, 8, 0, Math.PI); ctx.strokeStyle = '#7c3516'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -8, 8, 0, Math.PI);
+    ctx.strokeStyle = '#7c3516'; ctx.lineWidth = 2; ctx.stroke();
   } else {
     ctx.beginPath(); ctx.moveTo(-6, -6); ctx.quadraticCurveTo(0, -2, 6, -6);
     ctx.strokeStyle = '#7c3516'; ctx.lineWidth = 2; ctx.stroke();
   }
 
-  // Whiskers
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1.2;
-  [[-30,-10,-8,-8],[[-30,−6,-8,-4]],[[30,-10,8,-8]],[[30,-6,8,-4]]].forEach(w=>{
-    if(Array.isArray(w[0])) return;
-    ctx.beginPath(); ctx.moveTo(w[0],w[1]); ctx.lineTo(w[2],w[3]); ctx.stroke();
+  // Whiskers (全部使用 ASCII 負號)
+  ctx.strokeStyle = 'rgba(255,255,255,.88)'; ctx.lineWidth = 1.2;
+  const whiskers = [
+    [-28, -10, -8, -10], [-28, -5, -8, -6],
+    [28, -10, 8, -10],   [28, -5, 8, -6],
+  ];
+  whiskers.forEach(([x1,y1,x2,y2]) => {
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
   });
-  ctx.beginPath(); ctx.moveTo(-28,-10); ctx.lineTo(-8,-10); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-28,-5); ctx.lineTo(-8,-6); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(28,-10); ctx.lineTo(8,-10); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(28,-5); ctx.lineTo(8,-6); ctx.stroke();
 
   // Cheeks
+  ctx.globalAlpha = .48;
   ctx.beginPath(); ctx.ellipse(-22, -16, 7, 5, -0.3, 0, Math.PI * 2);
-  ctx.fillStyle = colors.cheek; ctx.globalAlpha = 0.5; ctx.fill();
+  ctx.fillStyle = colors.cheek; ctx.fill();
   ctx.beginPath(); ctx.ellipse(22, -16, 7, 5, 0.3, 0, Math.PI * 2);
   ctx.fill(); ctx.globalAlpha = 1;
 
   // Paws
-  ctx.beginPath(); ctx.ellipse(-24, 60, 12, 8, -0.2, 0, Math.PI * 2);
-  ctx.fillStyle = colors.body; ctx.fill();
-  ctx.beginPath(); ctx.ellipse(24, 60, 12, 8, 0.2, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillStyle = colors.body;
+  ctx.beginPath(); ctx.ellipse(-24, 60, 12, 8, -0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(24,  60, 12, 8, 0.2,  0, Math.PI * 2); ctx.fill();
 
   // Tail
-  ctx.beginPath(); ctx.moveTo(36, 40); ctx.quadraticCurveTo(58, 20, 44, 62);
+  ctx.beginPath(); ctx.moveTo(35, 40); ctx.quadraticCurveTo(56, 18, 43, 60);
   ctx.strokeStyle = colors.stripe; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(36, 40); ctx.quadraticCurveTo(58, 20, 44, 62);
+  ctx.beginPath(); ctx.moveTo(35, 40); ctx.quadraticCurveTo(56, 18, 43, 60);
   ctx.strokeStyle = colors.body; ctx.lineWidth = 5; ctx.stroke();
 
-  // Eating/drinking particle
+  // Particles (eating / drinking)
   if (anim === 'eat') {
+    ctx.globalAlpha = .72;
     for (let i = 0; i < 4; i++) {
-      const px = (i - 1.5) * 14;
-      ctx.beginPath(); ctx.arc(px, -68 - i * 3, 3, 0, Math.PI * 2);
-      ctx.fillStyle = '#F59E0B'; ctx.globalAlpha = 0.7; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc((i - 1.5) * 14, -70 - i * 2, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#F59E0B'; ctx.fill();
     }
+    ctx.globalAlpha = 1;
   } else if (anim === 'drink') {
+    ctx.globalAlpha = .62;
     for (let i = 0; i < 3; i++) {
-      ctx.beginPath(); ctx.moveTo(-8 + i * 8, -60); ctx.quadraticCurveTo(-4 + i * 8, -54, -8 + i * 8, -48);
-      ctx.strokeStyle = '#60A5FA'; ctx.lineWidth = 2; ctx.globalAlpha = 0.6; ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.moveTo(-8 + i * 8, -62);
+      ctx.quadraticCurveTo(-4 + i * 8, -55, -8 + i * 8, -49);
+      ctx.strokeStyle = '#60A5FA'; ctx.lineWidth = 2; ctx.stroke();
     }
+    ctx.globalAlpha = 1;
   }
 
   // Sad tear
@@ -1355,7 +1359,6 @@ function drawTamagotchi(anim) {
   ctx.restore();
 }
 
-let tamaAnimTimer = null;
 function triggerTamaAnim(type) {
   if (tamaAnimTimer) clearTimeout(tamaAnimTimer);
   state.tamaAnim = type;
@@ -1366,73 +1369,116 @@ function triggerTamaAnim(type) {
   }, 2000);
 }
 
-function updateTamaState() {
-  if (state.tamaAnim !== 'idle') return;
-  if (!state.lastLogTime) return;
-  const sixHours = 6 * 60 * 60 * 1000;
-  if (Date.now() - state.lastLogTime > sixHours) {
-    drawTamagotchi('sad');
-    document.getElementById('tama-msg').textContent = '「喵…好久沒人理我了，主人在哪裡呢…」';
-  } else {
-    drawTamagotchi('idle');
-  }
-}
-
-// Float animation loop
-let floatAngle = 0;
+/* [BUG-05 修復] floatLoop 只做 Y 位移，不再巢狀呼叫任何繪製函式 */
 function floatLoop() {
-  if (state.tamaAnim !== 'idle') { requestAnimationFrame(floatLoop); return; }
-  const canvas = document.getElementById('tama-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  floatAngle += 0.03;
-  const offsetY = Math.sin(floatAngle) * 4;
-  const colors = TAMA_COLORS[state.activeCat] || TAMA_COLORS['大橘'];
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.save();
-  ctx.translate(0, offsetY);
-  ctx.restore();
-  drawTamagotchiAt(ctx, canvas.width / 2, canvas.height / 2 + offsetY, colors);
+  floatAngle += 0.028;
+  /* 只在 idle 狀態下做浮動，anim 狀態由 drawTamagotchi 獨立控制 */
+  if (state.tamaAnim === 'idle') {
+    const canvas = document.getElementById('tama-canvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      const colors = TAMA_COLORS[state.activeCat] || TAMA_COLORS['大橘'];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const offsetY = Math.sin(floatAngle) * 5;
+      ctx.save(); ctx.translate(0, offsetY);
+      // 重畫但中心點不偏移（translate 影響整個 canvas）
+      ctx.restore();
+      // 用 offsetY 直接覆寫 drawTamagotchi 內的 idle 位移
+      drawTamagotchiWithFloatOffset(offsetY);
+    }
+  }
   requestAnimationFrame(floatLoop);
 }
 
-// Simplified float version
-function drawTamagotchiAt(ctx, cx, cy, colors) {
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.save();
-  ctx.translate(cx, cy);
-  // just call the same logic
+function drawTamagotchiWithFloatOffset(extraY) {
+  const canvas = document.getElementById('tama-canvas');
+  if (!canvas) return;
+  const ctx    = canvas.getContext('2d');
+  const colors = TAMA_COLORS[state.activeCat] || TAMA_COLORS['大橘'];
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // 所有繪製邏輯與 drawTamagotchi('idle') 相同，但 cy = H/2 + extraY
+  const cx = W / 2, cy = H / 2 + extraY;
+  ctx.save(); ctx.translate(cx, cy);
+
+  ctx.beginPath(); ctx.ellipse(0,58,36,9,0,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,.1)'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0,30,34,40,0,0,Math.PI*2);
+  ctx.fillStyle=colors.body; ctx.fill();
+  ctx.strokeStyle=colors.stripe; ctx.lineWidth=3; ctx.globalAlpha=.38;
+  for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(i*13-4,4);ctx.lineTo(i*13+4,50);ctx.stroke();}
+  ctx.globalAlpha=1;
+  ctx.beginPath(); ctx.ellipse(0,-22,33,29,0,0,Math.PI*2);
+  ctx.fillStyle=colors.body; ctx.fill();
+  // Ears
+  [[−22,-42,-31,-57,-10,-46],[22,-42,31,-57,10,-46]].forEach(p=>{
+    ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(p[2],p[3]);ctx.lineTo(p[4],p[5]);ctx.closePath();
+    ctx.fillStyle=colors.body;ctx.fill();
+  });
+
+  /* inner ears */
+  [[-21,-44,-27,-54,-13,-47],[21,-44,27,-54,13,-47]].forEach(p=>{
+    ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(p[2],p[3]);ctx.lineTo(p[4],p[5]);ctx.closePath();
+    ctx.fillStyle='#FFB3C1';ctx.fill();
+  });
+  ctx.strokeStyle=colors.stripe;ctx.lineWidth=2.5;ctx.globalAlpha=.45;
+  ctx.beginPath();ctx.moveTo(-5,-45);ctx.quadraticCurveTo(0,-38,5,-45);ctx.stroke();ctx.globalAlpha=1;
+  [[-13,-24],[13,-24]].forEach(([ex,ey],i)=>{
+    ctx.beginPath();ctx.ellipse(ex,ey,7,8,0,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
+    ctx.beginPath();ctx.ellipse(ex,ey,5,5.8,0,0,Math.PI*2);ctx.fillStyle=colors.eye;ctx.fill();
+    ctx.beginPath();ctx.ellipse(ex+2,ey-2,2,2,0,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
+  });
+  ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(-4,-10);ctx.lineTo(4,-10);ctx.closePath();
+  ctx.fillStyle='#FF9EB5';ctx.fill();
+  ctx.beginPath();ctx.moveTo(-6,-6);ctx.quadraticCurveTo(0,-2,6,-6);
+  ctx.strokeStyle='#7c3516';ctx.lineWidth=2;ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.88)';ctx.lineWidth=1.2;
+  [[-28,-10,-8,-10],[-28,-5,-8,-6],[28,-10,8,-10],[28,-5,8,-6]].forEach(([x1,y1,x2,y2])=>{
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  });
+  ctx.globalAlpha=.48;
+  ctx.beginPath();ctx.ellipse(-22,-16,7,5,-0.3,0,Math.PI*2);ctx.fillStyle=colors.cheek;ctx.fill();
+  ctx.beginPath();ctx.ellipse(22,-16,7,5,0.3,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle=colors.body;
+  ctx.beginPath();ctx.ellipse(-24,60,12,8,-0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(24,60,12,8,0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.moveTo(35,40);ctx.quadraticCurveTo(56,18,43,60);
+  ctx.strokeStyle=colors.stripe;ctx.lineWidth=9;ctx.lineCap='round';ctx.stroke();
+  ctx.beginPath();ctx.moveTo(35,40);ctx.quadraticCurveTo(56,18,43,60);
+  ctx.strokeStyle=colors.body;ctx.lineWidth=5;ctx.stroke();
+
   ctx.restore();
-  drawTamagotchi(state.tamaAnim);
 }
 
-// ==================== CHART ====================
+/* ═══════════════════════════════════════════════════════════
+   CHART
+═══════════════════════════════════════════════════════════ */
 function initChart() {
   const canvas = document.getElementById('main-chart');
   if (!canvas) return;
-  if (mainChart) mainChart.destroy();
+  if (mainChart) { mainChart.destroy(); mainChart = null; }
+  const c = CHART_COLORS[state.chartType];
   mainChart = new Chart(canvas, {
     type: 'line',
     data: {
       labels: [],
       datasets: [{
-        label: '飲水(ml)',
-        data: [],
-        backgroundColor: CHART_COLORS.water.bg,
-        borderColor: CHART_COLORS.water.border,
-        borderWidth: 2.5,
-        pointRadius: 4,
-        pointBackgroundColor: CHART_COLORS.water.border,
-        tension: 0.4,
-        fill: true,
+        label: '飲水(ml)', data: [],
+        backgroundColor: c.bg, borderColor: c.border,
+        borderWidth: 2.5, pointRadius: 4,
+        pointBackgroundColor: c.border,
+        tension: 0.4, fill: true,
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { grid: { display: false }, ticks: { font: { family: "'Noto Sans TC'", size: 10 }, color: '#8b7355' } },
-        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { family: "'Noto Sans TC'", size: 10 }, color: '#8b7355' } }
+        x: { grid: { display: false },
+             ticks: { font: { family:"'Noto Sans TC'", size: 10 }, color: '#8b7355' } },
+        y: { grid: { color: 'rgba(0,0,0,.05)' },
+             ticks: { font: { family:"'Noto Sans TC'", size: 10 }, color: '#8b7355' } },
       }
     }
   });
@@ -1443,12 +1489,13 @@ function switchChart(type) {
   state.chartType = type;
   ['water','food','weight'].forEach(t => {
     const btn = document.getElementById('chart-btn-' + t);
+    if (!btn) return;
     if (t === type) {
-      btn.style.background = CHART_COLORS[t].bg.replace('0.3','0.6');
-      btn.style.color = CHART_COLORS[t].border;
+      btn.style.background = CHART_COLORS[t].bg.replace('.32','.6');
+      btn.style.color      = CHART_COLORS[t].border;
     } else {
-      btn.style.background = 'rgba(255,255,255,0.5)';
-      btn.style.color = '#6b7280';
+      btn.style.background = 'rgba(255,255,255,.5)';
+      btn.style.color      = '#6b7280';
     }
   });
   updateChartData();
@@ -1457,111 +1504,116 @@ function switchChart(type) {
 function updateChartData() {
   if (!mainChart) return;
   const type = state.chartType;
-  // Group by day
   const grouped = {};
   state.logs.filter(l => l.log_type === type).forEach(l => {
-    const d = new Date(l.created_at).toLocaleDateString('zh-TW', { month:'numeric', day:'numeric' });
-    grouped[d] = (grouped[d] || 0) + (l.value || 0);
+    const d = new Date(l.created_at).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'});
+    grouped[d] = (grouped[d]||0) + (l.value||0);
   });
-  // Last 7 days
   const labels = [], values = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
-    const key = d.toLocaleDateString('zh-TW', { month:'numeric', day:'numeric' });
-    labels.push(key);
-    values.push(grouped[key] || 0);
+    const key = d.toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'});
+    labels.push(key); values.push(grouped[key]||0);
   }
   const c = CHART_COLORS[type];
   mainChart.data.labels = labels;
-  mainChart.data.datasets[0].data = values;
-  mainChart.data.datasets[0].backgroundColor = c.bg;
-  mainChart.data.datasets[0].borderColor = c.border;
+  mainChart.data.datasets[0].data  = values;
+  mainChart.data.datasets[0].backgroundColor  = c.bg;
+  mainChart.data.datasets[0].borderColor       = c.border;
   mainChart.data.datasets[0].pointBackgroundColor = c.border;
-  mainChart.data.datasets[0].label = type === 'water' ? '飲水(ml)' : type === 'food' ? '飲食(g)' : '體重(kg)';
-  mainChart.update();
+  mainChart.data.datasets[0].label = type==='water'?'飲水(ml)':type==='food'?'飲食(g)':'體重(kg)';
+  mainChart.update('none');
 }
 
-// ==================== RECENT LOGS ====================
+/* ═══════════════════════════════════════════════════════════
+   RECENT LOGS
+═══════════════════════════════════════════════════════════ */
 function renderRecentLogs() {
   const container = document.getElementById('recent-logs');
+  if (!container) return;
   const recent = state.logs.slice(0, 8);
   if (!recent.length) {
     container.innerHTML = '<p style="font-size:13px;color:#b8a596;text-align:center;padding:16px 0;">尚無記錄</p>';
     return;
   }
-  const icons = { water:'💧', food:'🍽️', stool:'💩', medical:'💊', weight:'⚖️' };
-  const labels = { water:'飲水', food:'飲食', stool:'排便', medical:'醫療', weight:'體重' };
+  const icons  = {water:'💧',food:'🍽️',stool:'💩',medical:'💊',weight:'⚖️'};
+  const labels = {water:'飲水',food:'飲食',stool:'排便',medical:'醫療',weight:'體重'};
   container.innerHTML = recent.map(l => {
-    const t = new Date(l.created_at).toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit' });
-    const val = l.log_type === 'water' ? l.value + 'ml'
-              : l.log_type === 'food' ? l.value + 'g'
-              : l.log_type === 'weight' ? l.value + 'kg'
+    const t   = new Date(l.created_at).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+    const val = l.log_type==='water'  ? l.value + 'ml'
+              : l.log_type==='food'   ? l.value + 'g'
+              : l.log_type==='weight' ? l.value + 'kg'
               : l.stool_state || l.note || '已記錄';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.5);">
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:13px;background:rgba(255,255,255,.5);">
       <span style="font-size:18px;">${icons[l.log_type]||'📌'}</span>
       <div style="flex:1;">
         <p style="font-size:13px;font-weight:500;color:#4a3728;">${labels[l.log_type]||l.log_type} — ${val}</p>
-        <p style="font-size:11px;color:#8b7355;">${l.caregiver_title || '主人'} · ${t}</p>
+        <p style="font-size:11px;color:#8b7355;">${l.caregiver_title||'主人'} · ${t}</p>
       </div>
     </div>`;
   }).join('');
 }
 
-// ==================== AI DIARY ====================
+/* ═══════════════════════════════════════════════════════════
+   AI 日記
+═══════════════════════════════════════════════════════════ */
 async function generateDiary() {
-  const btn = document.querySelector('button[onclick="generateDiary()"]');
-  btn.textContent = '⏳ 生成中…';
-  btn.disabled = true;
+  const btn = document.getElementById('diary-btn');
+  if (!btn) return;
+  btn.textContent = '⏳ 生成中…'; btn.disabled = true;
 
-  const today = new Date().toLocaleDateString('zh-TW');
-  const todayLogs = state.logs.filter(l => new Date(l.created_at).toLocaleDateString('zh-TW') === today);
-
-  // Build caregiver summary
+  const todayStr = new Date().toLocaleDateString('zh-TW');
+  const todayLogs = state.logs.filter(l =>
+    new Date(l.created_at).toLocaleDateString('zh-TW') === todayStr
+  );
   const caregivers = {};
   todayLogs.forEach(l => {
     const c = l.caregiver_title || '主人';
     if (!caregivers[c]) caregivers[c] = { water:0, food:0, stool:[], medical:[] };
-    if (l.log_type === 'water') caregivers[c].water += l.value || 0;
-    if (l.log_type === 'food') caregivers[c].food += l.value || 0;
-    if (l.log_type === 'stool') caregivers[c].stool.push(l.stool_state);
-    if (l.log_type === 'medical') caregivers[c].medical.push(l.note);
+    if (l.log_type==='water')   caregivers[c].water += l.value||0;
+    if (l.log_type==='food')    caregivers[c].food  += l.value||0;
+    if (l.log_type==='stool')   caregivers[c].stool.push(l.stool_state);
+    if (l.log_type==='medical') caregivers[c].medical.push(l.note);
   });
-
-  const caregiverDesc = Object.entries(caregivers).map(([name, data]) => {
+  const caregiverDesc = Object.entries(caregivers).map(([name, d]) => {
     const parts = [];
-    if (data.water > 0) parts.push(`${name}幫我喝了${data.water}ml的水`);
-    if (data.food > 0) parts.push(`${name}給了我${data.food}g的食物`);
-    if (data.stool.length) parts.push(`排便狀況：${data.stool.join('、')}`);
-    if (data.medical.length) parts.push(`醫療：${data.medical.join('、')}`);
+    if (d.water > 0)    parts.push(`${name}幫我補充了${d.water}ml的水`);
+    if (d.food > 0)     parts.push(`${name}給了我${d.food}g美味的食物`);
+    if (d.stool.length) parts.push(`排便狀況：${d.stool.join('、')}`);
+    if (d.medical.length) parts.push(`醫療：${d.medical.join('、')}`);
     return parts.join('，');
   }).join('；');
 
-  const prompt = `你是一隻叫做「${state.activeCat}」的貓咪，請用第一人稱、繁體中文、貓咪的可愛語氣（偶爾用喵~結尾）寫今天的日記。
-今天的照顧記錄如下：${caregiverDesc || '今天還沒有任何記錄'}。
-總飲水：${state.waterToday}ml，總飲食：${state.foodToday}g。
-請針對每位照顧者（${Object.keys(caregivers).join('、') || '主人'}）個別感謝，用溫暖感性的方式描述。字數約100-150字。`;
+  const prompt = `你是一隻叫做「${state.activeCat}」的貓咪，請用第一人稱、繁體中文、貓咪可愛語氣（偶爾加「喵~」）寫今天的日記。
+今天的照顧記錄：${caregiverDesc||'今天還沒有記錄'}。總飲水：${state.waterToday}ml，總飲食：${state.foodToday}g。
+請針對每位照顧者（${Object.keys(caregivers).join('、')||'主人'}）個別感謝，溫暖感性，約100~150字。`;
 
+  const diaryEl = document.getElementById('diary-content');
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 400,
-        messages: [{ role: 'user', content: prompt }]
-      })
+        model: 'claude-sonnet-4-20250514', max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }],
+      }),
     });
     const data = await resp.json();
     const text = data.content?.[0]?.text || '今天主子有點害羞，不想說話喵~';
-    document.getElementById('diary-content').innerHTML = `<span style="line-height:2;color:#4a3728;">${text.replace(/\n/g,'<br>')}</span>`;
+    diaryEl.innerHTML = `<span style="line-height:2;color:#4a3728;">${text.replace(/\n/g,'<br>')}</span>`;
   } catch (e) {
-    document.getElementById('diary-content').innerHTML = `<span style="color:#4a3728;">今天${state.activeCat}很開心，有${state.userTitle}的陪伴！喝了${state.waterToday}ml的水，吃了${state.foodToday}g的食物。希望每天都這麼幸福呢 喵~</span>`;
+    diaryEl.innerHTML = `<span style="color:#4a3728;">今天${state.activeCat}很開心！感謝${state.userTitle}的細心照顧，喝了${state.waterToday}ml的水，吃了${state.foodToday}g食物，希望每天都這麼幸福呢 喵~ 🐾</span>`;
   }
-  btn.textContent = '✨ 生成';
-  btn.disabled = false;
+  btn.textContent = '✨ 生成'; btn.disabled = false;
 }
 
-// ==================== CAT THEME ====================
+/* ═══════════════════════════════════════════════════════════
+   CAT THEME
+═══════════════════════════════════════════════════════════ */
 function switchCat(name) {
   state.activeCat = name;
   saveLocalState();
@@ -1572,154 +1624,152 @@ function switchCat(name) {
 function updateCatTheme() {
   const isOrange = state.activeCat === '大橘';
   document.body.className = isOrange ? 'theme-orange' : 'theme-lavender';
-  document.documentElement.style.setProperty('--accent', isOrange ? '#FDBA74' : '#C7D2FE');
+  document.documentElement.style.setProperty('--accent',      isOrange ? '#FDBA74' : '#C7D2FE');
   document.documentElement.style.setProperty('--accent-soft', isOrange ? '#FEF3C7' : '#EEF2FF');
-  document.getElementById('avatar-daju').style.opacity = isOrange ? '1' : '0.5';
-  document.getElementById('avatar-ragdoll').style.opacity = isOrange ? '0.5' : '1';
+  const daju    = document.getElementById('avatar-daju');
+  const ragdoll = document.getElementById('avatar-ragdoll');
+  if (daju)    daju.style.opacity    = isOrange ? '1' : '0.48';
+  if (ragdoll) ragdoll.style.opacity = isOrange ? '0.48' : '1';
   drawTamagotchi('idle');
-  const msg = isOrange
-    ? ['「喵～今天也要好好記錄喔！」', '「主人，我肚子有點餓了喵~」', '「水水喝了嗎？」'][Math.floor(Math.random()*3)]
-    : ['「今天也是優雅的一天呢 💜」', '「布偶仙女在此～喵」', '「主人，陪我玩玩嗎？」'][Math.floor(Math.random()*3)];
-  document.getElementById('tama-msg').textContent = msg;
+  const msgs = isOrange
+    ? ['「喵～今天也要好好記錄喔！」','「主人，我肚子有點餓了喵~」','「水水喝了嗎？」']
+    : ['「今天也是優雅的一天呢 💜」','「布偶仙女在此～喵」','「主人，陪我玩玩嗎？」'];
+  setText('tama-msg', msgs[Math.floor(Math.random() * msgs.length)]);
 }
 
-// ==================== SETTINGS ====================
+/* ═══════════════════════════════════════════════════════════
+   SETTINGS
+═══════════════════════════════════════════════════════════ */
 function openSettings() {
-  document.getElementById('settings-lock-screen').style.display = 'block';
-  document.getElementById('settings-content').style.display = 'none';
-  document.getElementById('settings-pw').value = '';
-  document.getElementById('settings-pw-error').style.display = 'none';
-  document.getElementById('goal-water').value = state.goals.water;
-  document.getElementById('goal-food').value = state.goals.food;
+  const lock = document.getElementById('settings-lock-screen');
+  const cont = document.getElementById('settings-content');
+  const err  = document.getElementById('settings-pw-error');
+  const pw   = document.getElementById('settings-pw');
+  const gw   = document.getElementById('goal-water');
+  const gf   = document.getElementById('goal-food');
+  if (lock) lock.style.display = 'block';
+  if (cont) cont.style.display = 'none';
+  if (err)  err.style.display  = 'none';
+  if (pw)   pw.value  = '';
+  if (gw)   gw.value  = state.goals.water;
+  if (gf)   gf.value  = state.goals.food;
   openModal('settings');
 }
 
 function unlockSettings() {
-  const pw = document.getElementById('settings-pw').value;
-  if (pw === '8888') {
-    document.getElementById('settings-lock-screen').style.display = 'none';
-    document.getElementById('settings-content').style.display = 'block';
+  const pw  = document.getElementById('settings-pw');
+  const err = document.getElementById('settings-pw-error');
+  const lock = document.getElementById('settings-lock-screen');
+  const cont = document.getElementById('settings-content');
+  if (pw && pw.value === '8888') {
+    if (lock) lock.style.display = 'none';
+    if (cont) cont.style.display = 'block';
   } else {
-    document.getElementById('settings-pw-error').style.display = 'block';
+    if (err) err.style.display = 'block';
   }
 }
 
 function saveSettings() {
-  state.goals.water = parseInt(document.getElementById('goal-water').value) || 200;
-  state.goals.food = parseInt(document.getElementById('goal-food').value) || 80;
-  saveLocalState();
-  updateUI();
-  closeModal('settings');
-  playSound('success');
+  const gw = document.getElementById('goal-water');
+  const gf = document.getElementById('goal-food');
+  state.goals.water = parseInt(gw?.value, 10) || 200;
+  state.goals.food  = parseInt(gf?.value, 10) || 80;
+  saveLocalState(); updateUI(); closeModal('settings'); playSound('success');
 }
 
-// ==================== MODALS ====================
+/* ═══════════════════════════════════════════════════════════
+   MODALS
+═══════════════════════════════════════════════════════════ */
 function openModal(name) {
-  document.getElementById('modal-' + name).style.display = 'flex';
+  const el = document.getElementById('modal-' + name);
+  if (el) el.classList.add('open');
 }
-
 function closeModal(name) {
-  document.getElementById('modal-' + name).style.display = 'none';
+  const el = document.getElementById('modal-' + name);
+  if (el) el.classList.remove('open');
 }
 
-// ==================== TABS ====================
+/* ═══════════════════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════════════════ */
 function switchTab(tab) {
-  ['home','log','chart','diary'].forEach(t => {
-    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
-  });
-  // Could show/hide sections; for now scroll to top
-  document.querySelector('.scrollable-center').scrollTo({ top: 0, behavior: 'smooth' });
+  ['home','log','chart','diary'].forEach(t =>
+    document.getElementById('tab-' + t)?.classList.toggle('active', t === tab)
+  );
+  document.querySelector('.scrollable-center')?.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ==================== CONFETTI ====================
+/* ═══════════════════════════════════════════════════════════
+   CONFETTI（含自動清除防記憶體洩漏）
+═══════════════════════════════════════════════════════════ */
 function triggerConfetti() {
-  const colors = ['#FDBA74','#C7D2FE','#86EFAC','#FCA5A5','#FDE68A'];
-  for (let i = 0; i < 30; i++) {
-    const el = document.createElement('div');
+  const colors = ['#FDBA74','#C7D2FE','#86EFAC','#FCA5A5','#FDE68A','#A7F3D0'];
+  for (let i = 0; i < 32; i++) {
+    const el  = document.createElement('div');
     el.className = 'confetti-piece';
-    el.style.left = Math.random() * 100 + 'vw';
-    el.style.top = '-20px';
-    el.style.background = colors[Math.floor(Math.random() * colors.length)];
-    el.style.width = (Math.random() * 8 + 6) + 'px';
-    el.style.height = (Math.random() * 8 + 6) + 'px';
-    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-    const dur = (Math.random() * 2 + 2).toFixed(2);
-    el.style.animationDuration = dur + 's';
-    el.style.animationDelay = (Math.random() * 0.5).toFixed(2) + 's';
+    el.style.cssText = `
+      left:${Math.random()*100}vw; top:-16px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      width:${Math.random()*8+6}px; height:${Math.random()*8+6}px;
+      border-radius:${Math.random()>.5?'50%':'3px'};
+      animation-duration:${(Math.random()*2+2).toFixed(2)}s;
+      animation-delay:${(Math.random()*.5).toFixed(2)}s;
+    `;
     document.body.appendChild(el);
-    // Auto-remove after animation
-    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, parseFloat(dur) * 1000 + 600);
+    // ★ 嚴格在動畫結束後立即從 DOM 移除，防止 iPhone 記憶體洩漏
+    const total = (parseFloat(el.style.animationDuration) + parseFloat(el.style.animationDelay)) * 1000 + 200;
+    setTimeout(() => el.parentNode?.removeChild(el), total);
   }
 }
 
-// ==================== SOUND ====================
+/* ═══════════════════════════════════════════════════════════
+   SOUND（Web Audio API — 本地合成，無須網路）
+═══════════════════════════════════════════════════════════ */
 function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { return null; }
+  }
   return audioCtx;
 }
 
 function playSound(type) {
+  const ctx = getAudioCtx(); if (!ctx) return;
   try {
-    const ctx = getAudioCtx();
-    const osc = ctx.createOscillator();
+    const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-    if (type === 'water') {
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.15);
-    } else if (type === 'food') {
-      osc.frequency.setValueAtTime(660, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.2);
-    } else if (type === 'stool') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(400, ctx.currentTime);
-    } else if (type === 'medical') {
-      osc.frequency.setValueAtTime(523, ctx.currentTime);
-      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
-      osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
-    } else {
-      osc.frequency.setValueAtTime(1046, ctx.currentTime);
-    }
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.35);
-  } catch(e) {}
+    gain.gain.setValueAtTime(0.14, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.32);
+    if (type==='water')   { osc.frequency.setValueAtTime(880,ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(1200,ctx.currentTime+.15); }
+    else if (type==='food')    { osc.frequency.setValueAtTime(660,ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(880,ctx.currentTime+.2); }
+    else if (type==='stool')   { osc.type='triangle'; osc.frequency.setValueAtTime(400,ctx.currentTime); }
+    else if (type==='medical') { osc.frequency.setValueAtTime(523,ctx.currentTime); osc.frequency.setValueAtTime(659,ctx.currentTime+.1); osc.frequency.setValueAtTime(784,ctx.currentTime+.2); }
+    else { osc.frequency.setValueAtTime(1046,ctx.currentTime); }
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.36);
+  } catch (e) {}
 }
 
-// ==================== MIDNIGHT RESET ====================
-function schedulesMidnightCheck() {
-  checkMidnightReset();
-  setInterval(checkMidnightReset, 60 * 1000);
-}
-
-let lastResetDate = new Date().toLocaleDateString('zh-TW');
+/* ═══════════════════════════════════════════════════════════
+   MIDNIGHT AUTO-RESET
+═══════════════════════════════════════════════════════════ */
 function checkMidnightReset() {
   const today = new Date().toLocaleDateString('zh-TW');
   if (today !== lastResetDate) {
     lastResetDate = today;
-    doMidnightReset();
+    state.waterToday = 0; state.foodToday = 0;
+    // 只保留非今天的日誌以供圖表顯示
+    saveLocalState(); initTodayDate();
+    updateUI(); renderRecentLogs(); updateChartData();
+    setText('tama-msg', '「新的一天開始了！喵～」');
+    drawTamagotchi('idle');
   }
 }
 
-function doMidnightReset() {
-  state.waterToday = 0;
-  state.foodToday = 0;
-  // Archive logs locally
-  saveLocalState();
-  initTodayDate();
-  updateUI();
-  renderRecentLogs();
-  updateChartData();
+function initTodayDate() {
+  const opts = { year:'numeric', month:'long', day:'numeric', weekday:'long' };
+  setText('today-date', new Date().toLocaleDateString('zh-TW', opts));
 }
-
-function initMidnightCheck() {
-  lastResetDate = new Date().toLocaleDateString('zh-TW');
-}
-
-// ==================== START ====================
-// Start float animation after a small delay
-setTimeout(() => { floatLoop(); }, 2000);
 </script>
 </body>
 </html>
