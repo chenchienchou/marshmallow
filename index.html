@@ -1,1330 +1,1725 @@
 <!DOCTYPE html>
+<!--
+=======================================================================
+  📋 SUPABASE SQL SETUP — 請複製以下 SQL 至 Supabase SQL Editor 執行
+=======================================================================
 
+-- 1. 啟用 UUID 擴充功能
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. 照顧者 profiles 資料表
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT,
+  title TEXT CHECK (title IN ('爸爸','媽媽','哥哥','姊姊')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own profile"
+  ON profiles FOR ALL USING (auth.uid() = id);
+
+-- 3. 貓咪檔案 cat_profiles 資料表
+CREATE TABLE IF NOT EXISTS cat_profiles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  breed TEXT,
+  birth_date DATE,
+  weight_goal NUMERIC(4,2) DEFAULT 4.5,
+  water_goal INTEGER DEFAULT 200,
+  food_goal INTEGER DEFAULT 80,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE cat_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own cats"
+  ON cat_profiles FOR ALL USING (auth.uid() = owner_id);
+
+-- 4. 健康日誌 health_logs 資料表
+CREATE TABLE IF NOT EXISTS health_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  cat_name TEXT NOT NULL DEFAULT '大橘',
+  log_type TEXT NOT NULL CHECK (log_type IN ('water','food','stool','medical','weight')),
+  value NUMERIC(8,2),
+  stool_state TEXT,
+  note TEXT,
+  caregiver_title TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE health_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "All authenticated users can read logs"
+  ON health_logs FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users can insert logs"
+  ON health_logs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users can update logs"
+  ON health_logs FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- 5. 啟用 Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE health_logs;
+
+=======================================================================
+-->
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <meta name="apple-mobile-web-app-title" content="棉花糖日記"/>
-  <title>棉花糖日記</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="貓咪健康日誌" />
+  <title>🐾 貓咪健康日誌</title>
+
+  <!-- iOS PWA icons -->
+  <link rel="apple-touch-icon" href="https://api.iconify.design/noto/cat-face.svg" />
+
+  <!-- Asset preload hints -->
+  <link rel="preload" as="image" href="cat_icons.jpg" />
+  <link rel="preload" as="image" href="cat_avatars.jpg" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            orange: { accent: '#FDBA74', soft: '#FEF3C7' },
+            lavender: { accent: '#C7D2FE', soft: '#EEF2FF' },
+            morandi: { normal: '#E2EDDF', soft: '#F4EFE6', alert: '#F9E8E8' },
+            milk: '#FAF6F1',
+            caramel: '#C8A97E',
+          },
+          fontFamily: {
+            serif: ['"Noto Serif TC"', 'serif'],
+            sans: ['"Noto Sans TC"', 'sans-serif'],
+          },
+        }
+      }
+    };
+  </script>
+
   <style>
     :root {
-      --bg: #f5f0eb;
-      --surface: rgba(255,255,255,0.88);
-      --surface-glass: rgba(255,255,255,0.72);
-      --border: rgba(0,0,0,0.06);
-      --border-soft: rgba(0,0,0,0.04);
-      --ink: #1a1412;
-      --ink2: #6b5e58;
-      --ink3: #a8998f;
-      --ink4: #c8bdb8;
-      --accent: #c97c7c;
-      --accent2: #b8aad4;
-      --green: #7bc87b;
-      --amber: #e8a855;
-      --blue: #7aaed4;
-      --r: 20px;
-      --r-sm: 14px;
-      --shadow: 0 2px 16px rgba(0,0,0,0.07);
-      --shadow-sm: 0 1px 8px rgba(0,0,0,0.05);
-      --nav-height: 60px;
-      --bc34: 3.62;
+      --accent: #FDBA74;
+      --accent-soft: #FEF3C7;
+      --bg: #FAF6F1;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html { height: 100dvh; background: var(--bg); }
-    body {
-      display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
-      font-family: "Nunito", sans-serif; color: var(--ink); background: var(--bg);
-      background-image:
-        radial-gradient(ellipse 80% 50% at 10% 0%, rgba(244,198,198,0.22) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 90% 10%, rgba(184,170,212,0.18) 0%, transparent 55%),
-        radial-gradient(ellipse 70% 50% at 50% 100%, rgba(181,203,180,0.15) 0%, transparent 55%);
-      background-attachment: fixed;
-      touch-action: manipulation;
+    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+    html, body {
+      height: 100%; width: 100%;
+      overflow: hidden;
+      background: #FAF6F1;
+      font-family: 'Noto Sans TC', sans-serif;
     }
-    @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-    .skeleton {
-      background: linear-gradient(90deg,rgba(0,0,0,0.06) 25%,rgba(0,0,0,0.03) 50%,rgba(0,0,0,0.06) 75%);
-      background-size: 200% 100%; animation: shimmer 1.6s infinite; border-radius: 8px;
+    #app {
+      height: 100dvh; width: 100vw;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      position: relative;
     }
-    .skeleton-card { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); padding:20px; margin-bottom:12px; }
-    .skeleton-line { height:12px; margin-bottom:8px; }
-    .skeleton-circle { width:56px; height:56px; border-radius:50%; }
-    #skeletonLoader { display:block; padding:16px 14px; }
-    #skeletonLoader.hidden { display:none; }
+    #bg-layer {
+      position: fixed; inset: 0;
+      background-image: url('A446BFF0-CAE6-4FAD-83C1-9869AA0310EC.png');
+      background-size: cover; background-position: center;
+      z-index: -20;
+      opacity: 0.6;
+    }
+    #bg-overlay {
+      position: fixed; inset: 0;
+      background: linear-gradient(160deg, rgba(253,240,224,0.82) 0%, rgba(247,237,255,0.78) 100%);
+      z-index: -19;
+    }
+    .scrollable-center {
+      flex: 1 1 0%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+      overscroll-behavior: contain;
+    }
+    .scrollable-center::-webkit-scrollbar { width: 3px; }
+    .scrollable-center::-webkit-scrollbar-track { background: transparent; }
+    .scrollable-center::-webkit-scrollbar-thumb { background: rgba(200,169,126,0.4); border-radius: 99px; }
 
-```
-/* SPLASH */
-#splash {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 100dvh;
-  background: var(--bg);
-  background-image: radial-gradient(ellipse 80% 50% at 10% 0%, rgba(244,198,198,0.25) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 90% 10%, rgba(184,170,212,0.2) 0%, transparent 55%);
-  padding: 0 28px;
-  box-sizing: border-box;
-  transition: opacity 0.5s ease, transform 0.5s ease;
-}
-#splash-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 400px;
-  padding-top: env(safe-area-inset-top, 44px);
-  padding-bottom: env(safe-area-inset-bottom, 20px);
-  box-sizing: border-box;
-}
-#splash.hide { opacity:0; transform:scale(1.03); pointer-events:none; }
-.splash-avatar { width:88px; height:88px; border-radius:50%; object-fit:cover; display:block; margin:0 auto 20px; box-shadow:0 6px 28px rgba(0,0,0,0.14); border:3px solid white; flex-shrink:0; }
-.splash-question { font-family:"Playfair Display",serif; font-size:26px; font-weight:700; color:var(--ink); text-align:center; line-height:1.35; margin-bottom:6px; }
-.splash-sub2 { font-size:13px; color:var(--ink3); font-weight:600; margin-bottom:32px; text-align:center; }
-.role-cards { display:flex; gap:14px; width:100%; max-width:340px; margin-bottom:24px; }
-.role-card { flex:1; background:var(--surface); border-radius:var(--r); padding:24px 12px 20px; border:2px solid var(--border); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:10px; transition:all 0.2s; box-shadow:var(--shadow); }
-.role-card:active { transform:scale(0.95); }
-.role-card.sel-dad { border-color:#7aaed4; background:rgba(122,174,212,0.08); box-shadow:0 4px 20px rgba(122,174,212,0.2); }
-.role-card.sel-mom { border-color:#c97c7c; background:rgba(201,124,124,0.08); box-shadow:0 4px 20px rgba(201,124,124,0.2); }
-.rc-icon-wrap { width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.rc-icon-wrap.dad { background:rgba(122,174,212,0.15); }
-.rc-icon-wrap.mom { background:rgba(244,198,198,0.3); }
-.rc-name { font-size:17px; font-weight:900; color:var(--ink); }
-.rc-sub { font-size:11px; color:var(--ink3); font-weight:600; }
-.splash-enter-btn { width:100%; max-width:340px; background:var(--ink); color:white; border:none; border-radius:50px; padding:17px 24px; font-family:"Nunito",sans-serif; font-size:17px; font-weight:800; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 20px rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:12px; flex-shrink:0; }
-.splash-enter-btn:active { transform:scale(0.97); }
-.splash-enter-btn:disabled { opacity:0.4; cursor:default; }
-.splash-save-note { font-size:11px; color:var(--ink3); font-weight:600; text-align:center; }
+    /* GLASS CARD */
+    .glass {
+      background: rgba(255,255,255,0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.8);
+      border-radius: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    }
+    .glass-dark {
+      background: rgba(255,255,255,0.45);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
 
-/* APP SHELL */
-#app { display:flex; flex-direction:column; flex:1; height:100%; overflow:hidden; padding-bottom:calc(var(--nav-height) + env(safe-area-inset-bottom,0px)); }
-.app-header { flex:0 0 auto; background:rgba(245,240,235,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:0 16px; padding-top:env(safe-area-inset-top,44px); }
-.header-inner { display:flex; align-items:center; gap:10px; padding:10px 0; }
-.h-avatar-wrap { position:relative; flex-shrink:0; cursor:pointer; }
-.h-avatar { width:46px; height:46px; border-radius:50%; border:2.5px solid white; box-shadow:0 2px 10px rgba(0,0,0,0.12); object-fit:cover; display:block; transition:opacity 0.2s; }
-.h-avatar:active { opacity:0.8; }
-.h-edit-dot { position:absolute; bottom:0; right:0; width:17px; height:17px; border-radius:50%; background:#1a1412; border:2px solid white; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-.h-info { flex:1; min-width:0; }
-.h-name-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.h-name { font-family:"Playfair Display",serif; font-size:19px; font-weight:700; color:var(--ink); }
-.mode-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:50px; font-size:11px; font-weight:800; cursor:pointer; transition:all 0.15s; user-select:none; }
-.mode-pill-dad { background:rgba(122,174,212,0.2); color:#3a6ab0; }
-.mode-pill-mom { background:rgba(244,198,198,0.4); color:#b04040; }
-.mode-pill:active { transform:scale(0.92); }
-.h-meta { display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap; }
-.h-breed { font-size:11px; color:var(--ink3); font-weight:600; }
-.h-tag { display:inline-flex; align-items:center; gap:3px; background:rgba(0,0,0,0.05); border-radius:50px; padding:2px 7px; font-size:10px; font-weight:700; color:var(--ink2); }
-.conn-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:50px; background:rgba(123,200,123,0.15); font-size:10px; font-weight:700; color:#3a8a3a; }
-.conn-badge.err { background:rgba(232,123,123,0.15); color:#8a3a3a; }
-.conn-badge.loading { background:rgba(0,0,0,0.06); color:var(--ink3); }
-.conn-dot { width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
-.h-right { text-align:right; flex-shrink:0; }
-.h-date { font-size:11px; font-weight:800; color:var(--accent); }
-.h-time { font-size:10px; color:var(--ink3); }
-.days-pill { display:inline-block; background:linear-gradient(135deg,rgba(244,198,198,0.5),rgba(184,170,212,0.45)); border-radius:50px; padding:2px 8px; font-size:10px; font-weight:800; color:#6b3a6b; margin-top:3px; }
+    /* FIXED HEADER */
+    .fixed-header {
+      flex: none;
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.6);
+    }
+    /* FIXED FOOTER */
+    .fixed-footer {
+      flex: none;
+      background: rgba(255,255,255,0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255,255,255,0.6);
+    }
 
-.content-area { 
-  flex: 1 1 0; 
-  overflow-y: auto; 
-  overflow-x: hidden; 
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.content-area::-webkit-scrollbar { display:none; }
-body, #app { overscroll-behavior: none; }
-.content-area { overscroll-behavior-y: none; }
-.page { display:none; padding:16px 14px 20px; animation:fadeUp 0.3s ease; }
-.page.active { display:block; }
-@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    /* SPLASH */
+    #splash {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #FAF0E6 0%, #F5ECF8 50%, #EEF5FB 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.6s ease;
+    }
+    #splash.fade-out { opacity: 0; pointer-events: none; }
 
-/* NAV */
-.nav-bar { position:fixed; bottom:0; left:0; width:100%; display:flex; background:rgba(245,240,235,0.96); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-top:1px solid var(--border); padding:6px 8px 0; padding-bottom:env(safe-area-inset-bottom,0px); gap:4px; box-sizing:border-box; z-index:1000; }
-.nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:8px 6px 8px; border-radius:14px; cursor:pointer; transition:all 0.2s; border:none; background:transparent; font-family:"Nunito",sans-serif; }
-.nav-icon { font-size:22px; line-height:1; height:26px; display:flex; align-items:center; justify-content:center; transition:transform 0.2s; }
-.nav-cat-img { width:24px; height:24px; border-radius:50%; object-fit:cover; display:block; }
-.nav-label { font-size:10px; font-weight:800; color:var(--ink3); transition:color 0.2s; }
-.nav-item.active { background:rgba(201,124,124,0.1); }
-.nav-item.active .nav-label { color:#8b4a4a; }
-.nav-item.active .nav-icon { transform:scale(1.1); }
-.nav-item:active { transform:scale(0.92); }
+    /* CAT AVATAR CSS SPRITE */
+    .cat-sprite {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 3px solid rgba(255,255,255,0.9);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      background: #f0f0f0;
+      flex-shrink: 0;
+    }
+    .cat-sprite img {
+      width: 200%; height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+    .cat-sprite.ragdoll img { transform: translateX(-50%); }
 
-/* TODAY */
-.alert-card { border-radius:var(--r); border:1px solid transparent; padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px; animation:slideIn 0.3s ease; }
-@keyframes slideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
-.alert-card.warn { background:rgba(232,168,85,0.1); border-color:rgba(232,168,85,0.25); }
-.alert-card.info { background:rgba(122,174,212,0.09); border-color:rgba(122,174,212,0.22); }
-.alert-card.ok { background:rgba(123,200,123,0.09); border-color:rgba(123,200,123,0.22); }
-.alert-card.alert { background:rgba(201,124,124,0.09); border-color:rgba(201,124,124,0.25); }
-.alert-icon-wrap { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.alert-card.warn .alert-icon-wrap { background:rgba(232,168,85,0.15); }
-.alert-card.ok .alert-icon-wrap { background:rgba(123,200,123,0.15); }
-.alert-card.alert .alert-icon-wrap { background:rgba(201,124,124,0.12); }
-.alert-card.info .alert-icon-wrap { background:rgba(122,174,212,0.13); }
-.alert-body { flex:1; }
-.alert-title { font-size:13px; font-weight:800; color:var(--ink); margin-bottom:2px; }
-.alert-desc { font-size:12px; color:var(--ink2); font-weight:600; line-height:1.4; }
-.alert-badge { font-size:10px; font-weight:800; padding:3px 8px; border-radius:50px; flex-shrink:0; }
-.alert-badge.warn { background:rgba(232,168,85,0.18); color:#9a6a10; }
-.alert-badge.alert { background:rgba(201,124,124,0.18); color:#8b3a3a; }
-.alert-badge.ok { background:rgba(123,200,123,0.18); color:#2a6a2a; }
-.alert-badge.info { background:rgba(122,174,212,0.18); color:#2a4a8a; }
-.stats-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
-.stat-card { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--shadow); padding:16px 14px; position:relative; }
-.stat-gear-btn { position:absolute; top:12px; right:12px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.04); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; }
-.stat-gear-btn:active { background:rgba(0,0,0,0.09); }
-.stat-label { font-size:11px; color:var(--ink3); font-weight:700; margin-bottom:8px; letter-spacing:0.3px; padding-right:28px; }
-.stat-ring-wrap { display:flex; align-items:center; gap:12px; }
-.stat-ring { position:relative; width:56px; height:56px; flex-shrink:0; }
-.stat-ring svg { transform:rotate(-90deg); }
-.stat-ring-bg { fill:none; stroke:rgba(0,0,0,0.06); stroke-width:5; }
-.stat-ring-fill { fill:none; stroke-width:5; stroke-linecap:round; transition:stroke-dashoffset 0.7s cubic-bezier(0.34,1.56,0.64,1); }
-.stat-ring-val { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:var(--ink); flex-direction:column; line-height:1; }
-.stat-ring-unit { font-size:8px; font-weight:700; color:var(--ink3); }
-.stat-right { flex:1; min-width:0; }
-.stat-val-big { font-size:22px; font-weight:900; color:var(--ink); line-height:1; }
-.stat-val-unit { font-size:11px; color:var(--ink3); font-weight:700; }
-.stat-status { display:inline-flex; align-items:center; gap:4px; margin-top:6px; padding:3px 8px; border-radius:50px; font-size:10px; font-weight:800; }
-.stat-status.ok { background:rgba(123,200,123,0.13); color:#2a6a2a; }
-.stat-status.warn { background:rgba(232,168,85,0.13); color:#9a6a10; }
-.stat-status.low { background:rgba(122,174,212,0.13); color:#2a4a8a; }
-.stat-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
-.activity-card { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--shadow); padding:16px; margin-bottom:12px; }
-.activity-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-.activity-title { font-size:12px; font-weight:800; color:var(--ink2); text-transform:uppercase; letter-spacing:0.8px; }
-.activity-count { font-size:11px; color:var(--ink3); font-weight:700; }
-.activity-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-.act-item { background:rgba(0,0,0,0.03); border-radius:14px; padding:12px 8px; text-align:center; transition:all 0.2s; }
-.act-item.has-data { background:rgba(255,255,255,0.85); box-shadow:var(--shadow-sm); }
-.act-icon-wrap { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; margin:0 auto 6px; }
-.act-item.has-data .act-icon-wrap { background:rgba(0,0,0,0.04); }
-.act-val { font-size:20px; font-weight:900; color:var(--ink); line-height:1; }
-.act-unit { font-size:10px; color:var(--ink3); font-weight:700; }
-.timeline-card { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--shadow); overflow:hidden; margin-bottom:12px; }
-.timeline-header { padding:14px 16px 10px; border-bottom:1px solid var(--border-soft,rgba(0,0,0,0.04)); }
-.timeline-title { font-size:12px; font-weight:800; color:var(--ink2); text-transform:uppercase; letter-spacing:0.8px; }
-.timeline-item { display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-bottom:1px solid rgba(0,0,0,0.03); }
-.timeline-item:last-child { border-bottom:none; }
-.tl-time { font-size:12px; font-weight:700; color:var(--ink3); min-width:44px; padding-top:2px; }
-.tl-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:4px; border:2px solid white; }
-.tl-body { flex:1; }
-.tl-main { font-size:13px; font-weight:800; color:var(--ink); margin-bottom:5px; }
-.tl-pills { display:flex; flex-wrap:wrap; gap:4px; }
-.tl-pill { border-radius:50px; padding:2px 8px; font-size:11px; font-weight:700; }
-.tl-pill.food { background:rgba(232,168,85,0.12); color:#8a5a10; }
-.tl-pill.water { background:rgba(122,174,212,0.12); color:#2a4a8a; }
-.tl-pill.poop { background:rgba(180,140,100,0.12); color:#6a4a20; }
-.tl-pill.pee { background:rgba(210,190,80,0.12); color:#7a6010; }
-.tl-pill.memo { background:rgba(184,170,212,0.15); color:#5a4a8a; }
+    /* TAMAGOTCHI */
+    #tama-canvas {
+      display: block; margin: 0 auto;
+    }
 
-/* RECORD */
-.page-title { font-family:"Playfair Display",serif; font-size:22px; font-weight:700; color:var(--ink); margin-bottom:4px; }
-.page-sub { font-size:12px; color:var(--ink3); font-weight:600; margin-bottom:16px; }
-.rec-section { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--shadow); margin-bottom:14px; overflow:hidden; }
-.rec-header { padding:14px 16px 12px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(0,0,0,0.04); }
-.rec-header-icon { width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.rec-header-icon.food { background:rgba(232,168,85,0.13); }
-.rec-header-icon.water { background:rgba(122,174,212,0.13); }
-.rec-header-icon.toilet { background:rgba(180,140,100,0.1); }
-.rec-header-icon.memo { background:rgba(184,170,212,0.13); }
-.rec-header-icon.pee { background:rgba(210,190,80,0.1); }
-.rec-header-text { flex:1; }
-.rec-header-title { font-size:14px; font-weight:800; color:var(--ink); }
-.rec-header-sub { font-size:11px; color:var(--ink3); font-weight:600; margin-top:1px; }
-.rec-badge { font-size:11px; font-weight:800; padding:3px 9px; border-radius:50px; background:rgba(0,0,0,0.05); color:var(--ink2); }
-.rec-body { padding:14px 16px; }
-.input-group { margin-bottom:12px; }
-.input-lbl { font-size:11px; font-weight:800; color:var(--ink3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:flex; align-items:center; gap:5px; }
-input[type="number"],input[type="text"],input[type="time"],select,textarea { width:100%; background:rgba(0,0,0,0.03); border:1.5px solid rgba(0,0,0,0.07); border-radius:14px; padding:11px 14px; font-family:"Nunito",sans-serif; font-size:15px; font-weight:700; color:var(--ink); outline:none; transition:all 0.2s; -webkit-appearance:none; appearance:none; }
-input:focus,select:focus,textarea:focus { border-color:var(--accent); background:white; }
-.input-unit { font-size:12px; font-weight:800; color:var(--ink3); white-space:nowrap; min-width:28px; }
-textarea { resize:none; height:80px; line-height:1.6; }
+    /* ANIMATIONS */
+    @keyframes bounce-in {
+      0% { transform: scale(0.8); opacity: 0; }
+      60% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes slide-down {
+      from { transform: translateY(-60px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes eat-anim {
+      0% { transform: scale(1); }
+      30% { transform: scale(1.15) rotate(-5deg); }
+      60% { transform: scale(0.95) rotate(3deg); }
+      100% { transform: scale(1); }
+    }
+    @keyframes drink-anim {
+      0% { transform: translateY(0); }
+      25% { transform: translateY(-6px); }
+      50% { transform: translateY(2px); }
+      100% { transform: translateY(0); }
+    }
+    @keyframes sad-droop {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(5deg) translateY(4px); }
+    }
+    @keyframes confetti-fall {
+      0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    @keyframes pulse-soft {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(253,186,116,0.5); }
+      50% { box-shadow: 0 0 0 10px rgba(253,186,116,0); }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .float-anim { animation: float 3s ease-in-out infinite; }
+    .bounce-in { animation: bounce-in 0.4s ease forwards; }
+    .slide-down { animation: slide-down 0.4s ease forwards; }
+    .pulse-soft { animation: pulse-soft 2s ease infinite; }
+    .active\:scale-95:active { transform: scale(0.95); }
 
-/* STEPPER */
-.stepper-row { display:flex; gap:0; align-items:center; border:1.5px solid rgba(0,0,0,0.07); border-radius:14px; overflow:hidden; background:rgba(0,0,0,0.03); }
-.stepper-btn { width:44px; height:44px; border:none; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; flex-shrink:0; }
-.stepper-btn:active { background:rgba(0,0,0,0.06); }
-.stepper-input { flex:1; border:none!important; border-radius:0!important; background:transparent!important; text-align:center; font-size:17px; font-weight:900; min-width:0; }
-.stepper-input:focus { background:transparent!important; }
+    /* PROGRESS BAR */
+    .progress-bar {
+      height: 8px; border-radius: 99px;
+      background: rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; border-radius: 99px;
+      transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
 
-/* iOS SEG CONTROL */
-.seg-control-wrap { background:rgba(0,0,0,0.06); border-radius:12px; padding:3px; position:relative; display:flex; gap:0; margin-bottom:14px; overflow:hidden; }
-.seg-slider { position:absolute; top:3px; bottom:3px; background:white; border-radius:9px; box-shadow:0 1px 6px rgba(0,0,0,0.1),0 0 0 0.5px rgba(0,0,0,0.04); transition:all 0.3s cubic-bezier(0.34,1.2,0.64,1); pointer-events:none; }
-.seg-btn { flex:1; padding:7px 4px; border:none; background:transparent; font-family:"Nunito",sans-serif; font-size:11px; font-weight:800; color:var(--ink3); cursor:pointer; border-radius:9px; z-index:1; position:relative; transition:color 0.2s; white-space:nowrap; text-align:center; }
-.seg-btn.active { color:var(--ink); }
-.seg-btn:active { opacity:0.7; }
+    /* MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(6px);
+      z-index: 500;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .modal-sheet {
+      width: 100%; max-width: 480px;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 28px 28px 0 0;
+      padding: 24px 20px 40px;
+      animation: slide-up-modal 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-height: 90dvh;
+      overflow-y: auto;
+    }
+    @keyframes slide-up-modal {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
 
-/* FOOD QUICK */
-.food-quick-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
-.food-quick-btn { background:rgba(232,168,85,0.06); border:1.5px solid rgba(232,168,85,0.18); border-radius:16px; padding:13px 6px; cursor:pointer; text-align:center; transition:all 0.15s; font-family:"Nunito",sans-serif; }
-.food-quick-btn:active { transform:scale(0.95); }
-.food-quick-btn.selected { border-color:var(--amber); background:rgba(232,168,85,0.16); box-shadow:0 3px 12px rgba(232,168,85,0.18); }
-.fqb-grams { font-size:18px; font-weight:900; color:var(--ink); line-height:1; }
-.fqb-kcal { font-size:10px; color:var(--amber); font-weight:700; margin-top:4px; transition:all 0.2s; }
+    /* PILL BUTTONS */
+    .pill-btn {
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 14px; font-weight: 500;
+      border: 1.5px solid rgba(0,0,0,0.08);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      active: scale(0.95);
+    }
 
-/* WATER QUICK */
-.water-quick-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
-.water-quick-btn { background:rgba(122,174,212,0.06); border:1.5px solid rgba(122,174,212,0.18); border-radius:16px; padding:13px 6px; cursor:pointer; text-align:center; transition:all 0.15s; font-family:"Nunito",sans-serif; }
-.water-quick-btn:active { transform:scale(0.95); }
-.water-quick-btn.selected { border-color:var(--blue); background:rgba(122,174,212,0.16); box-shadow:0 3px 12px rgba(122,174,212,0.18); }
-.wqb-val { font-size:18px; font-weight:900; color:var(--ink); line-height:1; }
-.wqb-unit { font-size:10px; color:var(--ink3); font-weight:700; margin-top:1px; }
+    /* ALERT BANNER */
+    #alert-banner {
+      position: fixed; top: 64px; left: 12px; right: 12px;
+      z-index: 400;
+      border-radius: 16px;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, #FDE68A, #FBBF24);
+      border: 1px solid rgba(251,191,36,0.5);
+      box-shadow: 0 8px 24px rgba(251,191,36,0.3);
+      display: none;
+    }
+    #alert-banner.show {
+      display: flex;
+      animation: slide-down 0.4s ease;
+    }
 
-/* KCAL COEFF TOGGLE */
-.coeff-toggle-row { display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,0.03); border-radius:12px; padding:8px 12px; margin-bottom:10px; }
-.coeff-lbl { font-size:11px; font-weight:700; color:var(--ink3); }
-.coeff-seg { display:flex; background:rgba(0,0,0,0.06); border-radius:8px; padding:2px; gap:2px; }
-.coeff-btn { padding:4px 10px; border:none; background:transparent; font-family:"Nunito",sans-serif; font-size:11px; font-weight:800; color:var(--ink3); cursor:pointer; border-radius:6px; transition:all 0.2s; }
-.coeff-btn.active { background:white; color:var(--ink); box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+    /* CONFETTI */
+    .confetti-piece {
+      position: fixed;
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 9990;
+      animation: confetti-fall linear forwards;
+    }
 
-/* KCAL BANNER */
-.kcal-banner { background:rgba(255,255,255,0.72); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(232,168,85,0.2); border-radius:14px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; box-shadow:0 2px 12px rgba(232,168,85,0.08); }
-.kcal-banner-label { font-size:11px; font-weight:700; color:var(--ink3); }
-.kcal-banner-val { font-size:22px; font-weight:900; color:var(--amber); transition:all 0.2s; }
-.kcal-banner-unit { font-size:11px; font-weight:700; color:var(--ink3); margin-left:4px; }
+    /* NAV TABS */
+    .nav-tab {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 8px 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: 12px;
+      gap: 3px;
+    }
+    .nav-tab.active span.dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent);
+      display: block;
+    }
+    .nav-tab span.dot { display: none; }
 
-/* PEE */
-.pee-status-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
-.pee-status-btn { background:rgba(210,190,80,0.05); border:1.5px solid rgba(210,190,80,0.16); border-radius:16px; padding:14px 6px; cursor:pointer; text-align:center; transition:all 0.15s; font-family:"Nunito",sans-serif; display:flex; flex-direction:column; align-items:center; gap:6px; }
-.pee-status-btn:active { transform:scale(0.95); }
-.pee-status-btn.selected { border-color:rgba(200,160,40,0.55); background:rgba(210,190,80,0.14); box-shadow:0 2px 10px rgba(200,160,40,0.12); }
-.pee-status-icon { width:28px; height:28px; display:flex; align-items:center; justify-content:center; }
-.pee-status-label { font-size:11px; font-weight:800; color:var(--ink2); }
-.pee-status-btn.selected .pee-status-label { color:#7a5a10; }
+    /* STOOL CARDS */
+    .stool-card {
+      padding: 12px 10px; border-radius: 16px;
+      cursor: pointer; transition: all 0.2s ease;
+      border: 2px solid transparent;
+      text-align: center;
+    }
+    .stool-card.selected { border-color: rgba(0,0,0,0.2); transform: scale(0.97); }
 
-/* POOP */
-.poop-status-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:14px; }
-.poop-status-btn { background:rgba(180,140,100,0.05); border:1.5px solid rgba(180,140,100,0.13); border-radius:16px; padding:16px 10px; cursor:pointer; text-align:center; transition:all 0.15s; font-family:"Nunito",sans-serif; display:flex; flex-direction:column; align-items:center; gap:6px; }
-.poop-status-btn:active { transform:scale(0.95); }
-.poop-status-btn.selected { border-color:rgba(160,110,70,0.45); background:rgba(180,140,100,0.13); box-shadow:0 2px 10px rgba(160,110,70,0.12); }
-.poop-status-icon { width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
-.poop-status-label { font-size:13px; font-weight:800; color:var(--ink2); }
-.poop-status-btn.selected .poop-status-label { color:#6a4a10; }
+    /* LOGIN */
+    #login-screen {
+      position: fixed; inset: 0;
+      z-index: 800;
+      background: linear-gradient(160deg, #FAF0E6 0%, #F0EBF8 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px;
+      overflow-y: auto;
+    }
 
-.rec-action-btn { width:100%; padding:14px 20px; border-radius:50px; font-family:"Nunito",sans-serif; font-size:14px; font-weight:800; border:none; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:8px; }
-.rec-action-btn.pee { background:rgba(210,190,80,0.12); color:#7a5a10; border:1.5px solid rgba(200,160,40,0.25); }
-.rec-action-btn.poop { background:rgba(180,140,100,0.1); color:#6a4a20; border:1.5px solid rgba(160,110,70,0.22); }
-.rec-action-btn:active { transform:scale(0.97); }
-.rec-submit { padding:14px 16px; border-top:1px solid rgba(0,0,0,0.04); }
-.btn-confirm { width:100%; padding:16px 24px; border-radius:50px; background:var(--ink); color:white; font-family:"Nunito",sans-serif; font-size:16px; font-weight:800; border:none; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.16); transition:all 0.2s; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; gap:8px; }
-.btn-confirm:active { transform:scale(0.97); }
-.btn-confirm.loading { opacity:0.7; }
-.info-tip { background:rgba(123,200,123,0.07); border:1px solid rgba(123,200,123,0.18); border-radius:11px; padding:9px 12px; margin-bottom:12px; font-size:11px; font-weight:700; color:#3a6a3a; display:flex; align-items:center; gap:6px; }
+    .title-btn {
+      padding: 14px;
+      border-radius: 16px;
+      border: 2px solid rgba(200,169,126,0.3);
+      background: rgba(255,255,255,0.7);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+      font-size: 22px;
+      font-family: 'Noto Serif TC', serif;
+    }
+    .title-btn:hover { background: rgba(253,186,116,0.3); border-color: #FDBA74; }
+    .title-btn.selected {
+      background: linear-gradient(135deg, rgba(253,186,116,0.5), rgba(199,210,254,0.5));
+      border-color: #FDBA74;
+      transform: scale(1.04);
+      box-shadow: 0 4px 16px rgba(253,186,116,0.4);
+    }
 
-/* HISTORY */
-.history-item { background:var(--surface); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--shadow); padding:14px 16px; margin-bottom:10px; }
-.history-date { font-size:12px; font-weight:800; color:var(--accent); margin-bottom:8px; }
-.history-pills { display:flex; flex-wrap:wrap; gap:5px; }
-.h-pill { background:rgba(0,0,0,0.04); border-radius:50px; padding:4px 10px; font-size:11px; font-weight:700; color:var(--ink2); border:1px solid rgba(0,0,0,0.04); }
+    /* WEIGHT SLIDER */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%; height: 6px;
+      border-radius: 99px;
+      background: linear-gradient(to right, #FDBA74 0%, #FDBA74 var(--pct, 50%), #e5e7eb var(--pct, 50%));
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: white;
+      border: 3px solid #FDBA74;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      cursor: pointer;
+    }
 
-/* PET */
-.pet-hero-page { background:linear-gradient(135deg,rgba(244,198,198,0.38),rgba(184,170,212,0.32)); border-radius:var(--r); border:1px solid rgba(255,255,255,0.55); box-shadow:var(--shadow); padding:24px 16px; margin-bottom:12px; text-align:center; position:relative; overflow:hidden; }
-.pet-hero-page::before { content:""; position:absolute; inset:0; background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(255,255,255,0.25) 0%,transparent 70%); pointer-events:none; }
-.pet-page-avatar { width:90px; height:90px; border-radius:50%; object-fit:cover; border:3px solid white; box-shadow:0 6px 24px rgba(0,0,0,0.14); margin-bottom:12px; display:block; margin-left:auto; margin-right:auto; cursor:pointer; transition:opacity 0.2s; position:relative; }
-.pet-page-avatar:active { opacity:0.85; }
-.pet-page-name { font-family:"Playfair Display",serif; font-size:28px; font-weight:700; color:var(--ink); position:relative; }
-.pet-page-sub { font-size:13px; color:var(--ink3); font-weight:600; margin-top:4px; position:relative; }
-.pet-info-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:12px; }
-.pet-info-item { background:var(--surface); border-radius:14px; padding:14px 12px; border:1px solid var(--border); box-shadow:var(--shadow); }
-.pet-info-item.wide { grid-column:1 / -1; }
-.pi-icon-wrap { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.04); margin-bottom:6px; }
-.pi-label { font-size:10px; font-weight:800; color:var(--ink3); text-transform:uppercase; letter-spacing:0.4px; }
-.pi-val { font-size:15px; font-weight:800; color:var(--ink); margin-top:3px; }
-.pi-val-blue { color:#3a6ab0; }
-.neuter-card { background:var(--surface); border-radius:var(--r); padding:16px 18px; margin-bottom:12px; border:1px solid var(--border); box-shadow:var(--shadow); display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.ni-title { font-size:14px; font-weight:800; color:var(--ink); }
-.ni-sub { font-size:11px; color:var(--ink3); font-weight:600; margin-top:2px; }
-.toggle-row { display:flex; align-items:center; gap:8px; }
-.toggle-lbl { font-size:12px; font-weight:700; color:var(--ink3); }
-.ios-toggle { position:relative; width:48px; height:28px; flex-shrink:0; }
-.ios-toggle input { opacity:0; width:0; height:0; }
-.ios-slider { position:absolute; inset:0; border-radius:28px; background:#ddd; cursor:pointer; transition:background 0.25s; }
-.ios-slider::before { content:""; position:absolute; width:22px; height:22px; border-radius:50%; background:white; top:3px; left:3px; box-shadow:0 1px 4px rgba(0,0,0,0.2); transition:transform 0.25s; }
-.ios-toggle input:checked + .ios-slider { background:#7bc87b; }
-.ios-toggle input:checked + .ios-slider::before { transform:translateX(20px); }
-.ios-toggle.locked { opacity:0.5; pointer-events:none; }
-.weight-card { background:var(--surface); border-radius:var(--r); padding:16px 18px; margin-bottom:12px; border:1px solid var(--border); box-shadow:var(--shadow); display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; }
-.weight-card:active { opacity:0.85; }
-.weight-val-big { font-size:22px; font-weight:900; color:var(--ink); }
-.weight-val-unit { font-size:12px; font-weight:700; color:var(--ink3); }
+    /* ORANGE THEME */
+    body.theme-orange { --accent: #FDBA74; --accent-soft: #FEF3C7; }
+    body.theme-lavender { --accent: #C7D2FE; --accent-soft: #EEF2FF; }
 
-/* TOAST */
-.toast { position:fixed; bottom:calc(var(--nav-height) + env(safe-area-inset-bottom,0px) + 10px); left:50%; transform:translateX(-50%) translateY(20px); background:rgba(26,20,18,0.92); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); color:white; padding:12px 22px; border-radius:50px; font-size:13px; font-weight:700; box-shadow:0 4px 24px rgba(0,0,0,0.2); opacity:0; transition:all 0.3s; pointer-events:none; z-index:9998; white-space:nowrap; }
-.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    /* CHART CONTAINER */
+    .chart-wrap { position: relative; height: 200px; }
 
-.empty-state { text-align:center; padding:48px 20px; color:var(--ink3); }
-.empty-icon { margin-bottom:12px; display:flex; align-items:center; justify-content:center; }
-.empty-state p { font-size:14px; font-weight:600; }
-.loader { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.35); border-top-color:white; border-radius:50%; animation:spin 0.6s linear infinite; }
-@keyframes spin { to{transform:rotate(360deg)} }
-
-/* MODALS */
-.modal-overlay { position:fixed; inset:0; z-index:9000; background:rgba(0,0,0,0.35); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.25s; }
-.modal-overlay.show { opacity:1; pointer-events:auto; }
-.modal-sheet { background:rgba(245,240,235,0.97); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-radius:24px 24px 0 0; padding:20px 20px calc(env(safe-area-inset-bottom,0px) + 20px); width:100%; max-width:480px; box-shadow:0 -8px 40px rgba(0,0,0,0.12); transform:translateY(30px); transition:transform 0.3s cubic-bezier(0.34,1.2,0.64,1); }
-.modal-overlay.show .modal-sheet { transform:translateY(0); }
-.modal-handle { width:36px; height:4px; border-radius:2px; background:rgba(0,0,0,0.15); margin:0 auto 16px; }
-.modal-title { font-family:"Playfair Display",serif; font-size:18px; font-weight:700; color:var(--ink); margin-bottom:16px; }
-.modal-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
-.modal-lbl { font-size:13px; font-weight:700; color:var(--ink2); min-width:80px; }
-.modal-input { flex:1; background:rgba(0,0,0,0.04); border:1.5px solid rgba(0,0,0,0.07); border-radius:12px; padding:10px 12px; font-family:"Nunito",sans-serif; font-size:16px; font-weight:700; color:var(--ink); outline:none; -webkit-appearance:none; appearance:none; }
-.modal-input:focus { border-color:var(--accent); background:white; }
-.modal-save-btn { width:100%; padding:14px; border-radius:50px; background:var(--ink); color:white; font-family:"Nunito",sans-serif; font-size:15px; font-weight:800; border:none; cursor:pointer; box-shadow:0 4px 18px rgba(0,0,0,0.15); transition:all 0.2s; margin-top:4px; }
-.modal-save-btn:active { transform:scale(0.97); }
-.modal-cancel-btn { width:100%; padding:12px; border-radius:50px; background:rgba(0,0,0,0.06); color:var(--ink2); font-family:"Nunito",sans-serif; font-size:14px; font-weight:800; border:none; cursor:pointer; transition:all 0.2s; margin-top:8px; }
-.modal-cancel-btn:active { transform:scale(0.97); }
-.confirm-modal-overlay { position:fixed; inset:0; z-index:9500; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.25s; padding:20px; }
-.confirm-modal-overlay.show { opacity:1; pointer-events:auto; }
-.confirm-modal { background:rgba(245,240,235,0.98); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-radius:20px; padding:24px 20px; width:100%; max-width:320px; box-shadow:0 12px 48px rgba(0,0,0,0.2); transform:scale(0.92); transition:transform 0.3s cubic-bezier(0.34,1.2,0.64,1); }
-.confirm-modal-overlay.show .confirm-modal { transform:scale(1); }
-.confirm-icon-wrap { width:52px; height:52px; border-radius:50%; background:rgba(123,200,123,0.15); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; }
-.confirm-title { font-family:"Playfair Display",serif; font-size:18px; font-weight:700; color:var(--ink); text-align:center; margin-bottom:8px; }
-.confirm-desc { font-size:13px; color:var(--ink2); font-weight:600; text-align:center; line-height:1.5; margin-bottom:20px; }
-.confirm-btn-row { display:flex; gap:10px; }
-.confirm-ok-btn { flex:1; padding:12px; border-radius:50px; background:var(--ink); color:white; font-family:"Nunito",sans-serif; font-size:14px; font-weight:800; border:none; cursor:pointer; }
-.confirm-ok-btn:active { transform:scale(0.97); }
-.confirm-no-btn { flex:1; padding:12px; border-radius:50px; background:rgba(0,0,0,0.06); color:var(--ink2); font-family:"Nunito",sans-serif; font-size:14px; font-weight:800; border:none; cursor:pointer; }
-.confirm-no-btn:active { transform:scale(0.97); }
-#hiddenFileInput { display:none; }
-```
-
+    /* DIARY */
+    .diary-text {
+      font-family: 'Noto Serif TC', serif;
+      line-height: 1.9;
+      color: #4a3728;
+    }
   </style>
 </head>
-<body>
+<body class="theme-orange">
 
-<!-- SPLASH -->
+<!-- Background layers -->
+<div id="bg-layer"></div>
+<div id="bg-overlay"></div>
 
+<!-- SPLASH SCREEN -->
 <div id="splash">
-  <div id="splash-inner">
-  <img id="splashAvatarImg" src="data:image/jpeg;base64,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" class="splash-avatar" alt="棉花糖"/>
-  <div class="splash-question">你好，是誰來陪<br>棉花糖了？</div>
-  <div class="splash-sub2">請選擇你的身份，開始記錄今天</div>
-  <div class="role-cards">
-    <div class="role-card" id="card-dad" onclick="pickRole('dad')">
-      <div class="rc-icon-wrap dad">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#3a6ab0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="16" cy="11" r="5"/>
-          <path d="M6 29c0-5.523 4.477-10 10-10s10 4.477 10 10"/>
-        </svg>
-      </div>
-      <div class="rc-name">爸爸</div>
-      <div class="rc-sub">棉花糖的爸比</div>
-    </div>
-    <div class="role-card" id="card-mom" onclick="pickRole('mom')">
-      <div class="rc-icon-wrap mom">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#b04040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="16" cy="11" r="5"/>
-          <path d="M6 29c0-5.523 4.477-10 10-10s10 4.477 10 10"/>
-          <path d="M13 16c0 2 1 3 3 3s3-1 3-3"/>
-        </svg>
-      </div>
-      <div class="rc-name">媽媽</div>
-      <div class="rc-sub">棉花糖的媽咪</div>
-    </div>
-  </div>
-  <button class="splash-enter-btn" id="enterBtn" onclick="enterApp()" disabled>進入日記</button>
-  <div class="splash-save-note">記憶將保存在此裝置</div>
+  <div class="float-anim mb-6" style="font-size:72px;">🐾</div>
+  <h1 style="font-family:'Noto Serif TC',serif; font-size:28px; font-weight:900; color:#4a3728; letter-spacing:0.05em;">貓咪健康日誌</h1>
+  <p style="color:#8b7355; margin-top:8px; font-size:14px;">用愛記錄每一天</p>
+  <div style="margin-top:32px; display:flex; gap:8px;">
+    <div style="width:8px;height:8px;border-radius:50%;background:#FDBA74;animation:float 1s ease-in-out infinite;"></div>
+    <div style="width:8px;height:8px;border-radius:50%;background:#C7D2FE;animation:float 1s ease-in-out 0.3s infinite;"></div>
+    <div style="width:8px;height:8px;border-radius:50%;background:#FDBA74;animation:float 1s ease-in-out 0.6s infinite;"></div>
   </div>
 </div>
 
-<input type="file" id="hiddenFileInput" accept="image/*"/>
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:none;">
+  <div style="width:100%;max-width:420px;">
+    <div class="text-center mb-8">
+      <div style="font-size:56px; margin-bottom:12px;">🐈</div>
+      <h2 style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:900;color:#4a3728;">歡迎回來</h2>
+      <p style="color:#8b7355;font-size:13px;margin-top:6px;">請選擇您的身份並登入</p>
+    </div>
 
-<!-- APP -->
+    <!-- Title Selector -->
+    <div class="glass" style="padding:20px;margin-bottom:20px;">
+      <p style="font-size:13px;color:#8b7355;margin-bottom:12px;font-weight:500;">👤 我是家中的</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="title-btn" onclick="selectTitle('爸爸')" id="title-爸爸">👨 爸爸</div>
+        <div class="title-btn" onclick="selectTitle('媽媽')" id="title-媽媽">👩 媽媽</div>
+        <div class="title-btn" onclick="selectTitle('哥哥')" id="title-哥哥">🧒 哥哥</div>
+        <div class="title-btn" onclick="selectTitle('姊姊')" id="title-姊姊">👧 姊姊</div>
+      </div>
+    </div>
 
-<div id="app" style="display:none">
-  <header class="app-header">
-    <div class="header-inner">
-      <div class="h-avatar-wrap" onclick="document.getElementById('hiddenFileInput').click()">
-        <img id="headerAvatarImg" src="data:image/jpeg;base64,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" class="h-avatar" alt="棉花糖"/>
-        <div class="h-edit-dot">
-          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round"><path d="M1 9l2-0.5 5.5-5.5a1.4 1.4 0 0 0-2-2L1 6.5z"/></svg>
+    <!-- Email / Password -->
+    <div class="glass" style="padding:20px;margin-bottom:16px;">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">📧 電子郵件</label>
+        <input id="login-email" type="email" placeholder="輸入電子郵件"
+          style="width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:15px;font-family:'Noto Sans TC';outline:none;" />
+      </div>
+      <div>
+        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">🔒 密碼</label>
+        <input id="login-password" type="password" placeholder="輸入密碼"
+          style="width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:15px;font-family:'Noto Sans TC';outline:none;" />
+      </div>
+    </div>
+
+    <button onclick="doLogin()" class="active:scale-95"
+      style="width:100%;padding:16px;border-radius:16px;background:linear-gradient(135deg,#FDBA74,#F59E0B);color:white;font-size:16px;font-weight:700;font-family:'Noto Sans TC';border:none;cursor:pointer;box-shadow:0 6px 20px rgba(253,186,116,0.5);margin-bottom:12px;">
+      登入 / 註冊
+    </button>
+    <button onclick="guestLogin()" class="active:scale-95"
+      style="width:100%;padding:14px;border-radius:16px;background:rgba(255,255,255,0.7);color:#8b7355;font-size:14px;font-family:'Noto Sans TC';border:1.5px solid rgba(200,169,126,0.3);cursor:pointer;">
+      訪客體驗（不同步資料）
+    </button>
+    <p id="login-error" style="color:#ef4444;font-size:13px;text-align:center;margin-top:10px;display:none;"></p>
+  </div>
+</div>
+
+<!-- MEDICAL ALERT BANNER -->
+<div id="alert-banner">
+  <span style="font-size:20px;margin-right:10px;">⚠️</span>
+  <div style="flex:1;">
+    <p style="font-weight:700;font-size:14px;color:#78350f;" id="alert-title">健康警示</p>
+    <p style="font-size:12px;color:#92400e;" id="alert-msg">請注意主子的健康狀況</p>
+  </div>
+  <button onclick="dismissAlert()" style="background:none;border:none;font-size:18px;cursor:pointer;padding:4px;">✕</button>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;">
+
+  <!-- FIXED HEADER -->
+  <header class="fixed-header px-4" style="padding-top: max(env(safe-area-inset-top), 12px); padding-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:12px;max-width:480px;margin:0 auto;">
+      <!-- Cat avatar switcher -->
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div class="cat-sprite" id="avatar-daju" onclick="switchCat('大橘')" style="cursor:pointer;" title="大橘">
+          <img src="D5FA092A-78DF-4C0A-9093-30D335952EB8.png" alt="大橘" />
+        </div>
+        <div class="cat-sprite ragdoll" id="avatar-ragdoll" onclick="switchCat('仙女布偶')" style="cursor:pointer;opacity:0.5;" title="仙女布偶">
+          <img src="D5FA092A-78DF-4C0A-9093-30D335952EB8.png" alt="仙女布偶" />
         </div>
       </div>
-      <div class="h-info">
-        <div class="h-name-row">
-          <span class="h-name">棉花糖</span>
-          <span class="mode-pill mode-pill-dad" id="modePill" onclick="switchRole()">
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="4" r="2.5"/><path d="M1 11c0-2.761 2.239-5 5-5s5 2.239 5 5"/></svg>
-            <span id="modePillText">爸爸</span>
-          </span>
-        </div>
-        <div class="h-meta">
-          <span class="h-breed">海豹雙色布偶</span>
-        </div>
-        <div class="h-meta" style="margin-top:4px">
-          <span class="h-tag">
-            <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="1" y="2" width="10" height="9" rx="2"/><path d="M4 1v2M8 1v2M1 6h10"/></svg>
-            <span id="ageTagText">— 個月</span>
-          </span>
-          <span class="conn-badge loading" id="connBadge"><span class="conn-dot"></span><span>連線中</span></span>
-        </div>
-        <div class="h-meta" style="margin-top:4px">
-          <span class="days-pill" id="daysHomePill">來家 — 天</span>
-        </div>
+      <div style="flex:1;">
+        <p style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:#3d2c1e;" id="header-cat-name">大橘</p>
+        <p style="font-size:11px;color:#8b7355;" id="header-status">今天狀態良好 😸</p>
       </div>
-      <div class="h-right">
-        <div class="h-date" id="hDate">—</div>
-        <div class="h-time" id="hTime">—</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span style="font-size:12px;color:#8b7355;font-weight:500;" id="header-user-title">——</span>
+        <button onclick="openSettings()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.8);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.08);">⚙️</button>
       </div>
     </div>
   </header>
 
-  <div class="content-area" id="contentArea">
+  <!-- SCROLLABLE CENTER -->
+  <main class="scrollable-center" style="padding:12px 14px 8px;">
+    <div style="max-width:480px;margin:0 auto;">
 
-```
-<!-- TODAY PAGE -->
-<div class="page active" id="page-today">
-  <div id="skeletonLoader">
-    <div class="skeleton-card">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div style="display:flex;align-items:center;gap:12px"><div class="skeleton skeleton-circle"></div><div style="flex:1"><div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:40%"></div></div></div>
-        <div style="display:flex;align-items:center;gap:12px"><div class="skeleton skeleton-circle"></div><div style="flex:1"><div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:40%"></div></div></div>
+      <!-- TODAY DATE -->
+      <div style="text-align:center;margin-bottom:14px;">
+        <span id="today-date" style="font-size:12px;color:#8b7355;font-weight:500;background:rgba(255,255,255,0.7);padding:4px 14px;border-radius:999px;border:1px solid rgba(200,169,126,0.2);">— 今天 —</span>
+      </div>
+
+      <!-- TAMAGOTCHI CAT -->
+      <div class="glass bounce-in" style="padding:20px;margin-bottom:16px;text-align:center;">
+        <canvas id="tama-canvas" width="220" height="160"></canvas>
+        <p id="tama-msg" style="font-size:13px;color:#8b7355;margin-top:8px;font-family:'Noto Serif TC',serif;">「喵～今天也要好好記錄喔！」</p>
+      </div>
+
+      <!-- DAILY PROGRESS CARDS -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <!-- Water -->
+        <div class="glass" style="padding:16px;" id="card-water">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:22px;">💧</span>
+            <div>
+              <p style="font-size:11px;color:#8b7355;">今日飲水</p>
+              <p style="font-weight:700;font-size:17px;color:#3d2c1e;" id="water-display">0 ml</p>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="water-bar" style="width:0%;background:linear-gradient(90deg,#93C5FD,#60A5FA);"></div>
+          </div>
+          <p style="font-size:10px;color:#8b7355;margin-top:4px;text-align:right;" id="water-goal-txt">目標 200ml</p>
+        </div>
+        <!-- Food -->
+        <div class="glass" style="padding:16px;" id="card-food">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:22px;">🍽️</span>
+            <div>
+              <p style="font-size:11px;color:#8b7355;">今日飲食</p>
+              <p style="font-weight:700;font-size:17px;color:#3d2c1e;" id="food-display">0 g</p>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="food-bar" style="width:0%;background:linear-gradient(90deg,#86EFAC,#4ADE80);"></div>
+          </div>
+          <p style="font-size:10px;color:#8b7355;margin-top:4px;text-align:right;" id="food-goal-txt">目標 80g</p>
+        </div>
+        <!-- Weight -->
+        <div class="glass" style="padding:16px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="font-size:22px;">⚖️</span>
+            <div>
+              <p style="font-size:11px;color:#8b7355;">體重</p>
+              <p style="font-weight:700;font-size:17px;color:#3d2c1e;" id="weight-display">— kg</p>
+            </div>
+          </div>
+          <p style="font-size:10px;color:#8b7355;" id="weight-trend">—</p>
+        </div>
+        <!-- Health Score -->
+        <div class="glass" style="padding:16px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="font-size:22px;">💗</span>
+            <div>
+              <p style="font-size:11px;color:#8b7355;">健康分數</p>
+              <p style="font-weight:700;font-size:17px;color:#3d2c1e;" id="health-score">——</p>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="health-bar" style="width:0%;background:linear-gradient(90deg,#FCA5A5,#F87171);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUICK LOG BUTTONS -->
+      <div class="glass" style="padding:16px;margin-bottom:16px;">
+        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:12px;">⚡ 快速記錄</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <button class="pill-btn active:scale-95" onclick="quickLog('water',20)" style="background:rgba(147,197,253,0.3);color:#1d4ed8;">💧 +20ml</button>
+          <button class="pill-btn active:scale-95" onclick="quickLog('water',50)" style="background:rgba(147,197,253,0.3);color:#1d4ed8;">💧 +50ml</button>
+          <button class="pill-btn active:scale-95" onclick="quickLog('food',20)" style="background:rgba(134,239,172,0.3);color:#166534;">🍽️ +20g</button>
+          <button class="pill-btn active:scale-95" onclick="quickLog('food',50)" style="background:rgba(134,239,172,0.3);color:#166534;">🍽️ +50g</button>
+          <button class="pill-btn active:scale-95" onclick="openModal('stool')" style="background:rgba(253,186,116,0.3);color:#92400e;">💩 排便</button>
+          <button class="pill-btn active:scale-95" onclick="openModal('medical')" style="background:rgba(252,165,165,0.3);color:#991b1b;">💊 醫療</button>
+          <button class="pill-btn active:scale-95" onclick="openModal('weight')" style="background:rgba(199,210,254,0.3);color:#3730a3;">⚖️ 體重</button>
+        </div>
+      </div>
+
+      <!-- STOOL STATUS -->
+      <div class="glass" style="padding:16px;margin-bottom:16px;">
+        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:12px;">💩 排便狀態</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div class="stool-card active:scale-95" id="stool-normal" onclick="logStool('型態正常')" style="background:#E2EDDF;">
+            <div style="font-size:20px;margin-bottom:4px;">✅</div>
+            <p style="font-size:11px;color:#2d4a2d;font-weight:500;">型態正常</p>
+          </div>
+          <div class="stool-card active:scale-95" id="stool-soft" onclick="logStool('輕微軟便')" style="background:#F4EFE6;">
+            <div style="font-size:20px;margin-bottom:4px;">⚠️</div>
+            <p style="font-size:11px;color:#6b4c2a;font-weight:500;">輕微軟便</p>
+          </div>
+          <div class="stool-card active:scale-95" id="stool-alert" onclick="logStool('狀態異常')" style="background:#F9E8E8;">
+            <div style="font-size:20px;margin-bottom:4px;">🚨</div>
+            <p style="font-size:11px;color:#7f1d1d;font-weight:500;">狀態異常</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI DIARY -->
+      <div class="glass" style="padding:18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <p style="font-size:13px;font-weight:600;color:#4a3728;">📖 今日日記</p>
+          <button onclick="generateDiary()" style="font-size:11px;padding:5px 12px;border-radius:999px;background:rgba(253,186,116,0.3);color:#92400e;border:1px solid rgba(253,186,116,0.5);cursor:pointer;font-family:'Noto Sans TC';">✨ 生成</button>
+        </div>
+        <div id="diary-content" class="diary-text" style="font-size:13.5px;color:#5c4033;min-height:60px;line-height:1.9;">
+          <span style="color:#b8a596;font-style:italic;">點擊「生成」讓主子說說今天的心情日記…</span>
+        </div>
+      </div>
+
+      <!-- ANALYTICS CHART -->
+      <div class="glass" style="padding:18px;margin-bottom:16px;">
+        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:14px;">📊 近期趨勢</p>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <button onclick="switchChart('water')" id="chart-btn-water" class="pill-btn" style="background:rgba(147,197,253,0.4);color:#1e40af;font-size:12px;">💧 飲水</button>
+          <button onclick="switchChart('food')" id="chart-btn-food" class="pill-btn" style="background:rgba(255,255,255,0.5);color:#6b7280;font-size:12px;">🍽️ 飲食</button>
+          <button onclick="switchChart('weight')" id="chart-btn-weight" class="pill-btn" style="background:rgba(255,255,255,0.5);color:#6b7280;font-size:12px;">⚖️ 體重</button>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="main-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- RECENT LOGS -->
+      <div class="glass" style="padding:18px;margin-bottom:24px;">
+        <p style="font-size:13px;font-weight:600;color:#4a3728;margin-bottom:12px;">📋 最近記錄</p>
+        <div id="recent-logs" style="display:flex;flex-direction:column;gap:8px;">
+          <p style="font-size:13px;color:#b8a596;text-align:center;padding:16px 0;">尚無記錄</p>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- FIXED FOOTER NAV -->
+  <footer class="fixed-footer" style="padding-bottom: max(env(safe-area-inset-bottom), 8px);">
+    <div style="display:flex;max-width:480px;margin:0 auto;padding:4px 8px 0;">
+      <div class="nav-tab active" id="tab-home" onclick="switchTab('home')">
+        <span style="font-size:22px;">🏠</span>
+        <span style="font-size:10px;color:#4a3728;font-weight:500;">首頁</span>
+        <span class="dot"></span>
+      </div>
+      <div class="nav-tab" id="tab-log" onclick="switchTab('log')">
+        <span style="font-size:22px;">📋</span>
+        <span style="font-size:10px;color:#8b7355;">日誌</span>
+        <span class="dot"></span>
+      </div>
+      <div class="nav-tab" id="tab-chart" onclick="switchTab('chart')">
+        <span style="font-size:22px;">📊</span>
+        <span style="font-size:10px;color:#8b7355;">統計</span>
+        <span class="dot"></span>
+      </div>
+      <div class="nav-tab" id="tab-diary" onclick="switchTab('diary')">
+        <span style="font-size:22px;">📖</span>
+        <span style="font-size:10px;color:#8b7355;">日記</span>
+        <span class="dot"></span>
       </div>
     </div>
-    <div class="skeleton-card"><div class="skeleton skeleton-line" style="width:50%;margin-bottom:16px"></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><div class="skeleton" style="height:70px;border-radius:14px"></div><div class="skeleton" style="height:70px;border-radius:14px"></div><div class="skeleton" style="height:70px;border-radius:14px"></div></div></div>
-  </div>
-  <div id="todayContent" style="display:none">
-    <div id="alertsZone"></div>
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-label">熱量 (BC34)</div>
-        <button class="stat-gear-btn" onclick="openGoalModal()" aria-label="編輯目標">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.22 3.22l1.41 1.41M11.36 11.36l1.42 1.42M3.22 12.78l1.41-1.41M11.36 4.64l1.42-1.42"/></svg>
-        </button>
-        <div class="stat-ring-wrap">
-          <div class="stat-ring">
-            <svg viewBox="0 0 56 56" width="56" height="56"><circle class="stat-ring-bg" cx="28" cy="28" r="24"/><circle class="stat-ring-fill" id="ring-kcal" cx="28" cy="28" r="24" stroke="#e8a855" stroke-dasharray="150.8" stroke-dashoffset="150.8"/></svg>
-            <div class="stat-ring-val"><span id="ring-kcal-pct">0</span><span class="stat-ring-unit">%</span></div>
-          </div>
-          <div class="stat-right">
-            <div class="stat-val-big"><span id="stat-kcal">0</span></div>
-            <div class="stat-val-unit">/ <span id="kcalTargetDisplay">297</span> kcal</div>
-            <div id="stat-kcal-status" class="stat-status low"><span class="stat-dot"></span><span id="kcalStatusText">還差 297 kcal</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">飲水</div>
-        <button class="stat-gear-btn" onclick="openGoalModal()" aria-label="編輯目標">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.22 3.22l1.41 1.41M11.36 11.36l1.42 1.42M3.22 12.78l1.41-1.41M11.36 4.64l1.42-1.42"/></svg>
-        </button>
-        <div class="stat-ring-wrap">
-          <div class="stat-ring">
-            <svg viewBox="0 0 56 56" width="56" height="56"><circle class="stat-ring-bg" cx="28" cy="28" r="24"/><circle class="stat-ring-fill" id="ring-water" cx="28" cy="28" r="24" stroke="#7aaed4" stroke-dasharray="150.8" stroke-dashoffset="150.8"/></svg>
-            <div class="stat-ring-val"><span id="ring-water-pct">0</span><span class="stat-ring-unit">%</span></div>
-          </div>
-          <div class="stat-right">
-            <div class="stat-val-big"><span id="stat-water">0</span></div>
-            <div class="stat-val-unit">/ <span id="waterTargetDisplay">200</span> ml</div>
-            <div id="stat-water-status" class="stat-status low"><span class="stat-dot"></span>需要補充</div>
-          </div>
-        </div>
-      </div>
+  </footer>
+
+</div>
+
+<!-- STOOL MODAL -->
+<div id="modal-stool" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('stool')">
+  <div class="modal-sheet">
+    <div style="width:48px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 20px;"></div>
+    <h3 style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#3d2c1e;margin-bottom:16px;">💩 記錄排便</h3>
+    <p style="font-size:13px;color:#8b7355;margin-bottom:12px;">選擇排便狀態：</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+      <button onclick="logStool('型態正常');closeModal('stool')" class="active:scale-95"
+        style="padding:14px;border-radius:14px;background:#E2EDDF;border:none;cursor:pointer;font-size:15px;font-family:'Noto Sans TC';text-align:left;">
+        ✅ 型態正常
+      </button>
+      <button onclick="logStool('輕微軟便');closeModal('stool')" class="active:scale-95"
+        style="padding:14px;border-radius:14px;background:#F4EFE6;border:none;cursor:pointer;font-size:15px;font-family:'Noto Sans TC';text-align:left;">
+        ⚠️ 輕微軟便
+      </button>
+      <button onclick="logStool('狀態異常');closeModal('stool')" class="active:scale-95"
+        style="padding:14px;border-radius:14px;background:#F9E8E8;border:none;cursor:pointer;font-size:15px;font-family:'Noto Sans TC';text-align:left;">
+        🚨 狀態異常
+      </button>
     </div>
-    <div class="activity-card">
-      <div class="activity-header">
-        <span class="activity-title">今日活動</span>
-        <span class="activity-count" id="activity-count">0 筆紀錄</span>
-      </div>
-      <div class="activity-grid">
-        <div class="act-item" id="act-meal">
-          <div class="act-icon-wrap"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-linecap="round"><path d="M3 2v7a4 4 0 0 0 8 0V2M7 2v16M14 2c0 0 3 2 3 7s-3 7-3 7"/></svg></div>
-          <div class="act-val" id="act-meal-val">0</div><div class="act-unit">餐</div>
-        </div>
-        <div class="act-item" id="act-pee">
-          <div class="act-icon-wrap"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#c8b040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2c0 0-6 6-6 10a6 6 0 0 0 12 0c0-4-6-10-6-10z"/></svg></div>
-          <div class="act-val" id="act-pee-val">0</div><div class="act-unit">小便</div>
-        </div>
-        <div class="act-item" id="act-poop">
-          <div class="act-icon-wrap"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#a07850" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16h10a2 2 0 0 0 0-4H14a3 3 0 1 0-8 0H5a2 2 0 0 0 0 4z"/></svg></div>
-          <div class="act-val" id="act-poop-val">0</div><div class="act-unit">大便</div>
-        </div>
-      </div>
-    </div>
-    <div class="timeline-card" id="timelineCard" style="display:none">
-      <div class="timeline-header"><span class="timeline-title">今日紀錄</span></div>
-      <div id="timelineBody"></div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">備註（可選）</label>
+      <input id="stool-note" type="text" placeholder="例如：吐毛球、食慾不振…"
+        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:14px;font-family:'Noto Sans TC';outline:none;" />
     </div>
   </div>
 </div>
 
-<!-- RECORD PAGE -->
-<div class="page" id="page-record">
-  <div class="page-title">新增紀錄</div>
-  <div class="page-sub" id="recSub">記錄棉花糖的每一刻</div>
-
-  <div class="rec-section">
-    <div class="rec-header">
-      <div class="rec-header-icon food"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#b07830" stroke-width="1.5" stroke-linecap="round"><path d="M3 2v7a4 4 0 0 0 8 0V2M7 2v16M14 2c0 0 3 2 3 7s-3 7-3 7"/></svg></div>
-      <div class="rec-header-text"><div class="rec-header-title">餵食紀錄</div><div class="rec-header-sub">BC34 3.62 kcal/g · K36 可切換</div></div>
-      <span class="rec-badge" id="todayMealsCount">今日 0 餐</span>
+<!-- MEDICAL MODAL -->
+<div id="modal-medical" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('medical')">
+  <div class="modal-sheet">
+    <div style="width:48px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 20px;"></div>
+    <h3 style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#3d2c1e;margin-bottom:16px;">💊 醫療記錄</h3>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">醫療類型</label>
+      <select id="medical-type"
+        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:14px;font-family:'Noto Sans TC';outline:none;">
+        <option>定期健檢</option>
+        <option>疫苗接種</option>
+        <option>驅蟲藥</option>
+        <option>看診治療</option>
+        <option>其他用藥</option>
+      </select>
     </div>
-    <div class="rec-body">
-      <div class="info-tip"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#3a6a3a" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="6"/><path d="M7 6v4M7 4.5v.5"/></svg>皇家幼貓飼料 — 自動換算熱量</div>
-      <div class="input-group">
-        <div class="input-lbl"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="5"/><path d="M6 4v2l1.5 1.5"/></svg>餵食時間</div>
-        <input type="time" id="feedTime"/>
-      </div>
-      <div class="input-lbl" style="margin-bottom:8px">食物種類</div>
-      <div class="seg-control-wrap" id="segControlWrap">
-        <div class="seg-slider" id="segSlider"></div>
-        <button class="seg-btn active" data-val="乾飼料" onclick="selectFoodTypeSeg(this)">乾飼料</button>
-        <button class="seg-btn" data-val="主食罐" onclick="selectFoodTypeSeg(this)">主食罐</button>
-        <button class="seg-btn" data-val="副食罐" onclick="selectFoodTypeSeg(this)">副食罐</button>
-        <button class="seg-btn" data-val="生食" onclick="selectFoodTypeSeg(this)">生食</button>
-        <button class="seg-btn" data-val="點心" onclick="selectFoodTypeSeg(this)">點心</button>
-      </div>
-      <div class="coeff-toggle-row">
-        <span class="coeff-lbl">熱量係數</span>
-        <div class="coeff-seg">
-          <button class="coeff-btn active" id="coeffBC34" onclick="switchCoeff('bc34')">BC34 · 3.62</button>
-          <button class="coeff-btn" id="coeffK36" onclick="switchCoeff('k36')">K36 · 4.05</button>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">備註</label>
+      <input id="medical-note" type="text" placeholder="例如：體重 4.2kg，一切正常"
+        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:14px;font-family:'Noto Sans TC';outline:none;" />
+    </div>
+    <button onclick="saveMedical()" class="active:scale-95"
+      style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,#FCA5A5,#F87171);color:white;font-size:15px;font-weight:600;font-family:'Noto Sans TC';border:none;cursor:pointer;">
+      💾 儲存記錄
+    </button>
+  </div>
+</div>
+
+<!-- WEIGHT MODAL -->
+<div id="modal-weight" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('weight')">
+  <div class="modal-sheet">
+    <div style="width:48px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 20px;"></div>
+    <h3 style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#3d2c1e;margin-bottom:16px;">⚖️ 記錄體重</h3>
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:36px;font-weight:700;color:#3d2c1e;font-family:'Noto Serif TC',serif;" id="weight-slider-display">4.5</span>
+      <span style="font-size:18px;color:#8b7355;"> kg</span>
+    </div>
+    <input type="range" id="weight-slider" min="20" max="100" value="45" step="1"
+      oninput="updateWeightSlider(this.value)" style="width:100%;margin-bottom:8px;" />
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:#b8a596;margin-bottom:20px;">
+      <span>2.0 kg</span><span>10.0 kg</span>
+    </div>
+    <button onclick="saveWeight()" class="active:scale-95"
+      style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,#C7D2FE,#A5B4FC);color:white;font-size:15px;font-weight:600;font-family:'Noto Sans TC';border:none;cursor:pointer;">
+      💾 儲存體重
+    </button>
+  </div>
+</div>
+
+<!-- SETTINGS DRAWER -->
+<div id="modal-settings" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('settings')">
+  <div class="modal-sheet">
+    <div style="width:48px;height:4px;border-radius:2px;background:#e5e7eb;margin:0 auto 20px;"></div>
+    <h3 style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#3d2c1e;margin-bottom:16px;">⚙️ 設定</h3>
+    <div id="settings-lock-screen">
+      <p style="font-size:13px;color:#8b7355;margin-bottom:10px;">請輸入開發者密碼</p>
+      <input id="settings-pw" type="password" placeholder="密碼" maxlength="4"
+        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:20px;letter-spacing:8px;text-align:center;font-family:monospace;outline:none;margin-bottom:12px;" />
+      <button onclick="unlockSettings()" class="active:scale-95"
+        style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,#FDBA74,#F59E0B);color:white;font-size:14px;font-weight:600;font-family:'Noto Sans TC';border:none;cursor:pointer;">解鎖</button>
+      <p id="settings-pw-error" style="color:#ef4444;font-size:12px;text-align:center;margin-top:8px;display:none;">密碼錯誤！</p>
+    </div>
+    <div id="settings-content" style="display:none;">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">🐱 目前主子</label>
+        <div style="display:flex;gap:8px;">
+          <button onclick="switchCat('大橘')" id="cat-btn-daju" class="pill-btn active:scale-95" style="background:rgba(253,186,116,0.4);color:#92400e;">大橘</button>
+          <button onclick="switchCat('仙女布偶')" id="cat-btn-ragdoll" class="pill-btn active:scale-95" style="background:rgba(255,255,255,0.5);color:#6b7280;">仙女布偶</button>
         </div>
       </div>
-      <div class="input-lbl" style="margin-bottom:8px">快速份量</div>
-      <div class="food-quick-grid" id="quickFoodBtns">
-        <div class="food-quick-btn" data-g="25" onclick="selectQuickGrams(this,25)"><div class="fqb-grams">25g</div><div class="fqb-kcal" id="fq-25">≈ 91 kcal</div></div>
-        <div class="food-quick-btn" data-g="30" onclick="selectQuickGrams(this,30)"><div class="fqb-grams">30g</div><div class="fqb-kcal" id="fq-30">≈ 109 kcal</div></div>
-        <div class="food-quick-btn" data-g="35" onclick="selectQuickGrams(this,35)"><div class="fqb-grams">35g</div><div class="fqb-kcal" id="fq-35">≈ 127 kcal</div></div>
-        <div class="food-quick-btn" data-g="40" onclick="selectQuickGrams(this,40)"><div class="fqb-grams">40g</div><div class="fqb-kcal" id="fq-40">≈ 145 kcal</div></div>
-        <div class="food-quick-btn" data-g="45" onclick="selectQuickGrams(this,45)"><div class="fqb-grams">45g</div><div class="fqb-kcal" id="fq-45">≈ 163 kcal</div></div>
-        <div class="food-quick-btn" data-g="50" onclick="selectQuickGrams(this,50)"><div class="fqb-grams">50g</div><div class="fqb-kcal" id="fq-50">≈ 181 kcal</div></div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">💧 每日飲水目標 (ml)</label>
+        <input id="goal-water" type="number" value="200"
+          style="width:100%;padding:10px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:15px;font-family:'Noto Sans TC';outline:none;" />
       </div>
-      <div class="input-group">
-        <div class="input-lbl">自定克數</div>
-        <div class="stepper-row">
-          <button class="stepper-btn" onclick="stepGrams(-1)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M5 8h6"/></svg></button>
-          <input type="number" id="feedGrams" class="stepper-input" placeholder="25" min="0" max="500" oninput="updateKcalBanner()"/>
-          <button class="stepper-btn" onclick="stepGrams(1)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M8 5v6M5 8h6"/></svg></button>
-        </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;color:#8b7355;font-weight:500;display:block;margin-bottom:6px;">🍽️ 每日飲食目標 (g)</label>
+        <input id="goal-food" type="number" value="80"
+          style="width:100%;padding:10px;border-radius:12px;border:1.5px solid rgba(200,169,126,0.3);background:rgba(255,255,255,0.8);font-size:15px;font-family:'Noto Sans TC';outline:none;" />
       </div>
-      <div class="kcal-banner">
-        <div><div class="kcal-banner-label">熱量換算 (<span id="coeffLabel">BC34</span>)</div><div style="font-size:11px;color:var(--ink3);font-weight:600;margin-top:2px">輸入克數後自動顯示</div></div>
-        <div style="display:flex;align-items:baseline;gap:3px"><span class="kcal-banner-val" id="kcalBannerVal">—</span><span class="kcal-banner-unit">kcal</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="rec-section">
-    <div class="rec-header">
-      <div class="rec-header-icon water"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#4a7ab0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2c0 0-6 6-6 10a6 6 0 0 0 12 0c0-4-6-10-6-10z"/><path d="M7.5 14a3 3 0 0 0 4.5-1"/></svg></div>
-      <div class="rec-header-text"><div class="rec-header-title">飲水紀錄</div><div class="rec-header-sub">今日目標 <span id="waterTargetRec">200</span> ml</div></div>
-      <span class="rec-badge" id="todayWaterCount">今日 0 ml</span>
-    </div>
-    <div class="rec-body">
-      <div class="input-lbl" style="margin-bottom:8px">快速記錄</div>
-      <div class="water-quick-grid" id="quickWaterBtns">
-        <div class="water-quick-btn" data-ml="20" onclick="selectQuickWater(this,20)"><div class="wqb-val">20</div><div class="wqb-unit">ml</div></div>
-        <div class="water-quick-btn" data-ml="50" onclick="selectQuickWater(this,50)"><div class="wqb-val">50</div><div class="wqb-unit">ml</div></div>
-        <div class="water-quick-btn" data-ml="100" onclick="selectQuickWater(this,100)"><div class="wqb-val">100</div><div class="wqb-unit">ml</div></div>
-      </div>
-      <div class="input-group">
-        <div class="input-lbl">自定水量</div>
-        <div class="stepper-row">
-          <button class="stepper-btn" onclick="stepWater(-10)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M5 8h6"/></svg></button>
-          <input type="number" id="waterMl" class="stepper-input" placeholder="0" min="0" max="1000"/>
-          <button class="stepper-btn" onclick="stepWater(10)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M8 5v6M5 8h6"/></svg></button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="rec-section">
-    <div class="rec-header">
-      <div class="rec-header-icon pee"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#b0900a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2c0 0-6 6-6 10a6 6 0 0 0 12 0c0-4-6-10-6-10z"/><path d="M8 14a3 2 0 0 0 3 0"/></svg></div>
-      <div class="rec-header-text"><div class="rec-header-title">小便紀錄</div><div class="rec-header-sub">量與顏色是健康重要指標</div></div>
-    </div>
-    <div class="rec-body">
-      <div class="pee-status-grid" id="peeGrid">
-        <button class="pee-status-btn" data-val="量多" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0900a" stroke-width="1.5" stroke-linecap="round"><path d="M12 4v16M6 10l6-6 6 6"/></svg></span><span class="pee-status-label">量多</span></button>
-        <button class="pee-status-btn" data-val="量少" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0900a" stroke-width="1.5" stroke-linecap="round"><path d="M12 20V4M6 14l6 6 6-6"/></svg></span><span class="pee-status-label">量少</span></button>
-        <button class="pee-status-btn" data-val="顏色深" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0900a" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="13" r="6"/><path d="M12 4v3"/></svg></span><span class="pee-status-label">顏色深</span></button>
-        <button class="pee-status-btn" data-val="顏色淡" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0900a" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="2 2"><circle cx="12" cy="13" r="6"/><path d="M12 4v3"/></svg></span><span class="pee-status-label">顏色淡</span></button>
-        <button class="pee-status-btn" data-val="正常" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3a7a3a" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/></svg></span><span class="pee-status-label">正常</span></button>
-        <button class="pee-status-btn" data-val="血尿" onclick="selectPeeStatus(this)"><span class="pee-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b04040" stroke-width="1.5" stroke-linecap="round"><path d="M12 2c0 0-7 7-7 12a7 7 0 0 0 14 0c0-5-7-12-7-12z"/><path d="M12 22V12"/></svg></span><span class="pee-status-label">血尿</span></button>
-      </div>
-      <button class="rec-action-btn pee" onclick="quickAddPee()"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M8 5v6M5 8h6"/></svg>記錄一次小便</button>
-    </div>
-  </div>
-
-  <div class="rec-section">
-    <div class="rec-header">
-      <div class="rec-header-icon toilet"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#8a6040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16h10a2 2 0 0 0 0-4H14a3 3 0 1 0-8 0H5a2 2 0 0 0 0 4z"/><path d="M9 12a2 2 0 0 1 4 0"/><path d="M10 10c0-1 0.5-2 1-2.5"/></svg></div>
-      <div class="rec-header-text"><div class="rec-header-title">大便紀錄</div><div class="rec-header-sub">腸胃健康的晴雨表</div></div>
-    </div>
-    <div class="rec-body">
-      <div class="poop-status-grid" id="poopGrid">
-        <button class="poop-status-btn" data-val="正常" onclick="selectPoopStatus(this)"><span class="poop-status-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#3a7a3a" stroke-width="1.5" stroke-linecap="round"><circle cx="14" cy="14" r="10"/><path d="M10 14l3 3 6-6"/></svg></span><span class="poop-status-label">正常</span></button>
-        <button class="poop-status-btn" data-val="軟便" onclick="selectPoopStatus(this)"><span class="poop-status-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#a07050" stroke-width="1.5" stroke-linecap="round"><path d="M4 18c2-4 6-4 8-8s6-4 8-2"/><path d="M6 22c2-4 6-4 8-8s6-4 8-2"/></svg></span><span class="poop-status-label">軟便</span></button>
-        <button class="poop-status-btn" data-val="腹瀉" onclick="selectPoopStatus(this)"><span class="poop-status-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#7a9ab0" stroke-width="1.5" stroke-linecap="round"><path d="M8 8l12 12M8 20l12-12"/><path d="M6 4c0 4 4 8 8 8"/></svg></span><span class="poop-status-label">腹瀉</span></button>
-        <button class="poop-status-btn" data-val="乾硬" onclick="selectPoopStatus(this)"><span class="poop-status-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#a07050" stroke-width="1.5" stroke-linecap="round"><rect x="7" y="10" width="14" height="10" rx="4"/><path d="M11 10V8a3 3 0 0 1 6 0v2"/></svg></span><span class="poop-status-label">乾硬</span></button>
-      </div>
-      <button class="rec-action-btn poop" onclick="quickAddPoop()"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M8 5v6M5 8h6"/></svg>記錄一次大便</button>
-    </div>
-  </div>
-
-  <div class="rec-section">
-    <div class="rec-header">
-      <div class="rec-header-icon memo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#7060a0" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="14" height="14" rx="3"/><path d="M7 7h6M7 10h6M7 13h4"/></svg></div>
-      <div class="rec-header-text"><div class="rec-header-title">備忘紀錄</div><div class="rec-header-sub">今天有特別的事嗎？</div></div>
-    </div>
-    <div class="rec-body"><textarea id="memo" placeholder="棉花糖今天有什麼特別的表現呢？悄悄記下來"></textarea></div>
-  </div>
-  <div class="rec-section">
-    <div class="rec-submit">
-      <button class="btn-confirm" id="saveBtn" onclick="saveRecord()">
-        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" id="saveBtnSvg"><path d="M3 9l5 5 7-9"/></svg>
-        <span id="saveBtnText">儲存這次紀錄</span>
+      <button onclick="saveSettings()" class="active:scale-95"
+        style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,#FDBA74,#F59E0B);color:white;font-size:15px;font-weight:600;font-family:'Noto Sans TC';border:none;cursor:pointer;margin-bottom:10px;">
+        💾 儲存設定
+      </button>
+      <button onclick="doLogout()" class="active:scale-95"
+        style="width:100%;padding:14px;border-radius:14px;background:rgba(255,255,255,0.7);color:#8b7355;font-size:14px;font-family:'Noto Sans TC';border:1.5px solid rgba(200,169,126,0.3);cursor:pointer;">
+        🚪 登出
       </button>
     </div>
   </div>
 </div>
 
-<!-- HISTORY PAGE -->
-<div class="page" id="page-history">
-  <div class="page-title">歷史紀錄</div>
-  <div class="page-sub" id="historySub">過去的健康軌跡</div>
-  <div id="historyList"><div class="empty-state"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--ink4)" stroke-width="1.5" stroke-linecap="round"><circle cx="20" cy="20" r="16"/><path d="M20 12v8l5 3"/></svg></div><p>載入中</p></div></div>
-</div>
-
-<!-- PET PAGE -->
-<div class="page" id="page-pet">
-  <div class="pet-hero-page">
-    <img id="petPageAvatar" src="data:image/jpeg;base64,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" class="pet-page-avatar" alt="棉花糖" onclick="document.getElementById('hiddenFileInput').click()"/>
-    <div class="pet-page-name">棉花糖</div>
-    <div class="pet-page-sub" id="petAgeStr">布偶貓 · 計算中</div>
-  </div>
-  <div class="pet-info-grid">
-    <div class="pet-info-item"><div class="pi-icon-wrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"><rect x="1" y="3" width="14" height="12" rx="2"/><path d="M5 1v3M11 1v3M1 8h14"/></svg></div><div class="pi-label">生日</div><div class="pi-val">2025.12.13</div></div>
-    <div class="pet-info-item"><div class="pi-icon-wrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round"><path d="M2 14V8a6 6 0 0 1 12 0v6"/><path d="M2 11h12"/></svg></div><div class="pi-label">到家日</div><div class="pi-val">2026.04.18</div></div>
-    <div class="pet-info-item"><div class="pi-icon-wrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3a6ab0" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.314 2.686-6 6-6s6 2.686 6 6"/></svg></div><div class="pi-label">性別</div><div class="pi-val pi-val-blue">公貓 ♂</div></div>
-    <div class="pet-info-item"><div class="pi-icon-wrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--accent2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4c0-1 1-2 2-2s1 1 2 2 1 2 2 2 2-1 2-2"/><path d="M2 10c1-2 3-3 6-3s5 1 6 3v3H2v-3z"/></svg></div><div class="pi-label">品種</div><div class="pi-val">布偶貓</div></div>
-    <div class="pet-info-item wide"><div class="pi-icon-wrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg></div><div class="pi-label">在家天數</div><div class="pi-val" id="petDaysHome">計算中</div></div>
-  </div>
-  <div class="weight-card" onclick="openWeightModal()">
-    <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="pi-icon-wrap" style="margin-bottom:0"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6060a0" stroke-width="1.6" stroke-linecap="round"><path d="M2 14l1-4h10l1 4H2z"/><path d="M6 10V7a2 2 0 0 1 4 0v3"/><path d="M3 6h10"/></svg></div><span style="font-size:14px;font-weight:800;color:var(--ink)">目前體重</span></div><div style="font-size:11px;color:var(--ink3);font-weight:600">點擊更新體重</div></div>
-    <div style="display:flex;align-items:baseline;gap:3px"><span class="weight-val-big" id="weightDisplay">—</span><span class="weight-val-unit">kg</span></div>
-  </div>
-  <div class="neuter-card">
-    <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="pi-icon-wrap" style="margin-bottom:0"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#60a060" stroke-width="1.6" stroke-linecap="round"><path d="M10 2l4 4-8 8H2v-4L10 2z"/><path d="M14 6l-4-4"/></svg></div><span class="ni-title">結紮狀態</span></div><div class="ni-sub" id="neuterSub">尚未結紮 — 結紮後請開啟</div></div>
-    <div class="toggle-row"><span class="toggle-lbl" id="neuterLbl">未結紮</span><label class="ios-toggle" id="neuterToggleLabel"><input type="checkbox" id="neuterToggle" onchange="handleNeuterChange()"/><span class="ios-slider"></span></label></div>
-  </div>
-</div>
-```
-
-  </div>
-
-  <nav class="nav-bar">
-    <button class="nav-item active" id="nav-today" onclick="switchPage('today')">
-      <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12L12 3l9 9"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-5h4v5h4a1 1 0 0 0 1-1v-9"/></svg></span>
-      <span class="nav-label">今日</span>
-    </button>
-    <button class="nav-item" id="nav-record" onclick="switchPage('record')">
-      <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span>
-      <span class="nav-label">記錄</span>
-    </button>
-    <button class="nav-item" id="nav-history" onclick="switchPage('history')">
-      <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
-      <span class="nav-label">歷史</span>
-    </button>
-    <button class="nav-item" id="nav-pet" onclick="switchPage('pet')">
-      <span class="nav-icon"><img id="navCatImg" src="data:image/jpeg;base64,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" class="nav-cat-img" alt="棉花糖"/></span>
-      <span class="nav-label">棉花糖</span>
-    </button>
-  </nav>
-</div>
-
-<!-- GOAL MODAL -->
-
-<div class="modal-overlay" id="goalModal" onclick="closeModalOnBg(event,'goalModal')">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">每日目標設定</div>
-    <div class="modal-row"><span class="modal-lbl">熱量目標</span><input type="number" class="modal-input" id="modalKcalTarget" placeholder="297"/><span style="font-size:12px;color:var(--ink3);font-weight:700;white-space:nowrap">kcal</span></div>
-    <div class="modal-row"><span class="modal-lbl">飲水目標</span><input type="number" class="modal-input" id="modalWaterTarget" placeholder="200"/><span style="font-size:12px;color:var(--ink3);font-weight:700;white-space:nowrap">ml</span></div>
-    <button class="modal-save-btn" onclick="saveGoals()">儲存目標</button>
-    <button class="modal-cancel-btn" onclick="closeModal('goalModal')">取消</button>
-  </div>
-</div>
-
-<!-- WEIGHT MODAL -->
-
-<div class="modal-overlay" id="weightModal" onclick="closeModalOnBg(event,'weightModal')">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">更新體重</div>
-    <div class="modal-row"><span class="modal-lbl">目前體重</span><input type="number" class="modal-input" id="modalWeightInput" placeholder="2.5" step="0.1" min="0" max="20"/><span style="font-size:12px;color:var(--ink3);font-weight:700;white-space:nowrap">kg</span></div>
-    <button class="modal-save-btn" onclick="saveWeight()">儲存體重</button>
-    <button class="modal-cancel-btn" onclick="closeModal('weightModal')">取消</button>
-  </div>
-</div>
-
-<!-- NEUTER CONFIRM -->
-
-<div class="confirm-modal-overlay" id="neuterConfirmModal">
-  <div class="confirm-modal">
-    <div class="confirm-icon-wrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a060" stroke-width="1.8" stroke-linecap="round"><path d="M14 2l4 4-8 8H6v-4L14 2z"/><path d="M18 6l-4-4"/></svg></div>
-    <div class="confirm-title">確認結紮狀態</div>
-    <div class="confirm-desc">確認棉花糖已完成結紮手術嗎？<br>設定後將鎖定此狀態。</div>
-    <div class="confirm-btn-row"><button class="confirm-no-btn" onclick="cancelNeuter()">取消</button><button class="confirm-ok-btn" onclick="confirmNeuter()">確認已結紮</button></div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
 <script>
-const SUPABASE_URL = "https://vmgwyvwkhqnjmbdbliia.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZ3d5dndraHFuam1iZGJsaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MzU2MDYsImV4cCI6MjA5NDAxMTYwNn0.ZKaombHKVeoLk1RgzYn912tjlUSv4KE8CS5Wl_DunFs";
-const { createClient } = supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+// ==================== SUPABASE ====================
+const SUPABASE_URL = "https://vmgwyvwkhqnjmbdbliiа.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZ3d5dndraHFuam1iZGJsaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MzU2MDYsImV4cCI6MjA5NDAxMTYwNn0.ZKaombHKVeoLk1RgzYn912tjlUSv4KE8CS5Wl_DunFs";
 
-const BIRTHDAY = new Date("2025-12-13T00:00:00+08:00");
-const HOME_DATE = new Date("2026-04-18T00:00:00+08:00");
-const COEFFS = { bc34: 3.62, k36: 4.05 };
+let supabase = null;
+try {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch(e) { console.warn('Supabase init failed, running offline', e); }
 
-let KCAL_TARGET = 297;
-let WATER_TARGET = 200;
-let currentRole = null;
-let selectedPeeVal = "";
-let selectedPoopVal = "";
-let selectedFoodType = "乾飼料";
-let currentCoeff = "bc34";
-let neuterConfirmed = false;
+// ==================== APP STATE ====================
+let state = {
+  user: null,
+  userTitle: '主人',
+  activeCat: '大橘',
+  logs: [],
+  waterToday: 0,
+  foodToday: 0,
+  weights: [],
+  goals: { water: 200, food: 80 },
+  tamaAnim: 'idle',
+  lastLogTime: null,
+  offlineQueue: [],
+  chartType: 'water',
+  selectedTitle: '',
+};
 
-// ── SPLASH ──
-function pickRole(r) {
-  currentRole = r;
-  document.querySelectorAll(".role-card").forEach(c => c.classList.remove("sel-dad","sel-mom"));
-  document.getElementById("card-" + r).classList.add(r === "dad" ? "sel-dad" : "sel-mom");
-  document.getElementById("enterBtn").disabled = false;
-}
-function enterApp() {
-  if (!currentRole) return;
-  const sp = document.getElementById("splash");
-  sp.classList.add("hide");
-  setTimeout(() => { sp.style.display = "none"; document.getElementById("app").style.display = "flex"; initApp(); }, 500);
-}
+const CHART_COLORS = {
+  water: { bg: 'rgba(147,197,253,0.3)', border: '#60A5FA' },
+  food: { bg: 'rgba(134,239,172,0.3)', border: '#4ADE80' },
+  weight: { bg: 'rgba(199,210,254,0.3)', border: '#A5B4FC' },
+};
 
-// ── INIT ──
-function initApp() {
-  loadGoalsFromStorage();
-  updateClock();
-  setInterval(updateClock, 1000);
-  applyRoleUI();
-  loadNeuter();
-  loadWeight();
-  loadAvatar();
-  refreshPetPage();
-  testConnection();
-  loadToday();
-  setFeedTimeNow();
-  initSegControl();
-  refreshQuickKcal();
-  document.getElementById("feedTime").addEventListener("change", e => { e.target.dataset.um = "1"; });
-  document.getElementById("hiddenFileInput").addEventListener("change", handleAvatarChange);
-}
+let mainChart = null;
+let audioCtx = null;
 
-// ── GOALS ──
-function loadGoalsFromStorage() {
-  const k = parseFloat(localStorage.getItem("goal_kcal"));
-  const w = parseFloat(localStorage.getItem("goal_water"));
-  if (k > 0) KCAL_TARGET = k;
-  if (w > 0) WATER_TARGET = w;
-  const savedCoeff = localStorage.getItem("coeff_mode");
-  if (savedCoeff) currentCoeff = savedCoeff;
-  updateGoalDisplays();
-}
-function updateGoalDisplays() {
-  const ids = ["kcalTargetDisplay","waterTargetDisplay","waterTargetRec"];
-  const vals = [KCAL_TARGET, WATER_TARGET, WATER_TARGET];
-  ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.textContent = vals[i]; });
-}
-function openGoalModal() {
-  document.getElementById("modalKcalTarget").value = KCAL_TARGET;
-  document.getElementById("modalWaterTarget").value = WATER_TARGET;
-  document.getElementById("goalModal").classList.add("show");
-}
-function saveGoals() {
-  const k = parseFloat(document.getElementById("modalKcalTarget").value);
-  const w = parseFloat(document.getElementById("modalWaterTarget").value);
-  if (k > 0) { KCAL_TARGET = k; localStorage.setItem("goal_kcal", k); }
-  if (w > 0) { WATER_TARGET = w; localStorage.setItem("goal_water", w); }
-  updateGoalDisplays();
-  closeModal("goalModal");
-  showToast("目標已更新");
-  loadToday();
+// ==================== INIT ====================
+window.addEventListener('DOMContentLoaded', () => {
+  loadLocalState();
+  initTodayDate();
+  setTimeout(() => {
+    document.getElementById('splash').classList.add('fade-out');
+    setTimeout(() => {
+      document.getElementById('splash').style.display = 'none';
+      checkAuth();
+    }, 700);
+  }, 1500);
+  schedulesMidnightCheck();
+});
+
+function loadLocalState() {
+  try {
+    const saved = localStorage.getItem('catHealthState');
+    if (saved) {
+      const s = JSON.parse(saved);
+      state.goals = s.goals || state.goals;
+      state.activeCat = s.activeCat || '大橘';
+      state.offlineQueue = s.offlineQueue || [];
+      state.logs = s.logs || [];
+      // Check if today's logs are stale
+      const today = new Date().toLocaleDateString('zh-TW');
+      state.logs = state.logs.filter(l => {
+        const d = new Date(l.created_at).toLocaleDateString('zh-TW');
+        return d === today;
+      });
+    }
+  } catch(e) {}
 }
 
-// ── COEFF SWITCH ──
-function switchCoeff(mode) {
-  currentCoeff = mode;
-  localStorage.setItem("coeff_mode", mode);
-  document.getElementById("coeffBC34").className = "coeff-btn" + (mode === "bc34" ? " active" : "");
-  document.getElementById("coeffK36").className = "coeff-btn" + (mode === "k36" ? " active" : "");
-  const lbl = document.getElementById("coeffLabel");
-  if (lbl) lbl.textContent = mode === "bc34" ? "BC34" : "K36";
-  refreshQuickKcal();
-  updateKcalBanner();
+function saveLocalState() {
+  try {
+    localStorage.setItem('catHealthState', JSON.stringify({
+      goals: state.goals,
+      activeCat: state.activeCat,
+      logs: state.logs,
+      offlineQueue: state.offlineQueue,
+    }));
+  } catch(e) {}
 }
-function getCoeffVal() { return COEFFS[currentCoeff]; }
-function refreshQuickKcal() {
-  const c = getCoeffVal();
-  [25,30,35,40,45,50].forEach(g => {
-    const el = document.getElementById("fq-" + g);
-    if (el) el.textContent = "≈ " + Math.round(g * c) + " kcal";
+
+function initTodayDate() {
+  const now = new Date();
+  const opts = { year:'numeric', month:'long', day:'numeric', weekday:'long' };
+  document.getElementById('today-date').textContent = now.toLocaleDateString('zh-TW', opts);
+}
+
+// ==================== AUTH ====================
+async function checkAuth() {
+  if (!supabase) { showLoginScreen(); return; }
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user) {
+    state.user = session.user;
+    await loadUserProfile(session.user.id);
+    showApp();
+  } else {
+    showLoginScreen();
+  }
+}
+
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('header-user-title').textContent = state.userTitle;
+  initApp();
+}
+
+let selectedLoginTitle = '';
+function selectTitle(t) {
+  selectedLoginTitle = t;
+  ['爸爸','媽媽','哥哥','姊姊'].forEach(tt => {
+    document.getElementById('title-' + tt).classList.toggle('selected', tt === t);
   });
 }
 
-// ── AVATAR ──
-function handleAvatarChange(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => { const d = ev.target.result; localStorage.setItem("cat_avatar", d); applyAvatar(d); };
-  reader.readAsDataURL(file);
-  e.target.value = "";
-}
-function loadAvatar() {
-  const stored = localStorage.getItem("cat_avatar");
-  if (stored) applyAvatar(stored);
-}
-function applyAvatar(src) {
-  ["headerAvatarImg","petPageAvatar","splashAvatarImg"].forEach(id => { const el = document.getElementById(id); if (el) el.src = src; });
-  const ni = document.getElementById("navCatImg");
-  if (ni) ni.src = src;
-}
-
-// ── SEGMENTED CONTROL ──
-function initSegControl() {
-  const wrap = document.getElementById("segControlWrap");
-  if (!wrap) return;
-  const slider = document.getElementById("segSlider");
-  const activeBtn = wrap.querySelector(".seg-btn.active");
-  if (activeBtn) moveSlider(slider, activeBtn, wrap);
-}
-function moveSlider(slider, btn, wrap) {
-  const wRect = wrap.getBoundingClientRect();
-  const bRect = btn.getBoundingClientRect();
-  slider.style.left = (bRect.left - wRect.left) + "px";
-  slider.style.width = bRect.width + "px";
-}
-function selectFoodTypeSeg(el) {
-  const wrap = document.getElementById("segControlWrap");
-  const slider = document.getElementById("segSlider");
-  wrap.querySelectorAll(".seg-btn").forEach(b => b.classList.remove("active"));
-  el.classList.add("active");
-  selectedFoodType = el.dataset.val;
-  moveSlider(slider, el, wrap);
-}
-
-// ── ROLE ──
-function applyRoleUI() {
-  if (!currentRole) return;
-  const pill = document.getElementById("modePill");
-  const txt = document.getElementById("modePillText");
-  if (currentRole === "dad") { pill.className = "mode-pill mode-pill-dad"; if (txt) txt.textContent = "爸爸"; }
-  else { pill.className = "mode-pill mode-pill-mom"; if (txt) txt.textContent = "媽媽"; }
-  const sub = document.getElementById("historySub"); if (sub) sub.textContent = (currentRole === "dad" ? "爸爸" : "媽媽") + "的紀錄";
-  const rs = document.getElementById("recSub"); if (rs) rs.textContent = (currentRole === "dad" ? "爸爸" : "媽媽") + "幫棉花糖記錄每一刻";
-}
-function switchRole() {
-  currentRole = currentRole === "dad" ? "mom" : "dad";
-  applyRoleUI();
-  showToast(currentRole === "dad" ? "切換成爸爸" : "切換成媽媽");
-  loadToday();
-}
-
-// ── NEUTER ──
-function loadNeuter() {
-  neuterConfirmed = localStorage.getItem("cat_neutered") === "true";
-  const tog = document.getElementById("neuterToggle");
-  const label = document.getElementById("neuterToggleLabel");
-  tog.checked = neuterConfirmed;
-  if (neuterConfirmed) label.classList.add("locked"); else label.classList.remove("locked");
-  updateNeuterUI(neuterConfirmed);
-}
-function handleNeuterChange() {
-  const tog = document.getElementById("neuterToggle");
-  if (neuterConfirmed) { tog.checked = true; return; }
-  if (tog.checked) { tog.checked = false; document.getElementById("neuterConfirmModal").classList.add("show"); }
-}
-function cancelNeuter() { document.getElementById("neuterConfirmModal").classList.remove("show"); }
-function confirmNeuter() {
-  neuterConfirmed = true;
-  localStorage.setItem("cat_neutered", "true");
-  document.getElementById("neuterToggle").checked = true;
-  document.getElementById("neuterToggleLabel").classList.add("locked");
-  updateNeuterUI(true);
-  document.getElementById("neuterConfirmModal").classList.remove("show");
-  showToast("已完成結紮記錄");
-}
-function updateNeuterUI(on) {
-  const lbl = document.getElementById("neuterLbl"); if (lbl) lbl.textContent = on ? "已結紮" : "未結紮";
-  const sub = document.getElementById("neuterSub"); if (sub) sub.textContent = on ? "棉花糖已完成結紮手術" : "尚未結紮 — 結紮後請開啟";
-}
-
-// ── WEIGHT ──
-function loadWeight() {
-  const w = localStorage.getItem("cat_weight");
-  const el = document.getElementById("weightDisplay"); if (el) el.textContent = w || "—";
-}
-function openWeightModal() {
-  const w = localStorage.getItem("cat_weight");
-  document.getElementById("modalWeightInput").value = w || "";
-  document.getElementById("weightModal").classList.add("show");
-}
-function saveWeight() {
-  const v = parseFloat(document.getElementById("modalWeightInput").value);
-  if (!v || v <= 0) { showToast("請輸入正確體重"); return; }
-  localStorage.setItem("cat_weight", v.toFixed(1));
-  const el = document.getElementById("weightDisplay"); if (el) el.textContent = v.toFixed(1);
-  closeModal("weightModal");
-  showToast("體重已更新為 " + v.toFixed(1) + " kg");
-}
-
-// ── MODALS ──
-function closeModal(id) { document.getElementById(id).classList.remove("show"); }
-function closeModalOnBg(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
-
-// ── CLOCK ──
-function getTWNow() { return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei" })); }
-function pad(n) { return String(n).padStart(2, "0"); }
-function formatDate(d) {
-  const w = ["日","一","二","三","四","五","六"];
-  return d.getFullYear() + "年" + (d.getMonth()+1) + "月" + d.getDate() + "日 (" + w[d.getDay()] + ")";
-}
-function formatTime(d) { return d.toLocaleTimeString("zh-TW", { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:true, timeZone:"Asia/Taipei" }); }
-function getDateOnly(d) { d = d || getTWNow(); return d.toLocaleDateString("sv-SE", { timeZone:"Asia/Taipei" }); }
-function daysSince(from) { return Math.floor((getTWNow() - from) / 86400000); }
-function calcAge(b) {
-  const now = getTWNow();
-  let m = (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
-  if (now.getDate() < b.getDate()) m--;
-  if (m < 12) return m + " 個月大";
-  const y = Math.floor(m / 12), r = m % 12;
-  return r ? y + "歲" + r + "個月" : y + "歲";
-}
-function setFeedTimeNow() {
-  const now = getTWNow(), ft = document.getElementById("feedTime");
-  if (ft && !ft.dataset.um) ft.value = pad(now.getHours()) + ":" + pad(now.getMinutes());
-}
-function updateClock() {
-  const now = getTWNow();
-  const hd = document.getElementById("hDate"); if (hd) hd.textContent = formatDate(now);
-  const ht = document.getElementById("hTime"); if (ht) ht.textContent = formatTime(now);
-  const dp = document.getElementById("daysHomePill"); if (dp) dp.textContent = "來家 " + daysSince(HOME_DATE) + " 天";
-  const at = document.getElementById("ageTagText"); if (at) at.textContent = calcAge(BIRTHDAY);
-  setFeedTimeNow();
-}
-
-// ── CONNECTION ──
-async function testConnection() {
-  try {
-    const { error } = await db.from("cat_records").select("id").limit(1);
-    if (error) throw error;
-    const b = document.getElementById("connBadge");
-    b.className = "conn-badge"; b.innerHTML = '<span class="conn-dot"></span><span>已連線</span>';
-  } catch {
-    const b = document.getElementById("connBadge");
-    b.className = "conn-badge err"; b.innerHTML = '<span class="conn-dot"></span><span>重連中</span>';
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  if (!selectedLoginTitle) { errEl.textContent='請先選擇身份稱謂'; errEl.style.display='block'; return; }
+  if (!email || !pw) { errEl.textContent='請填寫電子郵件和密碼'; errEl.style.display='block'; return; }
+  errEl.style.display='none';
+  if (!supabase) { guestLogin(); return; }
+  // Try login first
+  let { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+  if (error) {
+    // Try register
+    const reg = await supabase.auth.signUp({ email, password: pw });
+    if (reg.error) { errEl.textContent = reg.error.message; errEl.style.display='block'; return; }
+    data = reg.data;
   }
-}
-
-// ── PAGE SWITCH ──
-function switchPage(n) {
-  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-  document.querySelectorAll(".nav-item").forEach(x => x.classList.remove("active"));
-  document.getElementById("page-" + n).classList.add("active");
-  document.getElementById("nav-" + n).classList.add("active");
-  document.getElementById("contentArea").scrollTo({ top:0, behavior:"smooth" });
-  if (n === "today") loadToday();
-  if (n === "history") loadHistory();
-  if (n === "pet") refreshPetPage();
-  if (n === "record") {
-    document.getElementById("feedTime").dataset.um = "";
-    setFeedTimeNow();
-    resetQuickBtns();
-    initSegControl();
-  }
-}
-
-// ── FOOD INPUT ──
-function stepGrams(delta) {
-  const inp = document.getElementById("feedGrams");
-  const cur = parseFloat(inp.value) || 25;
-  inp.value = Math.max(1, cur + delta);
-  updateKcalBanner();
-  document.querySelectorAll("#quickFoodBtns .food-quick-btn").forEach(b => b.classList.remove("selected"));
-}
-function stepWater(delta) {
-  const inp = document.getElementById("waterMl");
-  inp.value = Math.max(0, (parseFloat(inp.value) || 0) + delta);
-}
-function updateKcalBanner() {
-  const g = parseFloat(document.getElementById("feedGrams").value) || null;
-  const bv = document.getElementById("kcalBannerVal");
-  if (g && g > 0) {
-    bv.textContent = (g * getCoeffVal()).toFixed(1);
-    document.querySelectorAll("#quickFoodBtns .food-quick-btn").forEach(b => b.classList.remove("selected"));
-  } else { bv.textContent = "—"; }
-}
-function selectQuickGrams(el, g) {
-  document.querySelectorAll("#quickFoodBtns .food-quick-btn").forEach(b => b.classList.remove("selected"));
-  el.classList.add("selected");
-  document.getElementById("feedGrams").value = g;
-  document.getElementById("kcalBannerVal").textContent = (g * getCoeffVal()).toFixed(1);
-}
-function selectQuickWater(el, ml) {
-  document.querySelectorAll("#quickWaterBtns .water-quick-btn").forEach(b => b.classList.remove("selected"));
-  el.classList.add("selected");
-  document.getElementById("waterMl").value = ml;
-}
-function selectPeeStatus(el) {
-  document.querySelectorAll("#peeGrid .pee-status-btn").forEach(b => b.classList.remove("selected"));
-  selectedPeeVal = el.dataset.val; el.classList.add("selected");
-}
-function selectPoopStatus(el) {
-  document.querySelectorAll("#poopGrid .poop-status-btn").forEach(b => b.classList.remove("selected"));
-  selectedPoopVal = el.dataset.val; el.classList.add("selected");
-}
-function resetQuickBtns() {
-  selectedPeeVal = ""; selectedPoopVal = "";
-  document.querySelectorAll(".food-quick-btn,.water-quick-btn,.pee-status-btn,.poop-status-btn").forEach(b => b.classList.remove("selected"));
-  const bv = document.getElementById("kcalBannerVal"); if (bv) bv.textContent = "—";
-}
-
-// ── QUICK ADD PEE ──
-async function quickAddPee() {
-  if (!selectedPeeVal) { showToast("請先選擇狀況"); return; }
-  const now = getTWNow();
-  const rec = { record_date: getDateOnly(now), record_time: pad(now.getHours())+":"+pad(now.getMinutes()), pee_tags: [selectedPeeVal], food_type: "乾飼料", created_at_tw: now.toISOString() };
-  try {
-    const { error } = await db.from("cat_records").insert([rec]);
-    if (error) throw error;
-    showToast("小便紀錄已儲存");
-    selectedPeeVal = "";
-    document.querySelectorAll("#peeGrid .pee-status-btn").forEach(b => b.classList.remove("selected"));
-    loadToday();
-  } catch(e) { showToast("儲存失敗：" + e.message); }
-}
-
-// ── QUICK ADD POOP ──
-async function quickAddPoop() {
-  if (!selectedPoopVal) { showToast("請先選擇狀況"); return; }
-  const now = getTWNow();
-  const rec = { record_date: getDateOnly(now), record_time: pad(now.getHours())+":"+pad(now.getMinutes()), poop_state: selectedPoopVal, food_type: "乾飼料", created_at_tw: now.toISOString() };
-  try {
-    const { error } = await db.from("cat_records").insert([rec]);
-    if (error) throw error;
-    showToast("大便紀錄已儲存");
-    selectedPoopVal = "";
-    document.querySelectorAll("#poopGrid .poop-status-btn").forEach(b => b.classList.remove("selected"));
-    loadToday();
-  } catch(e) { showToast("儲存失敗：" + e.message); }
-}
-
-// ── SAVE RECORD ──
-async function saveRecord() {
-  const btn = document.getElementById("saveBtn");
-  const svgEl = document.getElementById("saveBtnSvg");
-  const txt = document.getElementById("saveBtnText");
-  const now = getTWNow();
-  const ft = document.getElementById("feedTime");
-  const grams = parseFloat(document.getElementById("feedGrams").value) || null;
-  const water = parseFloat(document.getElementById("waterMl").value) || null;
-  const memo = document.getElementById("memo").value.trim() || null;
-  if (!grams && !water && !selectedPoopVal && !selectedPeeVal && !memo) { showToast("請至少填寫一項資料"); return; }
-  const kcal = grams ? (grams * getCoeffVal()) : null;
-  const rec = {
-    record_date: getDateOnly(now),
-    record_time: ft.value || pad(now.getHours())+":"+pad(now.getMinutes()),
-    food_type: selectedFoodType, feed_grams: grams, calories_kcal: kcal,
-    water_ml: water, pee_tags: selectedPeeVal ? [selectedPeeVal] : null,
-    poop_state: selectedPoopVal || null, memo, created_at_tw: now.toISOString()
-  };
-  btn.classList.add("loading");
-  if (svgEl) svgEl.innerHTML = '<span class="loader"></span>';
-  txt.textContent = "儲存中";
-  try {
-    const { error } = await db.from("cat_records").insert([rec]);
-    if (error) throw error;
-    showToast("棉花糖的紀錄儲存成功囉！");
-    ["feedGrams","waterMl","memo"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
-    const wrap = document.getElementById("segControlWrap");
-    wrap.querySelectorAll(".seg-btn").forEach(b => b.classList.remove("active"));
-    const first = wrap.querySelector(".seg-btn");
-    if (first) { first.classList.add("active"); selectedFoodType = first.dataset.val; initSegControl(); }
-    resetQuickBtns();
-    ft.dataset.um = ""; setFeedTimeNow();
-    setTimeout(() => switchPage("today"), 700);
-  } catch(e) { showToast("儲存失敗：" + e.message); }
-  finally {
-    btn.classList.remove("loading");
-    if (svgEl) svgEl.innerHTML = '<path d="M3 9l5 5 7-9"/>';
-    txt.textContent = "儲存這次紀錄";
-  }
-}
-
-// ── BUILD ALERTS ──
-function buildAlerts(data) {
-  const alerts = [];
-  const now = getTWNow(); const h = now.getHours();
-  const tK = data.reduce((s,r) => s+(r.calories_kcal||0), 0);
-  const tW = data.reduce((s,r) => s+(r.water_ml||0), 0);
-  const hasMeal = data.some(r => r.feed_grams);
-  const hasPoop = data.some(r => r.poop_state);
-  const svgFork = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#b07830" stroke-width="1.5" stroke-linecap="round"><path d="M3 2v7a4 4 0 0 0 8 0V2M7 2v16M14 2c0 0 3 2 3 7s-3 7-3 7"/></svg>';
-  const svgWarn = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#b07830" stroke-width="1.5" stroke-linecap="round"><path d="M10 2l8 16H2L10 2z"/><path d="M10 8v4M10 14v1"/></svg>';
-  const svgDrop = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#4a7ab0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2c0 0-6 6-6 10a6 6 0 0 0 12 0c0-4-6-10-6-10z"/></svg>';
-  const svgPoop = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#8a6040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16h10a2 2 0 0 0 0-4H14a3 3 0 1 0-8 0H5a2 2 0 0 0 0 4z"/></svg>';
-  const svgOk = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#3a7a3a" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M6 10l3 3 5-5"/></svg>';
-  if (!hasMeal && h >= 8) alerts.push({ type:"alert", svg:svgFork, title:"棉花糖還沒吃飯喔", desc:"今天還沒有餵食紀錄，記得準時開飯哦", badge:"需要餵食", bt:"alert" });
-  else if (tK < KCAL_TARGET * 0.5 && h >= 12) alerts.push({ type:"warn", svg:svgWarn, title:"熱量只達標 " + Math.round(tK/KCAL_TARGET*100) + "%", desc:"今天只吃了 " + tK.toFixed(0) + " kcal，目標是 " + KCAL_TARGET + " kcal", badge:"攝取不足", bt:"warn" });
-  if (tW < 50 && h >= 10) alerts.push({ type:"warn", svg:svgDrop, title:"棉花糖有點渴了", desc:"今天飲水不足，腎臟需要多補充水分", badge:"需要補充", bt:"warn" });
-  if (!hasPoop && h >= 18) alerts.push({ type:"alert", svg:svgPoop, title:"棉花糖好像還沒便便耶", desc:"今日尚無大便紀錄，記得多觀察一下", badge:"留意", bt:"alert" });
-  if (tW >= WATER_TARGET && tK >= KCAL_TARGET * 0.8 && hasMeal) alerts.push({ type:"ok", svg:svgOk, title:"今天狀況很棒！", desc:"飲食均衡，棉花糖今天過得很健康", badge:"良好", bt:"ok" });
-  return alerts;
-}
-function renderAlerts(alerts) {
-  const z = document.getElementById("alertsZone"); if (!alerts.length) { z.innerHTML = ""; return; }
-  z.innerHTML = alerts.map(a =>
-    '<div class="alert-card ' + a.type + '">' +
-    '<div class="alert-icon-wrap">' + a.svg + '</div>' +
-    '<div class="alert-body"><div class="alert-title">' + a.title + '</div><div class="alert-desc">' + a.desc + '</div></div>' +
-    '<span class="alert-badge ' + a.bt + '">' + a.badge + '</span></div>'
-  ).join("");
-}
-function updateRing(id, val, target) {
-  const pct = Math.min(1, val / target);
-  const el = document.getElementById("ring-" + id); if (el) el.style.strokeDashoffset = 150.8 - (150.8 * pct);
-  const pEl = document.getElementById("ring-" + id + "-pct"); if (pEl) pEl.textContent = Math.round(pct * 100);
-}
-
-// ── LOAD TODAY ──
-async function loadToday() {
-  const sk = document.getElementById("skeletonLoader");
-  const ct = document.getElementById("todayContent");
-  if (sk) sk.classList.remove("hidden");
-  if (ct) ct.style.display = "none";
-  try {
-    const { data: _r, error } = await db.from("cat_records").select("*").eq("record_date", getDateOnly()).order("record_time", { ascending: true });
-    if (error) throw error;
-    const data = currentRole ? (_r||[]).filter(r => !r.user_mode || r.user_mode === currentRole) : (_r||[]);
-    const tK = data.reduce((s,r) => s+(r.calories_kcal||0), 0);
-    const tW = data.reduce((s,r) => s+(r.water_ml||0), 0);
-    const meals = data.filter(r => r.feed_grams).length;
-    const pees = data.filter(r => r.pee_tags && r.pee_tags.length).length;
-    const poops = data.filter(r => r.poop_state).length;
-
-    const sk2 = document.getElementById("stat-kcal"); if (sk2) sk2.textContent = tK.toFixed(0);
-    const sw = document.getElementById("stat-water"); if (sw) sw.textContent = tW.toFixed(0);
-    updateGoalDisplays();
-    updateRing("kcal", tK, KCAL_TARGET);
-    updateRing("water", tW, WATER_TARGET);
-
-    const ks = document.getElementById("stat-kcal-status");
-    const ksT = document.getElementById("kcalStatusText");
-    if (tK >= KCAL_TARGET) { ks.className = "stat-status ok"; if (ksT) ksT.textContent = "達標"; }
-    else { ks.className = "stat-status low"; if (ksT) ksT.textContent = "還差 " + (KCAL_TARGET - tK).toFixed(0) + " kcal"; }
-
-    const ws = document.getElementById("stat-water-status");
-    if (tW >= WATER_TARGET) { ws.className = "stat-status ok"; ws.innerHTML = '<span class="stat-dot"></span>補水達標'; }
-    else if (tW >= WATER_TARGET * 0.5) { ws.className = "stat-status warn"; ws.innerHTML = '<span class="stat-dot"></span>再多喝一點'; }
-    else { ws.className = "stat-status low"; ws.innerHTML = '<span class="stat-dot"></span>需要補充'; }
-
-    const ac = document.getElementById("activity-count"); if (ac) ac.textContent = data.length + " 筆紀錄";
-    const amv = document.getElementById("act-meal-val"); if (amv) amv.textContent = meals;
-    const apv = document.getElementById("act-pee-val"); if (apv) apv.textContent = pees;
-    const apov = document.getElementById("act-poop-val"); if (apov) apov.textContent = poops;
-    ["act-meal","act-pee","act-poop"].forEach((id,i) => {
-      const el = document.getElementById(id); if (el) el.className = "act-item" + ([meals,pees,poops][i] > 0 ? " has-data" : "");
+  if (data?.user) {
+    state.user = data.user;
+    // Upsert profile with title
+    await supabase.from('profiles').upsert({
+      id: data.user.id, email, title: selectedLoginTitle
     });
-
-    const tmc = document.getElementById("todayMealsCount"); if (tmc) tmc.textContent = "今日 " + meals + " 餐";
-    const twc = document.getElementById("todayWaterCount"); if (twc) twc.textContent = "今日 " + tW + " ml";
-
-    renderAlerts(buildAlerts(data));
-
-    const tl = document.getElementById("timelineCard");
-    const tlB = document.getElementById("timelineBody");
-    if (data.length === 0) { tl.style.display = "none"; }
-    else {
-      tl.style.display = "";
-      const dotColors = ["#e8a855","#7aaed4","#7bc87b","#c97c7c","#b8aad4"];
-      tlB.innerHTML = [...data].reverse().map((r,i) => {
-        const pills = [];
-        if (r.feed_grams) { const k = (r.calories_kcal || r.feed_grams * getCoeffVal()).toFixed(0); pills.push('<span class="tl-pill food">' + (r.food_type||"餵食") + " " + r.feed_grams + "g · " + k + "kcal</span>"); }
-        if (r.water_ml) pills.push('<span class="tl-pill water">飲水 ' + r.water_ml + "ml</span>");
-        if (r.poop_state) pills.push('<span class="tl-pill poop">大便 ' + r.poop_state + "</span>");
-        if (r.pee_tags && r.pee_tags.length) r.pee_tags.forEach(t => pills.push('<span class="tl-pill pee">小便 ' + t + "</span>"));
-        if (r.memo) pills.push('<span class="tl-pill memo">' + r.memo.substring(0,15) + (r.memo.length > 15 ? "…" : "") + "</span>");
-        const ts = (r.record_time||"--").substring(0,5);
-        const ml = r.feed_grams ? "餵食" : r.poop_state ? "如廁" : (r.pee_tags && r.pee_tags.length) ? "如廁" : r.water_ml ? "補水" : "備忘";
-        return '<div class="timeline-item"><span class="tl-time">' + ts + '</span><span class="tl-dot" style="background:' + dotColors[i % dotColors.length] + '"></span><div class="tl-body"><div class="tl-main">' + ml + '</div><div class="tl-pills">' + pills.join("") + '</div></div></div>';
-      }).join("");
-    }
-    if (sk) sk.classList.add("hidden");
-    if (ct) ct.style.display = "block";
-  } catch(e) {
-    if (sk) sk.classList.add("hidden");
-    if (ct) ct.style.display = "block";
-    const az = document.getElementById("alertsZone");
-    if (az) az.innerHTML = '<div class="alert-card warn"><div class="alert-icon-wrap"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#b07830" stroke-width="1.5" stroke-linecap="round"><path d="M10 2l8 16H2L10 2z"/><path d="M10 8v4M10 14v1"/></svg></div><div class="alert-body"><div class="alert-title">無法載入</div><div class="alert-desc">' + e.message + '</div></div></div>';
+    await loadUserProfile(data.user.id);
+    showApp();
   }
 }
 
-// ── LOAD HISTORY ──
-async function loadHistory() {
-  const el = document.getElementById("historyList");
-  el.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--ink4)" stroke-width="1.5" stroke-linecap="round"><circle cx="20" cy="20" r="16"/><path d="M20 12v8l5 3"/></svg></div><p>載入中</p></div>';
+function guestLogin() {
+  state.user = { id: 'guest_' + Date.now(), email: '訪客' };
+  state.userTitle = selectedLoginTitle || '主人';
+  showApp();
+}
+
+async function loadUserProfile(uid) {
+  if (!supabase) return;
+  const { data } = await supabase.from('profiles').select('*').eq('id', uid).single();
+  if (data?.title) state.userTitle = data.title;
+}
+
+async function doLogout() {
+  if (supabase) await supabase.auth.signOut();
+  state.user = null;
+  state.userTitle = '主人';
+  closeModal('settings');
+  showLoginScreen();
+}
+
+// ==================== APP INIT ====================
+function initApp() {
+  updateCatTheme();
+  drawTamagotchi('idle');
+  initChart();
+  loadTodayLogs();
+  setupRealtimeSync();
+  setupOnlineSync();
+  initMidnightCheck();
+}
+
+// ==================== REALTIME SYNC ====================
+function setupRealtimeSync() {
+  if (!supabase) return;
+  supabase.channel('health_logs')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'health_logs' }, (payload) => {
+      if (!state.logs.find(l => l.id === payload.new.id)) {
+        state.logs.push(payload.new);
+        recalcToday();
+        renderRecentLogs();
+        checkAlerts();
+      }
+    })
+    .subscribe();
+}
+
+function setupOnlineSync() {
+  window.addEventListener('online', flushOfflineQueue);
+}
+
+async function flushOfflineQueue() {
+  if (!supabase || state.offlineQueue.length === 0) return;
+  const queue = [...state.offlineQueue];
+  state.offlineQueue = [];
+  for (const item of queue) {
+    await supabase.from('health_logs').insert(item);
+  }
+  saveLocalState();
+}
+
+// ==================== LOAD DATA ====================
+async function loadTodayLogs() {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  if (supabase && state.user?.id && !state.user.id.startsWith('guest_')) {
+    const { data } = await supabase
+      .from('health_logs')
+      .select('*')
+      .eq('cat_name', state.activeCat)
+      .gte('created_at', today.toISOString())
+      .order('created_at', { ascending: false });
+    if (data) { state.logs = data; }
+  }
+  recalcToday();
+  renderRecentLogs();
+  updateChartData();
+  checkAlerts();
+}
+
+function recalcToday() {
+  const today = new Date().toLocaleDateString('zh-TW');
+  const todayLogs = state.logs.filter(l => {
+    return new Date(l.created_at).toLocaleDateString('zh-TW') === today;
+  });
+  state.waterToday = todayLogs.filter(l=>l.log_type==='water').reduce((s,l)=>s+(l.value||0),0);
+  state.foodToday = todayLogs.filter(l=>l.log_type==='food').reduce((s,l)=>s+(l.value||0),0);
+  const wLogs = state.logs.filter(l=>l.log_type==='weight' && l.value);
+  if (wLogs.length) state.weights = wLogs.map(l=>l.value).slice(0,10);
+  updateUI();
+}
+
+function updateUI() {
+  document.getElementById('water-display').textContent = state.waterToday + ' ml';
+  document.getElementById('food-display').textContent = state.foodToday + ' g';
+  document.getElementById('water-goal-txt').textContent = '目標 ' + state.goals.water + 'ml';
+  document.getElementById('food-goal-txt').textContent = '目標 ' + state.goals.food + 'g';
+  const wPct = Math.min(100, (state.waterToday / state.goals.water) * 100);
+  const fPct = Math.min(100, (state.foodToday / state.goals.food) * 100);
+  document.getElementById('water-bar').style.width = wPct + '%';
+  document.getElementById('food-bar').style.width = fPct + '%';
+  if (state.weights.length) {
+    const latest = state.weights[0];
+    document.getElementById('weight-display').textContent = latest.toFixed(1) + ' kg';
+    if (state.weights.length > 1) {
+      const diff = latest - state.weights[1];
+      document.getElementById('weight-trend').textContent = diff >= 0 ? ('▲ +' + diff.toFixed(2) + 'kg') : ('▼ ' + diff.toFixed(2) + 'kg');
+    }
+  }
+  const score = Math.round((wPct + fPct) / 2);
+  document.getElementById('health-score').textContent = score + ' 分';
+  document.getElementById('health-bar').style.width = score + '%';
+  if (score >= 100) triggerConfetti();
+  updateTamaState();
+  if (state.activeCat === '大橘') {
+    document.getElementById('header-cat-name').textContent = '大橘';
+    document.getElementById('header-status').textContent = score >= 80 ? '今天狀態良好 😸' : score >= 50 ? '還需多喝點水哦 🥺' : '主子需要更多照顧 😿';
+  } else {
+    document.getElementById('header-cat-name').textContent = '仙女布偶';
+    document.getElementById('header-status').textContent = score >= 80 ? '仙女很滿足 💜' : '仙女有點渴呢 🥺';
+  }
+}
+
+// ==================== LOGGING ====================
+async function quickLog(type, value) {
+  const log = {
+    cat_name: state.activeCat,
+    log_type: type,
+    value: value,
+    caregiver_title: state.userTitle,
+    created_at: new Date().toISOString(),
+  };
+  state.lastLogTime = Date.now();
+  // Local
+  const localLog = { ...log, id: 'local_' + Date.now() };
+  state.logs.unshift(localLog);
+  recalcToday();
+  renderRecentLogs();
+  saveLocalState();
+  // Animate
+  if (type === 'food') triggerTamaAnim('eat');
+  else if (type === 'water') triggerTamaAnim('drink');
+  playSound(type);
+  // DB
+  if (supabase && !state.user?.id?.startsWith('guest_')) {
+    if (navigator.onLine) {
+      const { data, error } = await supabase.from('health_logs').insert(log).select().single();
+      if (!error && data) {
+        state.logs = state.logs.filter(l => l.id !== localLog.id);
+        state.logs.unshift(data);
+        renderRecentLogs();
+      }
+    } else {
+      state.offlineQueue.push(log);
+      saveLocalState();
+    }
+  }
+  checkAlerts();
+  updateChartData();
+}
+
+async function logStool(stoolState) {
+  const log = {
+    cat_name: state.activeCat,
+    log_type: 'stool',
+    value: 1,
+    stool_state: stoolState,
+    caregiver_title: state.userTitle,
+    created_at: new Date().toISOString(),
+  };
+  state.lastLogTime = Date.now();
+  const localLog = { ...log, id: 'local_' + Date.now() };
+  state.logs.unshift(localLog);
+  recalcToday();
+  renderRecentLogs();
+  saveLocalState();
+  playSound('stool');
+  if (supabase && !state.user?.id?.startsWith('guest_')) {
+    if (navigator.onLine) {
+      const { data } = await supabase.from('health_logs').insert(log).select().single();
+      if (data) { state.logs = state.logs.filter(l=>l.id!==localLog.id); state.logs.unshift(data); renderRecentLogs(); }
+    } else { state.offlineQueue.push(log); saveLocalState(); }
+  }
+  checkAlerts();
+  // Highlight selected card
+  ['stool-normal','stool-soft','stool-alert'].forEach(id => document.getElementById(id).classList.remove('selected'));
+  const map = {'型態正常':'stool-normal','輕微軟便':'stool-soft','狀態異常':'stool-alert'};
+  if (map[stoolState]) document.getElementById(map[stoolState]).classList.add('selected');
+}
+
+async function saveMedical() {
+  const type = document.getElementById('medical-type').value;
+  const note = document.getElementById('medical-note').value;
+  const log = {
+    cat_name: state.activeCat, log_type: 'medical',
+    value: 1, note: type + (note ? '：' + note : ''),
+    caregiver_title: state.userTitle,
+    created_at: new Date().toISOString(),
+  };
+  state.logs.unshift({ ...log, id: 'local_' + Date.now() });
+  recalcToday(); renderRecentLogs(); saveLocalState();
+  if (supabase && !state.user?.id?.startsWith('guest_') && navigator.onLine) {
+    await supabase.from('health_logs').insert(log);
+  } else { state.offlineQueue.push(log); saveLocalState(); }
+  closeModal('medical');
+  playSound('medical');
+}
+
+async function saveWeight() {
+  const val = parseFloat((parseFloat(document.getElementById('weight-slider').value) / 10).toFixed(1));
+  const log = {
+    cat_name: state.activeCat, log_type: 'weight',
+    value: val, caregiver_title: state.userTitle,
+    created_at: new Date().toISOString(),
+  };
+  state.logs.unshift({ ...log, id: 'local_' + Date.now() });
+  recalcToday(); renderRecentLogs(); saveLocalState();
+  if (supabase && !state.user?.id?.startsWith('guest_') && navigator.onLine) {
+    await supabase.from('health_logs').insert(log);
+  } else { state.offlineQueue.push(log); saveLocalState(); }
+  closeModal('weight');
+  checkAlerts();
+}
+
+// ==================== WEIGHT SLIDER ====================
+function updateWeightSlider(v) {
+  const kg = (v / 10).toFixed(1);
+  document.getElementById('weight-slider-display').textContent = kg;
+  const pct = ((v - 20) / (100 - 20)) * 100;
+  document.getElementById('weight-slider').style.setProperty('--pct', pct + '%');
+}
+
+// ==================== ALERTS ====================
+function checkAlerts() {
+  const wLogs = state.logs.filter(l=>l.log_type==='weight' && l.value).slice(0,3);
+  if (wLogs.length >= 3) {
+    const drop = (wLogs[2].value - wLogs[0].value) / wLogs[2].value;
+    if (drop > 0.05) {
+      showAlert('體重警示', `主子體重在近3次記錄中下降超過5%，建議儘快帶去看獸醫！目前體重：${wLogs[0].value}kg`);
+      return;
+    }
+  }
+  const stoolLogs = state.logs.filter(l=>l.log_type==='stool').slice(0,2);
+  if (stoolLogs.length >= 2 && stoolLogs.every(l=>l.stool_state==='狀態異常')) {
+    showAlert('排便警示', '主子連續兩次排便狀態異常，請注意飲食或就醫！');
+    return;
+  }
+  dismissAlert();
+}
+
+function showAlert(title, msg) {
+  document.getElementById('alert-title').textContent = title;
+  document.getElementById('alert-msg').textContent = msg;
+  document.getElementById('alert-banner').classList.add('show');
+}
+
+function dismissAlert() {
+  document.getElementById('alert-banner').classList.remove('show');
+}
+
+// ==================== TAMAGOTCHI ====================
+const TAMA_COLORS = {
+  '大橘': { body: '#FDBA74', stripe: '#F59E0B', eye: '#7c3516', cheek: '#FFB3B3' },
+  '仙女布偶': { body: '#F5F0EA', stripe: '#C4A882', eye: '#93C5FD', cheek: '#E8D5E8' },
+};
+
+function drawTamagotchi(anim) {
+  const canvas = document.getElementById('tama-canvas');
+  const ctx = canvas.getContext('2d');
+  const colors = TAMA_COLORS[state.activeCat] || TAMA_COLORS['大橘'];
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  let offsetY = 0, scaleX = 1, scaleY = 1, eyeOpen = 1;
+  if (anim === 'eat') { scaleX = 1.08; scaleY = 0.94; }
+  else if (anim === 'drink') { offsetY = -6; }
+  else if (anim === 'sad') { offsetY = 8; eyeOpen = 0.4; }
+
+  ctx.save();
+  ctx.translate(W / 2, H / 2 + offsetY);
+  ctx.scale(scaleX, scaleY);
+
+  // Shadow
+  ctx.beginPath();
+  ctx.ellipse(0, 58, 38, 10, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fill();
+
+  // Body
+  ctx.beginPath();
+  ctx.ellipse(0, 30, 36, 42, 0, 0, Math.PI * 2);
+  ctx.fillStyle = colors.body; ctx.fill();
+
+  // Stripes on body
+  ctx.strokeStyle = colors.stripe; ctx.lineWidth = 3; ctx.globalAlpha = 0.4;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath(); ctx.moveTo(i * 14 - 5, 2); ctx.lineTo(i * 14 + 5, 50); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // Head
+  ctx.beginPath();
+  ctx.ellipse(0, -22, 34, 30, 0, 0, Math.PI * 2);
+  ctx.fillStyle = colors.body; ctx.fill();
+
+  // Ears
+  ctx.beginPath(); ctx.moveTo(-22, -42); ctx.lineTo(-32, -58); ctx.lineTo(-10, -46); ctx.closePath();
+  ctx.fillStyle = colors.body; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(22, -42); ctx.lineTo(32, -58); ctx.lineTo(10, -46); ctx.closePath();
+  ctx.fillStyle = colors.body; ctx.fill();
+  // Inner ears
+  ctx.beginPath(); ctx.moveTo(-22, -44); ctx.lineTo(-28, -55); ctx.lineTo(-13, -47); ctx.closePath();
+  ctx.fillStyle = '#FFB3C1'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(22, -44); ctx.lineTo(28, -55); ctx.lineTo(13, -47); ctx.closePath();
+  ctx.fillStyle = '#FFB3C1'; ctx.fill();
+
+  // Forehead stripe
+  ctx.strokeStyle = colors.stripe; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.5;
+  ctx.beginPath(); ctx.moveTo(-6, -46); ctx.quadraticCurveTo(0, -38, 6, -46); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Eyes
+  const eyeH = 8 * eyeOpen;
+  // Left eye
+  ctx.beginPath(); ctx.ellipse(-13, -24, 7, eyeH, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'white'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-13, -24, 5, eyeH * 0.7, 0, 0, Math.PI * 2);
+  ctx.fillStyle = colors.eye; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-11, -26, 2, 2, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'white'; ctx.fill();
+  // Right eye
+  ctx.beginPath(); ctx.ellipse(13, -24, 7, eyeH, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'white'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(13, -24, 5, eyeH * 0.7, 0, 0, Math.PI * 2);
+  ctx.fillStyle = colors.eye; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(15, -26, 2, 2, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'white'; ctx.fill();
+
+  // Nose
+  ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(-4, -10); ctx.lineTo(4, -10); ctx.closePath();
+  ctx.fillStyle = '#FF9EB5'; ctx.fill();
+
+  // Mouth
+  if (anim === 'eat') {
+    ctx.beginPath(); ctx.arc(0, -8, 8, 0, Math.PI); ctx.strokeStyle = '#7c3516'; ctx.lineWidth = 2; ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(-6, -6); ctx.quadraticCurveTo(0, -2, 6, -6);
+    ctx.strokeStyle = '#7c3516'; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  // Whiskers
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1.2;
+  [[-30,-10,-8,-8],[[-30,−6,-8,-4]],[[30,-10,8,-8]],[[30,-6,8,-4]]].forEach(w=>{
+    if(Array.isArray(w[0])) return;
+    ctx.beginPath(); ctx.moveTo(w[0],w[1]); ctx.lineTo(w[2],w[3]); ctx.stroke();
+  });
+  ctx.beginPath(); ctx.moveTo(-28,-10); ctx.lineTo(-8,-10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-28,-5); ctx.lineTo(-8,-6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(28,-10); ctx.lineTo(8,-10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(28,-5); ctx.lineTo(8,-6); ctx.stroke();
+
+  // Cheeks
+  ctx.beginPath(); ctx.ellipse(-22, -16, 7, 5, -0.3, 0, Math.PI * 2);
+  ctx.fillStyle = colors.cheek; ctx.globalAlpha = 0.5; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(22, -16, 7, 5, 0.3, 0, Math.PI * 2);
+  ctx.fill(); ctx.globalAlpha = 1;
+
+  // Paws
+  ctx.beginPath(); ctx.ellipse(-24, 60, 12, 8, -0.2, 0, Math.PI * 2);
+  ctx.fillStyle = colors.body; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(24, 60, 12, 8, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Tail
+  ctx.beginPath(); ctx.moveTo(36, 40); ctx.quadraticCurveTo(58, 20, 44, 62);
+  ctx.strokeStyle = colors.stripe; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(36, 40); ctx.quadraticCurveTo(58, 20, 44, 62);
+  ctx.strokeStyle = colors.body; ctx.lineWidth = 5; ctx.stroke();
+
+  // Eating/drinking particle
+  if (anim === 'eat') {
+    for (let i = 0; i < 4; i++) {
+      const px = (i - 1.5) * 14;
+      ctx.beginPath(); ctx.arc(px, -68 - i * 3, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#F59E0B'; ctx.globalAlpha = 0.7; ctx.fill(); ctx.globalAlpha = 1;
+    }
+  } else if (anim === 'drink') {
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath(); ctx.moveTo(-8 + i * 8, -60); ctx.quadraticCurveTo(-4 + i * 8, -54, -8 + i * 8, -48);
+      ctx.strokeStyle = '#60A5FA'; ctx.lineWidth = 2; ctx.globalAlpha = 0.6; ctx.stroke(); ctx.globalAlpha = 1;
+    }
+  }
+
+  // Sad tear
+  if (anim === 'sad') {
+    ctx.beginPath(); ctx.moveTo(-13, -16); ctx.quadraticCurveTo(-11, -8, -14, -2);
+    ctx.strokeStyle = '#93C5FD'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+let tamaAnimTimer = null;
+function triggerTamaAnim(type) {
+  if (tamaAnimTimer) clearTimeout(tamaAnimTimer);
+  state.tamaAnim = type;
+  drawTamagotchi(type);
+  tamaAnimTimer = setTimeout(() => {
+    state.tamaAnim = 'idle';
+    drawTamagotchi('idle');
+  }, 2000);
+}
+
+function updateTamaState() {
+  if (state.tamaAnim !== 'idle') return;
+  if (!state.lastLogTime) return;
+  const sixHours = 6 * 60 * 60 * 1000;
+  if (Date.now() - state.lastLogTime > sixHours) {
+    drawTamagotchi('sad');
+    document.getElementById('tama-msg').textContent = '「喵…好久沒人理我了，主人在哪裡呢…」';
+  } else {
+    drawTamagotchi('idle');
+  }
+}
+
+// Float animation loop
+let floatAngle = 0;
+function floatLoop() {
+  if (state.tamaAnim !== 'idle') { requestAnimationFrame(floatLoop); return; }
+  const canvas = document.getElementById('tama-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  floatAngle += 0.03;
+  const offsetY = Math.sin(floatAngle) * 4;
+  const colors = TAMA_COLORS[state.activeCat] || TAMA_COLORS['大橘'];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(0, offsetY);
+  ctx.restore();
+  drawTamagotchiAt(ctx, canvas.width / 2, canvas.height / 2 + offsetY, colors);
+  requestAnimationFrame(floatLoop);
+}
+
+// Simplified float version
+function drawTamagotchiAt(ctx, cx, cy, colors) {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.save();
+  ctx.translate(cx, cy);
+  // just call the same logic
+  ctx.restore();
+  drawTamagotchi(state.tamaAnim);
+}
+
+// ==================== CHART ====================
+function initChart() {
+  const canvas = document.getElementById('main-chart');
+  if (!canvas) return;
+  if (mainChart) mainChart.destroy();
+  mainChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: '飲水(ml)',
+        data: [],
+        backgroundColor: CHART_COLORS.water.bg,
+        borderColor: CHART_COLORS.water.border,
+        borderWidth: 2.5,
+        pointRadius: 4,
+        pointBackgroundColor: CHART_COLORS.water.border,
+        tension: 0.4,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: "'Noto Sans TC'", size: 10 }, color: '#8b7355' } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { family: "'Noto Sans TC'", size: 10 }, color: '#8b7355' } }
+      }
+    }
+  });
+  updateChartData();
+}
+
+function switchChart(type) {
+  state.chartType = type;
+  ['water','food','weight'].forEach(t => {
+    const btn = document.getElementById('chart-btn-' + t);
+    if (t === type) {
+      btn.style.background = CHART_COLORS[t].bg.replace('0.3','0.6');
+      btn.style.color = CHART_COLORS[t].border;
+    } else {
+      btn.style.background = 'rgba(255,255,255,0.5)';
+      btn.style.color = '#6b7280';
+    }
+  });
+  updateChartData();
+}
+
+function updateChartData() {
+  if (!mainChart) return;
+  const type = state.chartType;
+  // Group by day
+  const grouped = {};
+  state.logs.filter(l => l.log_type === type).forEach(l => {
+    const d = new Date(l.created_at).toLocaleDateString('zh-TW', { month:'numeric', day:'numeric' });
+    grouped[d] = (grouped[d] || 0) + (l.value || 0);
+  });
+  // Last 7 days
+  const labels = [], values = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toLocaleDateString('zh-TW', { month:'numeric', day:'numeric' });
+    labels.push(key);
+    values.push(grouped[key] || 0);
+  }
+  const c = CHART_COLORS[type];
+  mainChart.data.labels = labels;
+  mainChart.data.datasets[0].data = values;
+  mainChart.data.datasets[0].backgroundColor = c.bg;
+  mainChart.data.datasets[0].borderColor = c.border;
+  mainChart.data.datasets[0].pointBackgroundColor = c.border;
+  mainChart.data.datasets[0].label = type === 'water' ? '飲水(ml)' : type === 'food' ? '飲食(g)' : '體重(kg)';
+  mainChart.update();
+}
+
+// ==================== RECENT LOGS ====================
+function renderRecentLogs() {
+  const container = document.getElementById('recent-logs');
+  const recent = state.logs.slice(0, 8);
+  if (!recent.length) {
+    container.innerHTML = '<p style="font-size:13px;color:#b8a596;text-align:center;padding:16px 0;">尚無記錄</p>';
+    return;
+  }
+  const icons = { water:'💧', food:'🍽️', stool:'💩', medical:'💊', weight:'⚖️' };
+  const labels = { water:'飲水', food:'飲食', stool:'排便', medical:'醫療', weight:'體重' };
+  container.innerHTML = recent.map(l => {
+    const t = new Date(l.created_at).toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit' });
+    const val = l.log_type === 'water' ? l.value + 'ml'
+              : l.log_type === 'food' ? l.value + 'g'
+              : l.log_type === 'weight' ? l.value + 'kg'
+              : l.stool_state || l.note || '已記錄';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.5);">
+      <span style="font-size:18px;">${icons[l.log_type]||'📌'}</span>
+      <div style="flex:1;">
+        <p style="font-size:13px;font-weight:500;color:#4a3728;">${labels[l.log_type]||l.log_type} — ${val}</p>
+        <p style="font-size:11px;color:#8b7355;">${l.caregiver_title || '主人'} · ${t}</p>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ==================== AI DIARY ====================
+async function generateDiary() {
+  const btn = document.querySelector('button[onclick="generateDiary()"]');
+  btn.textContent = '⏳ 生成中…';
+  btn.disabled = true;
+
+  const today = new Date().toLocaleDateString('zh-TW');
+  const todayLogs = state.logs.filter(l => new Date(l.created_at).toLocaleDateString('zh-TW') === today);
+
+  // Build caregiver summary
+  const caregivers = {};
+  todayLogs.forEach(l => {
+    const c = l.caregiver_title || '主人';
+    if (!caregivers[c]) caregivers[c] = { water:0, food:0, stool:[], medical:[] };
+    if (l.log_type === 'water') caregivers[c].water += l.value || 0;
+    if (l.log_type === 'food') caregivers[c].food += l.value || 0;
+    if (l.log_type === 'stool') caregivers[c].stool.push(l.stool_state);
+    if (l.log_type === 'medical') caregivers[c].medical.push(l.note);
+  });
+
+  const caregiverDesc = Object.entries(caregivers).map(([name, data]) => {
+    const parts = [];
+    if (data.water > 0) parts.push(`${name}幫我喝了${data.water}ml的水`);
+    if (data.food > 0) parts.push(`${name}給了我${data.food}g的食物`);
+    if (data.stool.length) parts.push(`排便狀況：${data.stool.join('、')}`);
+    if (data.medical.length) parts.push(`醫療：${data.medical.join('、')}`);
+    return parts.join('，');
+  }).join('；');
+
+  const prompt = `你是一隻叫做「${state.activeCat}」的貓咪，請用第一人稱、繁體中文、貓咪的可愛語氣（偶爾用喵~結尾）寫今天的日記。
+今天的照顧記錄如下：${caregiverDesc || '今天還沒有任何記錄'}。
+總飲水：${state.waterToday}ml，總飲食：${state.foodToday}g。
+請針對每位照顧者（${Object.keys(caregivers).join('、') || '主人'}）個別感謝，用溫暖感性的方式描述。字數約100-150字。`;
+
   try {
-    const { data: _h, error } = await db.from("cat_records").select("*").order("record_date", { ascending:false }).order("record_time", { ascending:false }).limit(200);
-    if (error) throw error;
-    const data = currentRole ? (_h||[]).filter(r => !r.user_mode || r.user_mode === currentRole) : (_h||[]);
-    if (!data.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--ink4)" stroke-width="1.5" stroke-linecap="round"><rect x="8" y="6" width="24" height="28" rx="4"/><path d="M14 16h12M14 22h8"/></svg></div><p>還沒有任何紀錄</p></div>'; return; }
-    const grouped = {};
-    data.forEach(r => { if (!grouped[r.record_date]) grouped[r.record_date] = []; grouped[r.record_date].push(r); });
-    const w = ["日","一","二","三","四","五","六"];
-    el.innerHTML = Object.keys(grouped).map(date => {
-      const recs = grouped[date];
-      const tG = recs.reduce((s,r) => s+(r.feed_grams||0), 0);
-      const tW2 = recs.reduce((s,r) => s+(r.water_ml||0), 0);
-      const tC = recs.reduce((s,r) => s+(r.calories_kcal || (r.feed_grams ? r.feed_grams * getCoeffVal() : 0)), 0);
-      const poops = [...new Set(recs.map(r => r.poop_state).filter(Boolean))];
-      const pees = [...new Set(recs.flatMap(r => r.pee_tags||[]))];
-      const [y,m,d] = date.split("-");
-      return '<div class="history-item"><div class="history-date">' + (+m) + "月" + (+d) + "日 (" + w[new Date(+y,+m-1,+d).getDay()] + ") · " + recs.length + " 筆</div><div class=\"history-pills\">" +
-        (tG ? '<span class="h-pill">食 ' + tG.toFixed(0) + 'g</span>' : "") +
-        (tC ? '<span class="h-pill">熱 ' + tC.toFixed(0) + 'kcal</span>' : "") +
-        (tW2 ? '<span class="h-pill">水 ' + tW2.toFixed(0) + 'ml</span>' : "") +
-        poops.map(p => '<span class="h-pill">大便 ' + p + "</span>").join("") +
-        pees.slice(0,2).map(p => '<span class="h-pill">小便 ' + p + "</span>").join("") +
-        "</div></div>";
-    }).join("");
-  } catch(e) { el.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--ink4)" stroke-width="1.5" stroke-linecap="round"><circle cx="20" cy="20" r="16"/><path d="M14 14l12 12M26 14L14 26"/></svg></div><p>' + e.message + '</p></div>'; }
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.[0]?.text || '今天主子有點害羞，不想說話喵~';
+    document.getElementById('diary-content').innerHTML = `<span style="line-height:2;color:#4a3728;">${text.replace(/\n/g,'<br>')}</span>`;
+  } catch (e) {
+    document.getElementById('diary-content').innerHTML = `<span style="color:#4a3728;">今天${state.activeCat}很開心，有${state.userTitle}的陪伴！喝了${state.waterToday}ml的水，吃了${state.foodToday}g的食物。希望每天都這麼幸福呢 喵~</span>`;
+  }
+  btn.textContent = '✨ 生成';
+  btn.disabled = false;
 }
 
-// ── PET PAGE ──
-function refreshPetPage() {
-  const pa = document.getElementById("petAgeStr"); if (pa) pa.textContent = "布偶貓 · " + calcAge(BIRTHDAY);
-  const pd = document.getElementById("petDaysHome"); if (pd) pd.textContent = daysSince(HOME_DATE) + " 天";
-  loadNeuter(); loadWeight();
+// ==================== CAT THEME ====================
+function switchCat(name) {
+  state.activeCat = name;
+  saveLocalState();
+  updateCatTheme();
+  loadTodayLogs();
 }
 
-// ── TOAST ──
-function showToast(msg) {
-  const el = document.getElementById("toast");
-  el.textContent = msg; el.classList.add("show");
-  setTimeout(() => el.classList.remove("show"), 2800);
+function updateCatTheme() {
+  const isOrange = state.activeCat === '大橘';
+  document.body.className = isOrange ? 'theme-orange' : 'theme-lavender';
+  document.documentElement.style.setProperty('--accent', isOrange ? '#FDBA74' : '#C7D2FE');
+  document.documentElement.style.setProperty('--accent-soft', isOrange ? '#FEF3C7' : '#EEF2FF');
+  document.getElementById('avatar-daju').style.opacity = isOrange ? '1' : '0.5';
+  document.getElementById('avatar-ragdoll').style.opacity = isOrange ? '0.5' : '1';
+  drawTamagotchi('idle');
+  const msg = isOrange
+    ? ['「喵～今天也要好好記錄喔！」', '「主人，我肚子有點餓了喵~」', '「水水喝了嗎？」'][Math.floor(Math.random()*3)]
+    : ['「今天也是優雅的一天呢 💜」', '「布偶仙女在此～喵」', '「主人，陪我玩玩嗎？」'][Math.floor(Math.random()*3)];
+  document.getElementById('tama-msg').textContent = msg;
 }
+
+// ==================== SETTINGS ====================
+function openSettings() {
+  document.getElementById('settings-lock-screen').style.display = 'block';
+  document.getElementById('settings-content').style.display = 'none';
+  document.getElementById('settings-pw').value = '';
+  document.getElementById('settings-pw-error').style.display = 'none';
+  document.getElementById('goal-water').value = state.goals.water;
+  document.getElementById('goal-food').value = state.goals.food;
+  openModal('settings');
+}
+
+function unlockSettings() {
+  const pw = document.getElementById('settings-pw').value;
+  if (pw === '8888') {
+    document.getElementById('settings-lock-screen').style.display = 'none';
+    document.getElementById('settings-content').style.display = 'block';
+  } else {
+    document.getElementById('settings-pw-error').style.display = 'block';
+  }
+}
+
+function saveSettings() {
+  state.goals.water = parseInt(document.getElementById('goal-water').value) || 200;
+  state.goals.food = parseInt(document.getElementById('goal-food').value) || 80;
+  saveLocalState();
+  updateUI();
+  closeModal('settings');
+  playSound('success');
+}
+
+// ==================== MODALS ====================
+function openModal(name) {
+  document.getElementById('modal-' + name).style.display = 'flex';
+}
+
+function closeModal(name) {
+  document.getElementById('modal-' + name).style.display = 'none';
+}
+
+// ==================== TABS ====================
+function switchTab(tab) {
+  ['home','log','chart','diary'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  });
+  // Could show/hide sections; for now scroll to top
+  document.querySelector('.scrollable-center').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ==================== CONFETTI ====================
+function triggerConfetti() {
+  const colors = ['#FDBA74','#C7D2FE','#86EFAC','#FCA5A5','#FDE68A'];
+  for (let i = 0; i < 30; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.top = '-20px';
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.width = (Math.random() * 8 + 6) + 'px';
+    el.style.height = (Math.random() * 8 + 6) + 'px';
+    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    const dur = (Math.random() * 2 + 2).toFixed(2);
+    el.style.animationDuration = dur + 's';
+    el.style.animationDelay = (Math.random() * 0.5).toFixed(2) + 's';
+    document.body.appendChild(el);
+    // Auto-remove after animation
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, parseFloat(dur) * 1000 + 600);
+  }
+}
+
+// ==================== SOUND ====================
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playSound(type) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    if (type === 'water') {
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.15);
+    } else if (type === 'food') {
+      osc.frequency.setValueAtTime(660, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.2);
+    } else if (type === 'stool') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+    } else if (type === 'medical') {
+      osc.frequency.setValueAtTime(523, ctx.currentTime);
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+    } else {
+      osc.frequency.setValueAtTime(1046, ctx.currentTime);
+    }
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+  } catch(e) {}
+}
+
+// ==================== MIDNIGHT RESET ====================
+function schedulesMidnightCheck() {
+  checkMidnightReset();
+  setInterval(checkMidnightReset, 60 * 1000);
+}
+
+let lastResetDate = new Date().toLocaleDateString('zh-TW');
+function checkMidnightReset() {
+  const today = new Date().toLocaleDateString('zh-TW');
+  if (today !== lastResetDate) {
+    lastResetDate = today;
+    doMidnightReset();
+  }
+}
+
+function doMidnightReset() {
+  state.waterToday = 0;
+  state.foodToday = 0;
+  // Archive logs locally
+  saveLocalState();
+  initTodayDate();
+  updateUI();
+  renderRecentLogs();
+  updateChartData();
+}
+
+function initMidnightCheck() {
+  lastResetDate = new Date().toLocaleDateString('zh-TW');
+}
+
+// ==================== START ====================
+// Start float animation after a small delay
+setTimeout(() => { floatLoop(); }, 2000);
 </script>
-
 </body>
 </html>
